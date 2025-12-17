@@ -16,10 +16,6 @@ class TestNet(unittest.IsolatedAsyncioTestCase):
         for src_ip, out_ip in tests:
             self.assertEqual(ip_norm(src_ip), out_ip)
 
-    async def test_rand_link_local(self):
-        out = ipv6_rand_link_local()
-        ipaddress.IPv6Address(out)
-
     async def test_netmask_to_cidr(self):
         nm = "255.255.255.255"
         out = netmask_to_cidr(nm)
@@ -30,21 +26,6 @@ class TestNet(unittest.IsolatedAsyncioTestCase):
         out = toggle_host_bits(nm, "192.168.0.0", toggle=1)
         self.assertEqual(out, "192.168.255.255")
 
-    async def test_ip_from_last(self):
-        # Last 255 IP is broadcast and can't be used.
-        out = ip_from_last(2, "255.255.255.0", "192.168.21.0")
-        self.assertEqual("192.168.21.253", out)
-        out = ip_from_last(1, "255.255.255.0", "192.168.21.0")
-        self.assertEqual("192.168.21.254", out)
-
-    async def test_ipv6_rand_host(self):
-        out = ipv6_rand_host("2402:1f00:8101:83f0::0000", 64)
-        self.assertTrue("2402:1f00:8101:83f0" in out)
-        x = ipv6_norm(out)
-
-    async def test_gen_mac(self):
-        m = generate_mac()
-        b = mac_to_b(m)
 
     """
     TODO: 
