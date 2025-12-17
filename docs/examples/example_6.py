@@ -3,7 +3,7 @@ from aionetiface import *
 
 async def example():
     # Open a UDP pipe to google's STUN server.
-    pipe = await pipe_open(UDP, ("stun.l.google.com", 19302))
+    pipe = await Pipe(UDP, ("stun.l.google.com", 19302)).connect()
     
     # Random STUN message ID.
     msg_id = binascii.hexlify(rand_b(12))
