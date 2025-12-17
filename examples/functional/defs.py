@@ -1,1 +1,0 @@
-ID_RSA_PATH = '~/.ssh/id_rsa'

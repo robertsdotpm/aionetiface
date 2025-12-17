@@ -42,7 +42,7 @@ class NetDebugServer(Daemon):
                 # Make pipe used to send hello message.
                 proto = PROTO_LOOKUP[p["proto"].upper()]
                 dest_addr = (p["dest_addr"], dest_port)
-                hello_pipe = await pipe_open(proto, dest_addr, route)
+                hello_pipe = await Pipe(proto, dest_addr, route).connect()
                 hello_from = hello_pipe.sock.getsockname()
 
                 # Send hello and close the pipe.
@@ -74,14 +74,14 @@ class NetDebugServer(Daemon):
 
                     # Attempt to make TCP con to dest_port.
                     route = copy.deepcopy(pipe.route)
-                    tcp_pipe = await pipe_open(
+                    tcp_pipe = await Pipe(
                         route=await route.bind(),
                         proto=TCP,
                         dest=dest_addr,
                         conf=dict_child({
                             "con_timeout": 1
                         }, NET_CONF) 
-                    )
+                    ).connect()
 
                     # Failure.
                     if tcp_pipe is None:
