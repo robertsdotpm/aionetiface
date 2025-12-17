@@ -290,8 +290,7 @@ class WebCurl():
 
 
         # Save request for debugging.
-        if IS_DEBUG:
-            client.req_buf = req_buf
+        client.req_buf = req_buf
 
         # Throttle request.
         if self.throttle:
