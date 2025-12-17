@@ -61,7 +61,7 @@ class TestInterface(unittest.IsolatedAsyncioTestCase):
 
         i = await Interface()
         d_list = if_list_to_dict([i])
-        if_list = dict_to_if_list(d_list)
+        if_list = dict_to_if_list(d_list, Interface)
 
     async def test_invalid_interface_name(self):
         test_passes = False
@@ -104,7 +104,7 @@ class TestInterface(unittest.IsolatedAsyncioTestCase):
 
     async def test_load_interfaces(self):
         if_names = await list_interfaces()
-        ifs = await load_interfaces(if_names)
+        ifs = await load_interfaces(if_names, Interface)
         self.assertTrue(len(ifs))
 
         # Check nic IP fetch. 
