@@ -10,7 +10,7 @@ async def example():
     echo_dest = ("45.79.112.203", 4242)
     
     # Open a connection to the echo server.
-    pipe = await pipe_open(TCP, echo_dest, route)
+    pipe = await Pipe(TCP, echo_dest, route).connect()
     
     # Send data down the pipe.
     msg = b"do echo test"
