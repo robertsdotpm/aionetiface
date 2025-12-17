@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aionetifaces"
+version = "0.0.2"
+description = "Placeholder, dont import"
+readme = "README.md"
+requires-python = ">=3.5"
+license = {text = "MIT"}
+authors = [
+  {name = "Matthew Roberts"}
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
