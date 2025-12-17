@@ -4,10 +4,7 @@ nc -4 -u p2pd.net 7
 """
 
 
-try:
-    from .static_route import *
-except:
-    from static_route import *
+
 import os
 from aionetiface import *
 
