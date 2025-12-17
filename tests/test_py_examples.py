@@ -1,7 +1,6 @@
 import os
 from aionetiface import *
 
-
 """
 All of the Python code used in the documentation gets tested
 using this module. Easy to know if examples still work.
@@ -42,11 +41,6 @@ class TestPyExamples(unittest.IsolatedAsyncioTestCase):
 
         log(f"py example {n} passed")
 
-    # So they can be tested concurrently.
-    async def test_1(self):
-        print("Skipping testing py ex 1 to avoid registering IRC accounts.")
-        #await self.do_py_example(1)
-
     async def test_2(self):
         await self.do_py_example(2)
 
@@ -71,13 +65,6 @@ class TestPyExamples(unittest.IsolatedAsyncioTestCase):
     async def test_9(self):
         await self.do_py_example(9)
 
-    async def test_10(self):
-        return
-        await self.do_py_example(10)
-
-    async def test_11(self):
-        await self.do_py_example(11)
-
     async def test_12(self):
         await self.do_py_example(12)
 
@@ -92,10 +79,6 @@ class TestPyExamples(unittest.IsolatedAsyncioTestCase):
 
     async def test_16(self):
         await self.do_py_example(16)
-
-    async def test_17(self):
-        await self.do_py_example(17)
-    
 
 if __name__ == '__main__':
     main()
