@@ -135,7 +135,7 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
                 continue
 
             try:
-                out = await binder(*params, plat=plat)
+                out = await binder_async(*params, plat=plat)
             except:
                 what_exception()
                 print(f"skipping {vector}")
@@ -153,19 +153,19 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
         b = Bind(i, None, leave_none=1)
 
         b.af = IP4
-        out = (await bind_closure(b)(80, "127.0.0.1"))._bind_tups
+        out = (await bind_closure(b, binder_async)(80, "127.0.0.1"))._bind_tups
         assert(out == ('127.0.0.1', 80))
 
         b = Bind(i, IP4, leave_none=1)
-        out = (await bind_closure(b)(80, "192.168.0.1"))._bind_tups
+        out = (await bind_closure(b, binder_async)(80, "192.168.0.1"))._bind_tups
         assert(out == ('192.168.0.1', 80))
 
         b = Bind(i, IP4, leave_none=1)
-        out = (await bind_closure(b)(80, "8.8.8.8"))._bind_tups
+        out = (await bind_closure(b, binder_async)(80, "8.8.8.8"))._bind_tups
         assert(out == ('8.8.8.8', 80))
 
         b = Bind(i, IP4, leave_none=1)
-        out = (await bind_closure(b)(80, "0.0.0.0"))._bind_tups
+        out = (await bind_closure(b, binder_async)(80, "0.0.0.0"))._bind_tups
         assert(out == ('0.0.0.0', 80))
 
         # This is where things tend to go badly.
@@ -174,11 +174,11 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
         b = Bind(i, IP6, leave_none=1)
         try:
 
-            out = (await bind_closure(b)(80, "::1"))._bind_tups
+            out = (await bind_closure(b, binder_async)(80, "::1"))._bind_tups
 
             b = Bind(i, IP6, leave_none=1)
 
-            out = (await bind_closure(b)(80, "fe80::6c00:b217:18ca:e365"))._bind_tups
+            out = (await bind_closure(b, binder_async)(80, "fe80::6c00:b217:18ca:e365"))._bind_tups
         except:
             log_exception()
 
