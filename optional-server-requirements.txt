@@ -1,0 +1,2 @@
+aiomysql # Used for PNP.
+aioconsole
