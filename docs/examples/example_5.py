@@ -5,12 +5,12 @@ async def msg_cb(msg, client_tup, pipe):
 
 async def example():
     # Start the server and use msg_cb to process messages.
-    server = await pipe_open(TCP, msg_cb=msg_cb)
+    server = await Pipe(TCP).connect(msg_cb=msg_cb)
 
     # Connect to the server.
     # Use the IP of the route and unused port for the destination.
     dest = server.sock.getsockname()[0:2]
-    client = await pipe_open(TCP, dest)
+    client = await Pipe(TCP, dest).connect()
     
     # Send data to the server and check receipt.
     msg = b"test msg."
