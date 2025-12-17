@@ -1,7 +1,7 @@
 Feature showcase
 ==================
 
-In the time since I've been working on P2PD many different components have
+In the time since I've been working on aionetiface many different components have
 been implemented. Here is a brief show-case of the more interesting ones.
 
 .. toctree::

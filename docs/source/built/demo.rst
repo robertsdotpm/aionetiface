@@ -1,9 +1,9 @@
 Peer-to-peer demo
 ===================
 
-P2PD includes a simple text-based program to try out it's p2p networking
+aionetiface includes a simple text-based program to try out it's p2p networking
 features without fooling around with code. After installing the
-software try the command **python3 -m p2pd.demo**
+software try the command **python3 -m aionetiface.demo**
 
 The software will then load your network interfaces and
 start a peer-to-peer node. You can select some basic options for the
@@ -16,6 +16,6 @@ to the capture listed bellow.
 
 .. image:: ../../../demo_small.gif
     :target: ../../../demo_large.gif
-    :alt: P2PD demo gif
+    :alt: aionetiface demo gif
 
 .. literalinclude:: demo.out

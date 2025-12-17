@@ -210,7 +210,7 @@ class Pipe:
     async def create_or_use_socket(self):
         """
         Creates a socket if none was passed in, bound to route.
-        Adds socket to global p2pd_fds set.
+        Adds socket to global aionetiface_fds set.
         Sets route.bind_port to the bound local port.
         """
         if self.sock is None:
@@ -226,7 +226,7 @@ class Pipe:
                 raise PipeError("Socket allocation failed")
             
             # Record socket ownership state.
-            p2pd_fds.add(self.sock)
+            aionetiface_fds.add(self.sock)
             self.owns_socket = True
 
         # Routes can specify binding on port 0.
@@ -422,8 +422,8 @@ class Pipe:
                 self.sock.close()
             except Exception:
                 log_exception()
-            if self.sock in p2pd_fds:
-                p2pd_fds.discard(self.sock)
+            if self.sock in aionetiface_fds:
+                aionetiface_fds.discard(self.sock)
 
         # Clear state
         self.sock = None

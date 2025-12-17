@@ -13,12 +13,12 @@ if __name__ != '__main__':
     from .net.address import Address
     from .net.ip_range import IPRange, IPR
     from .net.asyncio.async_run import *
-    from .entrypoint import p2pd_setup_netifaces
+    from .entrypoint import aionetiface_setup_netifaces
     from .nic.route.route import Route
     from .nic.route.route_pool import RoutePool
     from .nic.route.route_load import discover_nic_wan_ips
     from .net.pipe.pipe import *
-    from .nic.interface import Interface, p2pd_setup_event_loop
+    from .nic.interface import Interface, aionetiface_setup_event_loop
     from .nic.select_interface import *
     from .protocol.stun.stun_client import STUNClient, get_stun_clients
     #from .traversal.plugins.punch.punch_client import TCPPuncher

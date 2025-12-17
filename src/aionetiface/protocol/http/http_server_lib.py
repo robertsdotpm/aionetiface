@@ -7,9 +7,9 @@ from ...utility.utils import *
 from .http_client_lib import *
 from ...net.daemon import Daemon
 
-P2PD_PORT = 12333
-P2PD_CORS = ['null', 'http://127.0.0.1']
-P2PD_MIME = [
+aionetiface_PORT = 12333
+aionetiface_CORS = ['null', 'http://127.0.0.1']
+aionetiface_MIME = [
     [dict, "json"],
     [bytes, "binary"],
     [str, "text"]
@@ -178,7 +178,7 @@ async def rest_service(msg, client_tup, pipe, api_closure=api_closure):
         return None
 
     # Deny restricted origins.
-    if req.hdrs["Origin"] not in P2PD_CORS:
+    if req.hdrs["Origin"] not in aionetiface_CORS:
         resp = {
             "msg": "Invalid origin.",
             "error": 5
@@ -419,7 +419,7 @@ class RESTD(Daemon):
                 }
 
             # Match output types to the write mime headers.
-            for out_info in P2PD_MIME:
+            for out_info in aionetiface_MIME:
                 if isinstance(resp, out_info[0]):
                     # Full HTTP reply to client.
                     buf = http_res(

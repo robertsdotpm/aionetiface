@@ -2,22 +2,22 @@ Documentation
 ====================
 
 Have you ever tried to connect to a computer and it didn't work? Look no further.
-P2PD is a library designed to make it easier for developers to establish
+aionetiface is a library designed to make it easier for developers to establish
 peer-to-peer TCP connections. It handles all of the complexity of modern
 networks such as NAT traversal and firewalls. So you can
 focus on building your software instead of traversing NATs (fun times.)
 
-.. literalinclude:: ../examples/p2pd_in_a_nutshell.py
+.. literalinclude:: ../examples/aionetiface_in_a_nutshell.py
    :language: python3
 
-In P2PD nodes have long addresses to describe their network details. The
+In aionetiface nodes have long addresses to describe their network details. The
 address includes information like external IPs and NAT types. But
 just as its inconvenient to use IPs directly its inconvenient
 to use addresses directly. So instead a nickname can be registered for the
 address. When you give your node a nickname you can give it out to other
 peers to connect to.
 
-**This service is free and requires no registration in P2PD.**
+**This service is free and requires no registration in aionetiface.**
 
 .. literalinclude:: ../examples/p2p_connect_with_nickname.py
    :language: python3

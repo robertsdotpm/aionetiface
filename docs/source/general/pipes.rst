@@ -1,7 +1,7 @@
 Pipes
 ======
 
-In P2PD all messages are sent and received via pipes. Pipes are simply the
+In aionetiface all messages are sent and received via pipes. Pipes are simply the
 name given to the object providing a common list of functions for transmission
 and message processing. A pipe supports UDP or TCP; IPv4 or IPv6; and can
 be used for clients or servers.
@@ -47,7 +47,7 @@ to listen on. Or perhaps a torrent client that wants to work across interfaces
 (and Internet connections) to increase download speed.
 
 .. IMPORTANT::
-    Normally in P2PD you would choose an interface and a route to use for a pipe.
+    Normally in aionetiface you would choose an interface and a route to use for a pipe.
     But to simplify these examples no route is given. In which case -- the
     default interface is loaded for each pipe. This is very inefficient as
     STUN will lookup external addressing each time! 
@@ -72,7 +72,7 @@ classes for TCP clients (stream readers) -- though UDP has no such equivalent.
 As for servers Python offers protocol classes. Wouldn't it be great if you
 could use either style on either protocol?
 
-Here's an example of how simple P2PD makes this. Here I'm using await for UDP
+Here's an example of how simple aionetiface makes this. Here I'm using await for UDP
 which is based on message queues. Since there is no delivery guarantees for UDP it's
 possible this example throws a timeout error for you. Note that the await for
 the recv is fully asynchronous. The event loop is free to run other tasks
@@ -153,7 +153,7 @@ Pipes can be made to route messages to other pipes.
 2.  Messages received at pipe_b will be sent down pipe_a.
 
 This doesn't cause looping as the messages get sent to the destination rather than the pipe itself.
-Linking pipes together is the trick used in the P2PD REST API for 'converting' an
+Linking pipes together is the trick used in the aionetiface REST API for 'converting' an
 active HTTP connection into a two-way relay to an active P2P connection in
 only two lines of code.
 

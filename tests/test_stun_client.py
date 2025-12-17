@@ -1,5 +1,5 @@
 """
-nc -4 -u p2pd.net 7
+nc -4 -u aionetiface.net 7
 
 """
 

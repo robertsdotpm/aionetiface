@@ -33,7 +33,7 @@ is written in Go but many clients are available for different programming langua
 Though: what I've found is their client for Python is incomplete;
 isn't async; and has no server implementation.
 
-P2PD now includes an implementation of Toxiproxy server with a client to use it.
+aionetiface now includes an implementation of Toxiproxy server with a client to use it.
 
 Adding a toxic
 ^^^^^^^^^^^^^^^^^

@@ -1,7 +1,7 @@
 Connection methods
 ======================
 
-This section covers how P2PD achieves a TCP connection with another machine.
+This section covers how aionetiface achieves a TCP connection with another machine.
 The techniques used are tried for different network interface(s)
 which are then paired with a destination's interface(s). Each strategy has
 two paths it can take -- a **local path** and an **external path**. Local paths
@@ -11,7 +11,7 @@ same LAN; External paths are routed over the Internet.
 .. image:: ../../diagrams/connectivity.png
     :alt: Diagram of P2P connectivity methods
 
-P2PD is designed to work with any number of interfaces,
+aionetiface is designed to work with any number of interfaces,
 address families, or network configurations. Making it very flexible for achieving connectivity. The downside is it can take a while to setup
 a connection depending on the reachability characteristics between the two nodes.
 This is because many interfaces, methods, and paths may have to be tried
@@ -70,7 +70,7 @@ other at the same time. If the timing for this is synchronized -- and I do mean
 with millisecond accuracy -- then both SYN packets will cross their respective
 routers before the other arrives -- spawning a new TCP connection.
 
-P2PD's hole punching features are advanced. They support punching
+aionetiface's hole punching features are advanced. They support punching
 over the Internet; over the LAN; to different interfaces on the same machine;
 on the same interface; with either single initial mappings or updated mapping
 messages. And it works hand-in-hand with detailed NAT enumeration and port prediction methods.
@@ -94,8 +94,8 @@ for connecting peers when other options have failed. Since TURN servers
 must relay all traffic between peers it is more centralized than
 other options. Hence why TURN is only used as a last resort.
 
-In P2PD TURN support is not part of the default connectivity methods
-as it utilizes UDP. For TURN: P2PD implements acknowledgements but data 
+In aionetiface TURN support is not part of the default connectivity methods
+as it utilizes UDP. For TURN: aionetiface implements acknowledgements but data 
 arrives unordered for TURN / UDP.
 
 .. literalinclude:: ../../examples/udp_turn_relay.py

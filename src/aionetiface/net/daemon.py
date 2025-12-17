@@ -119,7 +119,7 @@ class Daemon():
         self.conf = conf
 
         # Used for storing PID lock files.
-        self.install_path = get_p2pd_install_root()
+        self.install_path = get_aionetiface_install_root()
 
         # AF: proto: port: ip: pipe_events.
         self.servers = {

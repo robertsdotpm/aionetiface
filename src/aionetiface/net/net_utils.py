@@ -157,7 +157,7 @@ and its a machine in the LA, then binding() a local socket
 to the wrong interface address means being unable to reach
 that destination host. The machines routing table knows
 what interface to use to reach such an address and most
-of the addressing info is supported in P2PD (subnet info
+of the addressing info is supported in aionetiface (subnet info
 currently hasn't been added.) So for now -- this is a hack.
 
 It means try to connect to that address and let the machine

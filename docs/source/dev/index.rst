@@ -4,13 +4,13 @@ Development
 Debugging mode
 ----------------
 
-P2PD has a simple log file that is written to when debug mode is enabled. The
+aionetiface has a simple log file that is written to when debug mode is enabled. The
 path to this log file is in the same directory that code gets executed from. To
 enable debug mode use either:
 
 .. parsed-literal:: 
-    export P2PD_DEBUG=1
-    set P2PD_DEBUG=1
+    export aionetiface_DEBUG=1
+    set aionetiface_DEBUG=1
 
 In the terminal. The logs can then be viewed by either:
 
@@ -26,7 +26,7 @@ You can filter for just the P2P messages with grep:
 Running tests
 ----------------
 
-P2PD has unit tests to check basic functionality works. These tests offer helpful
+aionetiface has unit tests to check basic functionality works. These tests offer helpful
 hints if individual components are working on different platforms. Though
 the tests tend not to be as well maintained as the main project; Located in the
 tests folder. The normal way to run them is to change to the tests directory

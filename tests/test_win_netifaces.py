@@ -37,7 +37,7 @@
             "
 
             #out = subprocess.run(["powershell.exe", "-encodedCommand", powershell_encoded_cmd(IFS_PS1)], stdout=asyncio.subprocess.PIPE)
-            #i = await p2pd_setup_netifaces()
+            #i = await aionetiface_setup_netifaces()
 
             "
             out = await (
@@ -53,7 +53,7 @@
             #print(errs)
             return
 
-            i = await p2pd_setup_netifaces()
+            i = await aionetiface_setup_netifaces()
             print(i)
             
             return

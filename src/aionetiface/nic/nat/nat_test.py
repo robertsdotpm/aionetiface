@@ -296,7 +296,7 @@ async def nic_load_nat(nic, nat_tests=5, delta_tests=12, servs=None, timeout=4):
     return nat_type, delta
 
 async def nat_test_main():
-    from .interface import Interface, p2pd_setup_netifaces
+    from .interface import Interface, aionetiface_setup_netifaces
 
     loop = asyncio.get_event_loop()
 
@@ -313,7 +313,7 @@ async def nat_test_main():
     pipe = await pipe_open(UDP, route=route)
     assert(pipe is not None)
     s = STUNClient(
-        ("stun1.p2pd.net", 3478)
+        ("stun1.aionetiface.net", 3478)
     )
 
 
@@ -336,10 +336,10 @@ async def nat_test_main():
     return
     # Load internal interface details.
     t1 = timestamp(1)
-    netifaces = await p2pd_setup_netifaces()
+    netifaces = await aionetiface_setup_netifaces()
     t2 = timestamp(1)
     duration = t2 - t1
-    print(fstr("init_p2pd() = {0}", (duration,)))
+    print(fstr("init_aionetiface() = {0}", (duration,)))
 
     # Start interface time.
     i = await Interface("ens33", netifaces=netifaces) # ens37

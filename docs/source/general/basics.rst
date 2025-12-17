@@ -41,7 +41,7 @@ may contain attributes. For example: a STUN message may contain attributes like 
 version and relay address.
 
 .. WARNING::
-    TCP callbacks in P2PD may contain partial or buffered data!
+    TCP callbacks in aionetiface may contain partial or buffered data!
 
 What about UDP?
 -----------------

@@ -8,7 +8,7 @@ RELATED_PLATFORMS = ["Linux", "Darwin", "FreeBSD"]
 class TestRouteTable(unittest.IsolatedAsyncioTestCase):
     async def test_route_table(self):
         if platform.system() in RELATED_PLATFORMS:
-            netifaces = await p2pd_setup_netifaces()
+            netifaces = await aionetiface_setup_netifaces()
         
         applies = False
         one_worked = False

@@ -2,7 +2,7 @@ from aionetiface import *
 
 class TestInterface(unittest.IsolatedAsyncioTestCase):
     async def test_regular(self):
-        global p2pd_fds
+        global aionetiface_fds
         i = await Interface()
         print(i)
         """
@@ -13,7 +13,7 @@ class TestInterface(unittest.IsolatedAsyncioTestCase):
 
 
         await asyncio.sleep(4)
-        print(p2pd_fds)
+        print(aionetiface_fds)
 
         await asyncio.sleep(5)
 

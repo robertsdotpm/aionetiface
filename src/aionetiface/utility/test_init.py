@@ -24,11 +24,11 @@ from ..protocol.stun.stun_client import *
 from ..install import *
 
 
-P2PD_NET_ADDR_BYTES = b'0,3-[0,149.56.128.148,149.56.128.148,10001,1,1,0]-[0,2607:5300:0201:3100:0000:0000:0000:8d2f,fe80:0000:0000:0000:f816:3eff:feae:b2d9,10001,1,1,0]-p2pd_test_node'
+aionetiface_NET_ADDR_BYTES = b'0,3-[0,149.56.128.148,149.56.128.148,10001,1,1,0]-[0,2607:5300:0201:3100:0000:0000:0000:8d2f,fe80:0000:0000:0000:f816:3eff:feae:b2d9,10001,1,1,0]-aionetiface_test_node'
 
 # Only load the test interface on the right machine.
 # Otherwise the name (probably) won't exist.
-P2PD_IFS = []
+aionetiface_IFS = []
 
 PatchedAsyncTest = None
 
@@ -145,7 +145,7 @@ class FakeNetifaces():
         return self.addr_info
     
 def get_cached_if():
-    install_path = get_p2pd_install_root()
+    install_path = get_aionetiface_install_root()
     nic_path = os.path.join(install_path, "if_info")
     if not os.path.exists(nic_path):
         return None

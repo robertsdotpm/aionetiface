@@ -1,4 +1,4 @@
-How P2PD works
+How aionetiface works
 ===============
 
 Addresses
@@ -7,7 +7,7 @@ Addresses
 You may already be familiar with IPv4 and IPv6 addresses. These addresses allow
 for data to reach nodes on
 the Internet. Practically, we can say these addresses are assigned to routers. They work  well for regular servers but in a peer-to-peer context more information is needed to
-describe a peer's network. Here is what a peer's address looks like in P2PD.
+describe a peer's network. Here is what a peer's address looks like in aionetiface.
 
 ``0,1-[1,0,8.8.8.8,192.168.21.21,58959,3,2,0]-0-zmUGXPOFxUBuToh-easdasd``
 
@@ -40,20 +40,20 @@ to using names to avoid sharing addresses directly.
 Signaling
 -----------
 
-P2PD uses MQTT for signaling. Signaling refers to the protocol P2PD uses to coordinate P2P connections. Some
+aionetiface uses MQTT for signaling. Signaling refers to the protocol aionetiface uses to coordinate P2P connections. Some
 examples include:
 
 -   **P2P_DIRECT** = Tell a peer to connect back to an address.
 -   **P2P_PUNCH** = Exchange port mappings for TCP hole punching.
 
-Signaling messages are integral to how P2PD functions. By relying on
+Signaling messages are integral to how aionetiface functions. By relying on
 public MQTT servers -- messages are able to reach peers easily.
 The way this occurs is through the use of random IDs (pub keys) as topic subscriptions.
 A peer subscribes to a random ID and includes this ID in its address information.
 Messages can then reach that peer via an MQTT server.
 Such an approach is scalable and already backed by many public servers.
 
-P2PD's message format is intentionally simple. It's based on a series of classes in Python
+aionetiface's message format is intentionally simple. It's based on a series of classes in Python
 that use JSON for input and output. There's a main message class that
 includes sections for addressing (for the sender and destination.) Unique
 protocol messages inherit this class and add what they need. The resulting
@@ -62,7 +62,7 @@ protocol code is incredibly short -- around 300~ lines.
 See p2p_defs.py and p2p_protocol.py for how it looks.
 
 .. NOTE::
-    P2PD does not use MQTT servers as 'proxies.' Only as a way to exchange
+    aionetiface does not use MQTT servers as 'proxies.' Only as a way to exchange
     initial messages needed to setup direct connections between peers. 
     Connectivity is fully peer-to-peer.
 
@@ -71,4 +71,4 @@ See p2p_defs.py and p2p_protocol.py for how it looks.
 Methodology
 -------------
 
-Please see :doc:`../p2p/connect` for strategies P2PD uses for direct connections.
+Please see :doc:`../p2p/connect` for strategies aionetiface uses for direct connections.

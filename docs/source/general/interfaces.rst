@@ -1,7 +1,7 @@
 Interfaces
 ===========================
 
-All network programming in P2PD starts with the network interface card. Usually
+All network programming in aionetiface starts with the network interface card. Usually
 your computer will have a 'default' interface that traffic is sent
 down based on various routing methods. Let's start by loading this default
 interface and interacting with it. Starting the interface looks up all
@@ -81,14 +81,14 @@ a connection back 'from a different IP address' in order to determine
 what type of NAT they have.
 
 .. HINT::
-    P2PD makes external addressing details available to the programmer.
+    aionetiface makes external addressing details available to the programmer.
     Such information avoids having to manually pass details to bind() 
     to use a given external IP.
 
 Routes to the rescue
 ---------------------
 
-P2PD solves the addressing problem by introducing mappings called 'Routes'.
+aionetiface solves the addressing problem by introducing mappings called 'Routes'.
 A Route describes how interface-assigned addresses relate to external addresses.
 Each route is indexed by address family. Either IPv4 or IPv6. 
 
@@ -150,16 +150,16 @@ The algorithm for IPv6 routes is slightly different.
 All link-local addresses are copied to each route.
 While every global address 'EXT' forms a new route.
 
-P2PD uses the EXT portion for IPv6 servers. While it uses the NIC portion
+aionetiface uses the EXT portion for IPv6 servers. While it uses the NIC portion
 for IPv4. It is assumed that all servers should be publicly reachable.
 Though this can be bypassed by specifying IPs directly for bind calls
-which is indeed what the P2PD REST server does. 
+which is indeed what the aionetiface REST server does. 
 
 If that sounds difficult :doc:`daemons` make this easier.
 
 .. HINT::
     There's other 'types' of addresses in IPv6 though they're not
-    supported in P2PD for now. Just the equivalent of 'private' and
+    supported in aionetiface for now. Just the equivalent of 'private' and
     'public' addresses.
 
 ----
@@ -179,7 +179,7 @@ how to setup the tuples for bind to use that external address. Once a route
 is bound it can be used in the familiar open_pipe call.
 
 .. HINT::
-    You can see from this example that P2PD supports duel-stack networking,
+    You can see from this example that aionetiface supports duel-stack networking,
     multiple network interface cards, external addressing, DNS / IP / target parsing,
     and publish-subscribe. But there are many more useful features for
     network programming.

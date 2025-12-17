@@ -5,7 +5,7 @@ If you're a Python developer you may have used web frameworks like Flask before.
 Such frameworks are useful but usually require many
 dependencies to use. What's interesting about Python is it's standard library
 includes most of what you need for a web framework. What I've done is wrap these
-components in a flask-like interface -- using P2PD for the networking. 
+components in a flask-like interface -- using aionetiface for the networking. 
 
 .. literalinclude:: ../../examples/example_16.py
     :language: python3

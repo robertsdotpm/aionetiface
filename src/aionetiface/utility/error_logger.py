@@ -1,5 +1,5 @@
 """
-if ~/p2pd/logs exists -- write logs
+if ~/aionetiface/logs exists -- write logs
 otherwise do nothing
 """
 
@@ -9,10 +9,10 @@ import traceback
 import os
 import threading
 from .fstr import *
-from ..install import get_p2pd_install_root
+from ..install import get_aionetiface_install_root
 
 LOGS_ROOT_PATH = os.path.join(
-    get_p2pd_install_root(),
+    get_aionetiface_install_root(),
     "logs"
 )
 
@@ -22,7 +22,7 @@ def open_log_fd(tid):
     if tid not in log_fds:
         path = os.path.join(
             LOGS_ROOT_PATH,
-            "p2pd_" + str(os.getpid()) + "_" + str(tid) + ".log"
+            "aionetiface_" + str(os.getpid()) + "_" + str(tid) + ".log"
         )
         
         log_fds[tid] = os.open(

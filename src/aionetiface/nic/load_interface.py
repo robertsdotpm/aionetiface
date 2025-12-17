@@ -68,7 +68,7 @@ async def load_interface(nic, netifaces, min_agree, max_agree, timeout):
     log(fstr("Starting resolve with stack type = {0}", (stack,)))
     
     # Load internal interface details.
-    nic.netifaces = await p2pd_setup_netifaces()
+    nic.netifaces = await aionetiface_setup_netifaces()
 
     # Process interface name in right format.
     try:

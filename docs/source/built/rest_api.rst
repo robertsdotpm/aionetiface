@@ -1,17 +1,17 @@
-The P2PD REST API
+The aionetiface REST API
 ==================
 
 Starting the server
 --------------------
 
 Start the REST API server::
-   python3 -m p2pd.rest_api
+   python3 -m aionetiface.rest_api
 
 Running this command will start the server on localhost:12333
 The server has no password and will only allow requests from
 an 'origin' of 127.0.0.1 or null. The null origin occurs when
 a HTML document is opened locally. If a website you visit tries
-to use the P2PD API your browser will include the domain name as
+to use the aionetiface API your browser will include the domain name as
 an origin which the server will reject.
 
 Making your first request
@@ -28,7 +28,7 @@ You should see a JSON response.
 
    {
       "author": "Matthew@Roberts.PM",
-      "title": "P2PD",
+      "title": "aionetiface",
       "version": "3.0.0"
    }
 
@@ -124,7 +124,7 @@ if the right sequence of bytes occur. We'll be using this
 feature to test out some commands.
 
 .. parsed-literal:: 
-   curl `<http://localhost:12333/send/con_name/long_p2pd_test_string_abcd123>`_
+   curl `<http://localhost:12333/send/con_name/long_aionetiface_test_string_abcd123>`_
 
 .. code-block:: javascript
 
@@ -142,7 +142,7 @@ feature to test out some commands.
 .. code-block:: javascript
 
    {
-      "data": "got p2pd test string",
+      "data": "got aionetiface test string",
       "error": 0,
       "client_tup": [
          "192.168.21.200",
@@ -160,7 +160,7 @@ use the POST method. The following JS examples require jQuery.
 
 .. code-block:: shell
 
-   curl -H 'Content-Type: application/octet-stream' -d 'long_p2pd_test_string_abcd123' -X POST "http://localhost:12333/binary/con_name"
+   curl -H 'Content-Type: application/octet-stream' -d 'long_aionetiface_test_string_abcd123' -X POST "http://localhost:12333/binary/con_name"
 
 .. code-block:: javascript
 
@@ -169,7 +169,7 @@ use the POST method. The following JS examples require jQuery.
       // Binary data to send (this could represent non-ASCII.)
       // The encoder is used to covert it into uint8s.
       var enc = new TextEncoder();
-      var enc_str = enc.encode("long_p2pd_test_string_abcd123");
+      var enc_str = enc.encode("long_aionetiface_test_string_abcd123");
 
       // Copy encoded string into Uint8 buffer.
       // Thank you chat-gpt. Never knew how to do this before.
@@ -240,7 +240,7 @@ messages. For the REST API there is another neat option: a special API
 method that converts HTTP connections into two-way relays.
 
 What I mean by this is if you make a HTTP request to a named
-connection P2PD will relay data you send to that connection
+connection aionetiface will relay data you send to that connection
 to the named connection and back again. This is very useful because
 it allows you to write asynchronous code that only has to handle data
 when it's available. Almost like a regular connection you made yourself.
@@ -255,7 +255,7 @@ when it's available. Almost like a regular connection you made yourself.
    Origin: null\r\n\r\n
 
 The connection is closed on error. You can test it works by
-sending 'long_p2pd_test_string_abcd123' down the connection and checking for the test string response. What results is a relay between a named P2P connection (handled by the peers
+sending 'long_aionetiface_test_string_abcd123' down the connection and checking for the test string response. What results is a relay between a named P2P connection (handled by the peers
 protocol handlers.)
 
 Publish-subscribe

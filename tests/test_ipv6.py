@@ -1,5 +1,5 @@
 """
-nc -4 -u p2pd.net 7
+nc -4 -u aionetiface.net 7
 
 """
 
@@ -15,13 +15,13 @@ class TestIPv6(unittest.IsolatedAsyncioTestCase):
         print(x)
         """
 
-        netifaces = await p2pd_setup_netifaces()
+        netifaces = await aionetiface_setup_netifaces()
         i_name = netifaces.interfaces()[0]
         addr_info = netifaces.ifaddresses(i_name)
  
         servers = [
             {
-                "host": "p2pd.net",
+                "host": "aionetiface.net",
                 "primary": {"ip": "2a01:4f9:3081:50d9::2", "port": 3478},
                 "secondary": {"ip": "2a01:4f9:3081:50d9::3", "port": 3479},
             },
@@ -56,7 +56,7 @@ class TestIPv6(unittest.IsolatedAsyncioTestCase):
 
         await route
 
-        dest = ("p2pd.net", 7)
+        dest = ("aionetiface.net", 7)
         pipe = await pipe_open(TCP, dest, route)
         await pipe.send(b"Test")
         out = await pipe.recv()

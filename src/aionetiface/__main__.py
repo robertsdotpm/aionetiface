@@ -13,10 +13,10 @@ from asyncio import futures
 
 vmaj, vmin, _ = platform.python_version_tuple()
 if int(vmin) < 8:
-    print("P2PD REPL needs >= Python 3.8")
+    print("aionetiface REPL needs >= Python 3.8")
     exit()
 
-from . import __version__ as p2pdv
+from . import __version__ as aionetifacev
 from .net.asyncio.event_loop import *
 from .utility.fstr import fstr
 
@@ -87,7 +87,7 @@ class REPLThread(threading.Thread):
             spawn_method = multiprocessing.get_start_method()
             vmaj, vmin, _ = platform.python_version_tuple()
             banner = (
-                fstr('P2PD {0} REPL on Python {1}.{2} / {3}', (p2pdv, vmaj, vmin, sys.platform,)),
+                fstr('aionetiface {0} REPL on Python {1}.{2} / {3}', (aionetifacev, vmaj, vmin, sys.platform,)),
                 fstr('Loop = {0}, Process = {1}', (loop_policy, spawn_method,)),
                 'Use "await" directly instead of "asyncio.run()".' ,
                 fstr('{0}from aionetiface import *', (getattr(sys, "ps1", ">>> "),)),

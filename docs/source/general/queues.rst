@@ -7,7 +7,7 @@ software must be able to save messages. It does this by using queues.
 Each queue may be indexed by a message regex and an
 optional tuple for a reply address.
 
-These queues only exist when a subscription is made. **By default P2PD
+These queues only exist when a subscription is made. **By default aionetiface
 subscribes to all messages when a destination is provided for a pipe and
 so does the REST API.**
 
@@ -37,16 +37,16 @@ The REST server bellow is based on the module here: :doc:`/built/rest_api`
 .. code-block:: javascript
 
     en = encodeURIComponent;
-    async function p2pd_test(server) 
+    async function aionetiface_test(server) 
     {
-        // Do these in order to test some P2PD APIs.
+        // Do these in order to test some aionetiface APIs.
         msg_p = en("test");
         //addr_p = en("('127.0.0.1', 0)"); 0 == any port.
         var paths = [
             "/version",
             "/open/con_name/self",
             "/sub/con_name/name/sub_name/msg_p/" + msg_p, //+ "addr_p" + addr_p,
-            "/send/con_name/" + en("long_p2pd_test_string_abcd123"),
+            "/send/con_name/" + en("long_aionetiface_test_string_abcd123"),
             "/recv/con_name/name/sub_name", // + "addr_p" + addr_p,
         ];
 
@@ -65,7 +65,7 @@ The REST server bellow is based on the module here: :doc:`/built/rest_api`
         }
     }
 
-    p2pd_test();
+    aionetiface_test();
 
 .. code-block:: javascript
 
@@ -90,7 +90,7 @@ The REST server bellow is based on the module here: :doc:`/built/rest_api`
             10062
         ],
         "con_name": "con_name",
-        "data": "p2pd test string\r\n\r\n",
+        "data": "aionetiface test string\r\n\r\n",
         "error": 0
     }
 
@@ -134,7 +134,7 @@ from all messages:
 
 .. code-block:: javascript
 
-    async function p2pd_test(server) 
+    async function aionetiface_test(server) 
     {
         var out = await $.ajax({
             url: "http://localhost:12333/sub/con_name/name/all",

@@ -14,17 +14,17 @@ Firewall bypass
 
 Windows-based systems include firewalls that can interfere with some programs.
 Mac OS X has similar security measures. It would be a good idea to automatically setup rules
-to allow P2PD to use the Internet on various platforms.
+to allow aionetiface to use the Internet on various platforms.
 
 Pushing sockets
 ----------------
 
 One common criticism against Python is that 'it's slow.' I don't believe this is the
 case but let's suppose it is. Let's suppose that an engineer has a very good
-reason not to use something like P2PD for their peer-to-peer networking code
+reason not to use something like aionetiface for their peer-to-peer networking code
 e.g. they may have already written highly optimized networking code themselves.
 Well, it's possible to pass a socket from one process to another.
-What this means is P2PD could specialize in the initial process of
+What this means is aionetiface could specialize in the initial process of
 opening connections to peers and then passing those bound sockets
 to other processes to use as they see fit.
 

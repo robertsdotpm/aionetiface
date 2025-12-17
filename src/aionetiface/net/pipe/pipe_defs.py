@@ -3,4 +3,4 @@ TYPE_UDP_SERVER = 2
 TYPE_TCP_CON = 3
 TYPE_TCP_SERVER = 4
 TYPE_TCP_CLIENT = 5
-p2pd_fds = set()
+aionetiface_fds = set()

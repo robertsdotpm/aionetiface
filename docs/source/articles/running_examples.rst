@@ -3,19 +3,19 @@ Running examples
 
 **Running async examples**
 
-P2PD uses Python's 'asynchronous' features to run everything in an event loop.
+aionetiface uses Python's 'asynchronous' features to run everything in an event loop.
 One way to try out code is to run it in an interactive prompt.
-For convenience P2PD includes an interactive prompt that lets you run async
+For convenience aionetiface includes an interactive prompt that lets you run async
 code. It handles having to choose the right event loop, setup multiprocessing,
-and import P2PD so code works more consistently across platforms.
+and import aionetiface so code works more consistently across platforms.
 
 .. code-block:: shell
 
-    python3 -m p2pd
+    python3 -m aionetiface
 
 .. code-block:: python3
 
-    P2PD 2.7.9 REPL on Python 3.8 / win32
+    aionetiface 2.7.9 REPL on Python 3.8 / win32
     Loop = selector, Process = spawn
     Use "await" directly instead of "asyncio.run()".
     >>> from aionetiface import *
@@ -33,4 +33,4 @@ file for the examples.
 
 This keeps execution consistent across platforms. The package sets
 these by default so if your application is using a different configuration
-it may not work properly with P2PD.
+it may not work properly with aionetiface.

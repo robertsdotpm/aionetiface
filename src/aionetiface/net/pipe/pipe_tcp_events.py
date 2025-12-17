@@ -72,7 +72,7 @@ class TCPClientProtocol(asyncio.StreamReaderProtocol):
         # Wrap this connection in a BaseProto object.
         self.transport = transport
         self.sock = transport.get_extra_info('socket')
-        p2pd_fds.add(self.sock)
+        aionetiface_fds.add(self.sock)
 
         self.remote_tup = self.sock.getpeername()
         self.client_events = PipeEvents(

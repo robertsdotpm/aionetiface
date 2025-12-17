@@ -135,7 +135,7 @@ dmypy.json
 program.log
 *.log
 *_tmp.py
-p2pd/*.log
+aionetiface/*.log
 tests/*.log
 build/
 test_sqlite_db.sqlite
@@ -157,10 +157,10 @@ tests/.coverage
 cov.xml
 
 # stun server generation.
-p2pd/scripts/stund.txt
-p2pd/scripts/stunt.txt
-p2pd/scripts/stun_change.txt
-p2pd/scripts/stun_map.txt
+aionetiface/scripts/stund.txt
+aionetiface/scripts/stunt.txt
+aionetiface/scripts/stun_change.txt
+aionetiface/scripts/stun_map.txt
 
 *_pid.txt
 SECRET_KEY*.hex

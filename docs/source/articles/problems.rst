@@ -28,7 +28,7 @@ reachability between every node** to function. But some systems do.
 
 Suppose I'm trying to build a chat program and I'd like for people to share files? In this case: I need both parties to be able to connect
 directly. Any single method to achieve this (like port forwarding) is not going to
-work consistently. The approach taken by P2PD is to combine multiple strategies for 
+work consistently. The approach taken by aionetiface is to combine multiple strategies for 
 achieving connectivity to greatly improve the odds of success.
 
 In the next section I will explain :doc:`how`

@@ -1,7 +1,7 @@
 from aionetiface import *
 
 async def example():
-    netifaces = await p2pd_setup_netifaces()
+    netifaces = await aionetiface_setup_netifaces()
     ifs = netifaces.interfaces()
     # e.g. ['lo0', 'en0']
 

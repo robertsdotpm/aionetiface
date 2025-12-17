@@ -8,7 +8,7 @@ are very important [for peer-to-peer networking] because they allow for
 the determination of any NATs used by a home router.
 
 There are many public STUN servers that can be used for basic functionality.
-P2PD uses STUN to determine WAN IPs, NAT details, and port mappings.
+aionetiface uses STUN to determine WAN IPs, NAT details, and port mappings.
 Here is how to use the STUN client.
 
 .. literalinclude:: ../../examples/example_12.py

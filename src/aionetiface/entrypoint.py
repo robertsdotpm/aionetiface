@@ -38,7 +38,7 @@ similar stuff on Github. May be something to add in the future.
 Otherwise -- the nix and BSD versions happily accept the regular
 netifaces module from pypi which doesn't need deps to work.
 """
-async def p2pd_setup_netifaces():
+async def aionetiface_setup_netifaces():
     global ENABLE_UDP
     global ENABLE_STUN
     global _cached_netifaces
@@ -140,7 +140,7 @@ def init_process_pool():
     # Handle exceptions on close.
     loop.set_exception_handler(handle_exceptions)
 
-def p2pd_setup_event_loop():
+def aionetiface_setup_event_loop():
     # -----------------------------
     # Patch logic based on Python version
     # -----------------------------
@@ -165,10 +165,10 @@ def p2pd_setup_event_loop():
     if not isinstance(policy, CustomEventLoopPolicy):
         asyncio.set_event_loop_policy(CustomEventLoopPolicy())
 
-p2pd_setup_event_loop()
+aionetiface_setup_event_loop()
 
 async def entrypoint_test():
-    out = await p2pd_setup_netifaces()
+    out = await aionetiface_setup_netifaces()
     print(out)
 
 if __name__ == "__main__": # pragma: no cover

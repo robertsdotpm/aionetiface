@@ -32,7 +32,7 @@ async def listen_loopback(self, proto, port, nic):
 Start listening on the loopback address. Whether it binds to IP4 / IP6
 is based on the supported address families for the NIC you provide.
 This function is useful for creating servers you want to make
-accessible on just that computer. P2PD's own rest_api and toxid
+accessible on just that computer. aionetiface's own rest_api and toxid
 use this method.
 
 async def listen_local(self, proto, port, nic):

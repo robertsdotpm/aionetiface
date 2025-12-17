@@ -1,5 +1,5 @@
 """
-nc -4 -u p2pd.net 7
+nc -4 -u aionetiface.net 7
 
 """
 
@@ -28,7 +28,7 @@ class TestAFsWork(unittest.IsolatedAsyncioTestCase):
                     "port": 4242
                 },
                 IP6: {
-                    "host": "p2pd.net",
+                    "host": "aionetiface.net",
                     "port": 7
                 }
             }

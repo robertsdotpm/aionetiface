@@ -17,10 +17,10 @@ class TestDaemon(unittest.IsolatedAsyncioTestCase):
         interface = await Interface()
 
         """
-        for s in p2pd_fds:
+        for s in aionetiface_fds:
             print(s._closed)
 
-        print(p2pd_fds)
+        print(aionetiface_fds)
         return
         """
 
@@ -124,7 +124,7 @@ class TestDaemon(unittest.IsolatedAsyncioTestCase):
                         
 
         #await asyncio.sleep(4)
-        print(p2pd_fds)
+        print(aionetiface_fds)
         await asyncio.sleep(0.1)
 
         """

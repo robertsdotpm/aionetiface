@@ -2,7 +2,7 @@
 
 # -- Project information
 
-project = 'P2PD'
+project = 'aionetiface'
 copyright = '2024'
 author = 'Matthew Roberts'
 
