@@ -56,7 +56,7 @@ class TestSock(unittest.IsolatedAsyncioTestCase):
         r = i.route()
 
         # Make a new socket bound to a high order port.
-        high_sock, high_port = await get_high_port_socket(r)
+        high_sock, high_port = await get_high_port_socket(r, socket_factory)
 
         # Make a new socket that shares the same port.
         r = await i.route().bind(high_port)
