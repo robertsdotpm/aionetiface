@@ -1,11 +1,11 @@
 from aionetiface import *
 
 async def example():
-    netifaces = await init_p2pd()
+    netifaces = await p2pd_setup_netifaces()
     ifs = netifaces.interfaces()
     # e.g. ['lo0', 'en0']
 
-    info = netifaces.ifaddresses('en0')
+    info = netifaces.ifaddresses('ens192')
     # {18: [{'addr': '8c:...'}], 30: [{'addr': 'fe80::...%en0',
     # 'netmask': 'ffff:ffff:ffff:ffff::/64', 'flags': 1024},
     # {'addr': 'fdf4:1...', 'netmask': 'ffff:ffff:ffff:ffff::/
