@@ -1,7 +1,7 @@
 # aionetiface
 
 Aionetiface is a networking library for >= Python 3.5 that supports
-multi-interface networking. It includes back-ported patches from recent Python versions to make asyncio work better on older versions as well as new features that aren't possible with asyncio today. EG:
+multi-interface networking on most modern OSes. It includes back-ported patches from recent Python versions to make asyncio work better on older versions of Python as well as new features that aren't possible with asyncio today. EG:
 
 ```python3
    nic = await Interface("eth0")
