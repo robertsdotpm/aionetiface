@@ -1,0 +1,141 @@
+import ast
+import asyncio
+import code
+import concurrent.futures
+import inspect
+import sys
+import threading
+import types
+import warnings
+import multiprocessing
+import platform
+from asyncio import futures
+
+vmaj, vmin, _ = platform.python_version_tuple()
+if int(vmin) < 8:
+    print("aionetiface REPL needs >= Python 3.8")
+    exit()
+
+from . import __version__ as aionetifacev
+from .net.asyncio.event_loop import *
+from .utility.fstr import fstr
+
+
+class AsyncIOInteractiveConsole(code.InteractiveConsole):
+
+    def __init__(self, locals, loop):
+        super().__init__(locals)
+        self.compile.compiler.flags |= ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
+
+        self.loop = loop
+
+
+    def runcode(self, code):
+        future = concurrent.futures.Future()
+
+        def callback():
+            global repl_future
+            global repl_future_interrupted
+
+            repl_future = None
+            repl_future_interrupted = False
+
+            func = types.FunctionType(code, self.locals)
+            try:
+                coro = func()
+            except SystemExit:
+                raise
+            except KeyboardInterrupt as ex:
+                repl_future_interrupted = True
+                future.set_exception(ex)
+                return
+            except BaseException as ex:
+                future.set_exception(ex)
+                return
+
+            if not inspect.iscoroutine(coro):
+                future.set_result(coro)
+                return
+
+            try:
+                repl_future = self.loop.create_task(coro)
+                futures._chain_future(repl_future, future)
+            except BaseException as exc:
+                future.set_exception(exc)
+
+        loop.call_soon_threadsafe(callback)
+
+        try:
+            return future.result()
+        except SystemExit:
+            raise
+        except BaseException:
+            if repl_future_interrupted:
+                self.write("\nKeyboardInterrupt\n")
+            else:
+                self.showtraceback()
+
+
+class REPLThread(threading.Thread):
+
+    def run(self):
+        try:
+            loop_policy = str(asyncio.get_event_loop_policy())
+            if "elector" in loop_policy:
+                loop_policy = 'selector'
+
+            spawn_method = multiprocessing.get_start_method()
+            vmaj, vmin, _ = platform.python_version_tuple()
+            banner = (
+                fstr('aionetiface {0} REPL on Python {1}.{2} / {3}', (aionetifacev, vmaj, vmin, sys.platform,)),
+                fstr('Loop = {0}, Process = {1}', (loop_policy, spawn_method,)),
+                'Use "await" directly instead of "asyncio.run()".' ,
+                fstr('{0}from aionetiface import *', (getattr(sys, "ps1", ">>> "),)),
+            )
+
+            console.push("from aionetiface.do_imports import *")
+            console.interact(
+                banner="\n".join(banner),
+                exitmsg='exiting asyncio REPL...')
+            
+        finally:
+            warnings.filterwarnings(
+                'ignore',
+                message=r'^coroutine .* was never awaited$',
+                category=RuntimeWarning)
+
+            loop.call_soon_threadsafe(loop.stop)
+
+if __name__ == '__main__':
+    loop = asyncio.get_event_loop()
+    repl_locals = {'asyncio': asyncio}
+    for key in {'__name__', '__package__',
+                '__loader__', '__spec__',
+                '__builtins__', '__file__'}:
+        repl_locals[key] = locals()[key]
+
+    console = AsyncIOInteractiveConsole(repl_locals, loop)
+    
+
+    repl_future = None
+    repl_future_interrupted = False
+
+    try:
+        import readline  # NoQA
+    except ImportError:
+        pass
+
+    repl_thread = REPLThread()
+    repl_thread.daemon = True
+    repl_thread.start()
+
+    while True:
+        try:
+            loop.run_forever()
+        except KeyboardInterrupt:
+            if repl_future and not repl_future.done():
+                repl_future.cancel()
+                repl_future_interrupted = True
+            continue
+        else:
+            break
