@@ -8,7 +8,7 @@ be used for clients or servers.
 
 .. code-block:: python
 
-    async def pipe_open(proto, dest=None, route=None, sock=None, msg_cb=None, up_cb=None, conf=NET_CONF):
+    async def Pipe(proto, dest=None, route=None, sock=None, conf=NET_CONF).connect(msg_cb=None):
         """
         proto  = TCP or UDP.
         dest   = If it's a client pipe a destination should be included.
@@ -19,7 +19,6 @@ be used for clients or servers.
                 TCP and dest is included the socket is assumed to be connected.
         msb_cb = A message handler registered with servers before they're started
                 so that messages aren't received before a handler is setup.
-        up_cb  = A handler is started when the underlying pipe is connected.
         conf  = A dictionary describing many different configuration options for
                 changing various properties of the pipe.
 
@@ -242,4 +241,4 @@ options look like this:
     }
 
     # Here's where to use these options.
-    pipe = pipe_open(TCP, route, dest, conf=NET_CONF)
+    pipe = await Pipe(TCP, route, dest, conf=NET_CONF).connect()

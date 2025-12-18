@@ -15,7 +15,6 @@ no harm in installing the extra dependencies.
     cd aionetiface
     python3 setup.py develop
     python3 -m pip install -r optional-test-requirements.txt
-    python3 -m pip install -r optional-server-requirements.txt
 
 Installation on older systems
 -------------------------------

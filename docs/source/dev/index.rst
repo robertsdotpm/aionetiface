@@ -4,24 +4,7 @@ Development
 Debugging mode
 ----------------
 
-aionetiface has a simple log file that is written to when debug mode is enabled. The
-path to this log file is in the same directory that code gets executed from. To
-enable debug mode use either:
-
-.. parsed-literal:: 
-    export aionetiface_DEBUG=1
-    set aionetiface_DEBUG=1
-
-In the terminal. The logs can then be viewed by either:
-
-.. parsed-literal:: 
-    cat program.log
-    type program.log
-
-You can filter for just the P2P messages with grep:
-
-.. parsed-literal:: 
-    cat program.log | grep p2p:
+aionetiface has a simple log file that is written to when ~/aionetiface/logs exists. 
 
 Running tests
 ----------------
@@ -47,35 +30,6 @@ I have briefly experimented with running tests concurrently for speed.
     python3 -m pip install pytest-asyncio
     python3 -m pip install pytest-xdist
     pytest -n 8
-
-Real world simulation
------------------------
-
-There is a program designed to do a real-world simulation of all parts of
-the software. It is capable of simulating protocol message exchange between
-nodes (with and without networking); controlling the interfaces used for a node; simulating failures; simulating node protocol replies;
-and more. The program is called 'manual_test_p2p.py'.
-
-A useful choice in this program is option 0. The code can be changed to make
-a node register its address at the name servers. Then connect to that node
-using whatever combination of techniques are desired. **One way to use this 
-approach is you can have any device you control run manual_test_p2p
-and register its name then connect to its name on another machine.**
-
-.. parsed-literal:: 
-    sig_pipe_no = number of MQTT server cons (0 for no networking)
-    addr_types =
-        EXT_BIND (allow external connectivity)
-        NIC_BIND (allow internal connectivity)
-    ifs = list of interfaces to use for nodes
-    same_if = use same interface for all nodes
-    multi_ifs = use multiple interfaces for nodes (only if host has them)
-    use_strats = [
-        P2P_DIRECT = direct connect
-        P2P_REVERSE = reverse connect
-        P2P_PUNCH = tcp hole punching
-        P2P_RELAY = udp TURN relay
-    ]
 
 Building the docs 
 --------------------

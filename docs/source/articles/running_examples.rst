@@ -26,7 +26,7 @@ file for the examples.
 
 **All example code assumes that:**
 
-    1. The 'selector' event loop is used.
+    1. The custom event loop is used (based on selector.)
     2. The 'spawn' method is used as the multiprocessing start method.
     3. You are familiar with how to run asynchronous code.
     4. The string encoding is "UTF-8."
