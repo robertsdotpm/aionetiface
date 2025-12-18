@@ -25,5 +25,6 @@ That's the tip of the ice berg though -- and the deeper you go -- the
 more interesting (and maybe bizarre) things you will discover.
 
 python3 -m pip install aionetiface
+
 https://aionetiface.readthedocs.io/en/latest/
 
