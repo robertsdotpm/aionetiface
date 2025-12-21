@@ -1,11 +1,9 @@
 Interfaces
 ===========================
 
-All network programming in aionetiface starts with the network interface card. Usually
-your computer will have a 'default' interface that traffic is sent
-down based on various routing methods. Let's start by loading this default
-interface and interacting with it. Starting the interface looks up all
-its addresses and enumerates the NAT of its associated router.
+All network programming in aionetiface starts with the network interface card. 
+Your computer will have a interface that traffic is sent down based on various
+routing methods. Let's start by loading the OSes preferred interface. Starting the interface looks its addresses and relevant meta data.
 
 .. literalinclude:: ../../examples/example_2.py
     :language: python3
@@ -206,3 +204,20 @@ The route pool is designed to make it easy to group multiple external addresses
 that may be themselves either single addresses or blocks of IPs into one
 object that can be indexed, counted, iterated, and used. In this way its easy
 to 'grab an IP' and use it. 
+
+Default interface
+----------------------
+
+When you await loading an interface the software uses STUN to lookup external
+addressing information . This is useful for more advanced network programming 
+(like connecting to link-local addresses where scope-IDs are needed),
+but sometimes you want a more lightweight approach. 
+
+In this case: if you specify "default" as the interface name the software does
+the bare minimum to make the interface usable.
+
+.. code-block:: python
+
+    # No await needed -- does no IO.
+    # Adding await won't break it though.
+    nic = Interface("default")

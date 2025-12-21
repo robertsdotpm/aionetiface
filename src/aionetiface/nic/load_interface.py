@@ -64,6 +64,10 @@ def load_if_info(nic):
     return nic
 
 async def load_interface(nic, netifaces, min_agree, max_agree, timeout):
+    # Not needed.
+    if nic.name == "default":
+        return nic
+
     stack = nic.stack
     log(fstr("Starting resolve with stack type = {0}", (stack,)))
     

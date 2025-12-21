@@ -10,6 +10,7 @@ from ..protocol.stun.stun_client import *
 from .nat.nat_test import nic_load_nat
 from .load_interface import *
 from ..entrypoint import *
+from .default_interface import *
 
 # Used for specifying the interface for sending out packets on
 # in TCP streams and UDP streams.
@@ -19,6 +20,11 @@ class Interface():
     def __init__(self, name=None, stack=DUEL_STACK, nat=None, netifaces=None, timeout=4):
         super().__init__()
         self.__name__ = "Interface"
+        if name == "default":
+            use_default_interface(self)
+            return
+
+        # Otherwise load everything.
         self.resolved = False
         self.netiface_index = None
         self.id = self.mac = self.nic_no = None
@@ -167,6 +173,11 @@ class Interface():
 
 if __name__ == "__main__": # pragma: no cover
     async def test_interface():
+        nic = Interface("default")
+        r = nic.route()
+        d = await Address("google.com", 80, nic)
+
+
         #out = await cmd("route print")
         return
         out = await nt_route_print("Realtek Gaming 2.5GbE Family Controller")
