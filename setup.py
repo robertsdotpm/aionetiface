@@ -23,7 +23,7 @@ else:
     install_reqs += ["winregistry"]
 
 setup(
-    version='0.0.5',
+    version='0.0.6',
     name='aionetiface',
     description='Asynchronous networking library ',
     keywords=('test, python'),
