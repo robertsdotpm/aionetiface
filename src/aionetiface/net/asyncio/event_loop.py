@@ -5,51 +5,51 @@ import traceback
 from ...utility.utils import *
 
 # Map: FD -> Future object
-_CLOSE_FUTURES = {}
+CLOSE_FUTURES = {}
 
 class ProxySelector:
     """A wrapper around the actual selector object to intercept unregister calls."""
     
     def __init__(self, selector_instance, loop):
-        self._selector = selector_instance
-        self._loop = loop
+        self.selector = selector_instance
+        self.loop = loop
         self.select = selector_instance.select
         self.close = selector_instance.close
         self.register = selector_instance.register
         self.get_map = selector_instance.get_map
         self.get_key = selector_instance.get_key
 
-    def _maybe_signal_removal(self, fd: int, events: int, data: tuple) -> None:
+    def maybe_signal_removal(self, fd: int, events: int, data: tuple) -> None:
         """Helper to signal the future if the FD is being completely unregistered."""
         
         # Check if the FD's future exists
-        if fd not in _CLOSE_FUTURES:
-            #_CLOSE_FUTURES[fd] = self._loop.create_future()
+        if fd not in CLOSE_FUTURES:
+            #CLOSE_FUTURES[fd] = self.loop.create_future()
             return
 
         # In the context of a fully-removed item:
         if events == 0 and data is None:
-            future = _CLOSE_FUTURES.pop(fd)
+            future = CLOSE_FUTURES.pop(fd)
             if not future.done():
-                self._loop.call_soon(future.set_result, True)
+                self.loop.call_soon(future.set_result, True)
 
     def unregister(self, fd):
         """Intercepts the complete removal of the FD."""
         # The FD is being completely removed. Signal the removal future.
-        self._maybe_signal_removal(fd, 0, None)
-        return self._selector.unregister(fd)
+        self.maybe_signal_removal(fd, 0, None)
+        return self.selector.unregister(fd)
     
     def modify(self, fd, events, data=None):
         """Intercepts modification, checking if FD is effectively unregistered."""
         if events == 0:
             # FD modified to watch for 0 events, it's equivalent to unregister.
-            self._maybe_signal_removal(fd, 0, None)
+            self.maybe_signal_removal(fd, 0, None)
         elif events != 0:
             # NOTE: This is tricky, the SelectorEventLoop mostly handles this.
             # We focus on the unregister/events=0 case for reliability.
             pass
 
-        return self._selector.modify(fd, events, data)
+        return self.selector.modify(fd, events, data)
 
 class CustomEventLoop(asyncio.SelectorEventLoop):
     """Event loop that uses the ProxySelector."""
@@ -70,7 +70,26 @@ class CustomEventLoop(asyncio.SelectorEventLoop):
         # 2. Initialize the base class with our proxy
         # The base SelectorEventLoop expects a selector object here.
         super().__init__(proxy_selector)
-        
+
+        # --- Begin added code for clock support ---
+        # Internal set of registered clocks
+        clocks = set()
+
+
+        # Overwrite the sleep method
+        async def sleep(async_sleep, seconds, *args, **kwargs):
+            result = await async_sleep(seconds, *args, **kwargs)
+            
+            # Advance all registered clocks by the sleep duration
+            for clock in clocks:
+                continue
+                clock.advance(seconds)
+
+            return result
+
+        self.sleep = sleep
+        self.clocks = clocks
+
     # Add your public API method back (using the global map from the proxy)
     def await_fd_close(self, sock: socket) -> asyncio.Future:
         fd = sock.fileno()
@@ -80,10 +99,20 @@ class CustomEventLoop(asyncio.SelectorEventLoop):
             f.set_result(True)
             return f
 
-        if fd not in _CLOSE_FUTURES:
-            _CLOSE_FUTURES[fd] = self.create_future()
+        if fd not in CLOSE_FUTURES:
+            CLOSE_FUTURES[fd] = self.create_future()
             
-        return _CLOSE_FUTURES[fd]
+        return CLOSE_FUTURES[fd]
+
+    # --- Begin added methods for clock registration ---
+    def register_clock(self, clock):
+        """Register a clock instance to be advanced on sleeps."""
+        self.clocks.add(clock)
+
+    def unregister_clock(self, clock):
+        """Unregister a clock instance."""
+        self.clocks.discard(clock)
+    # --- End added methods ---
 
 class CustomEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
     @staticmethod

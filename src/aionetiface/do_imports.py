@@ -8,6 +8,7 @@ if __name__ != '__main__':
     from .errors import *
     from .utility.utils import log, what_exception, log_exception, async_test
     from .utility.cmd_tools import *
+    from .vendor.ecies import *
     from .net.net_utils import *
     from .net.bind import *
     from .net.address import Address
@@ -28,6 +29,7 @@ if __name__ != '__main__':
     from .protocol.http.http_client_lib import http_req_buf
     from .protocol.http.http_server_lib import rest_service, send_json, send_binary, RESTD, api_route_closure
     from .protocol.http.http_server_lib import ParseHTTPRequest
+    from .utility.sys_clock import SysClock
     from .install import *
     from .utility.test_init import *
 

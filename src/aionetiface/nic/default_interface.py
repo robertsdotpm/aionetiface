@@ -48,5 +48,8 @@ def use_default_interface(nic):
 
     nic.stack = get_interface_stack(nic.rp)
     nic.resolved = True
-    nic.is_default = lambda x: True
+    
+    def is_default_always(af, gws=None):
+        return True
+    nic.is_default = is_default_always
 

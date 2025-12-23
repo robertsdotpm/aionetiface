@@ -165,6 +165,21 @@ def aionetiface_setup_event_loop():
     if not isinstance(policy, CustomEventLoopPolicy):
         asyncio.set_event_loop_policy(CustomEventLoopPolicy())
 
+    """
+    # Patch that also advances logical time of registered sys clocks.
+    async_sleep = asyncio.sleep
+
+    async def sleep_wrapper(n):
+        loop = asyncio.get_event_loop()
+        if hasattr(loop, "sleep"):
+            print("advancing")
+            await loop.sleep(async_sleep, n)
+        else:
+            await async_sleep(n)
+
+    asyncio.sleep = sleep_wrapper
+    """
+
 aionetiface_setup_event_loop()
 
 async def entrypoint_test():

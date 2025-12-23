@@ -85,9 +85,14 @@ async def get_ntp_from_dest(af, nic, dest, retry=NTP_RETRY):
 
 class SysClock:
     def __init__(self, interface, ntp=0):
+        self.loop = asyncio.get_running_loop()
         self.start_time = time.monotonic()
         self.interface = interface
         self.ntp = ntp
+        self.offset = 0
+
+    def advance(self, n):
+        self.offset += n
 
     async def start(self):
         if self.ntp:
@@ -120,8 +125,8 @@ class SysClock:
         if not self.ntp:
             raise Exception("clock skew not loaded")
         
-        elapsed = time.monotonic() - self.start_time
-        return self.ntp + elapsed
+        elapsed = max(time.monotonic() - self.start_time, 0)
+        return self.ntp + elapsed + self.offset
 
 async def test_clock_skew(): # pragma: no cover
     from p2pd.nic.interface import Interface
