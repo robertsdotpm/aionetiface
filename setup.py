@@ -12,9 +12,6 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 install_reqs = ["ntplib", "ecdsa"]
-if (sys.version_info >= (3, 6)) or sys.platform != "win32":
-    install_reqs += ["fasteners"]
-
 if sys.platform != "win32":
     install_reqs += ["netifaces"]
     if sys.platform != "darwin":
@@ -23,7 +20,7 @@ else:
     install_reqs += ["winregistry"]
 
 setup(
-    version='0.0.6',
+    version='0.0.7',
     name='aionetiface',
     description='Asynchronous networking library ',
     keywords=('test, python'),

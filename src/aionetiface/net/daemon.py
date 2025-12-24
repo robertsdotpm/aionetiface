@@ -73,8 +73,13 @@ def get_serv_lock(af, proto, serv_port, serv_ip, install_path):
     # Main path files.
     af = "v4" if af == IP4 else "v6"
     proto = "tcp" if proto == TCP else "udp"
-    serv_ip = serv_ip.replace(":", "_")
+    serv_ip = ip_norm(serv_ip)
+    serv_ip = re.sub("[:]+", "_", serv_ip)
     serv_ip = serv_ip.replace(".", "_")
+    if not len(serv_ip):
+        serv_ip = "0"
+        log("Serv ip in get serv lock is len 0")
+
     pidfile_path = os.path.realpath(
         os.path.join(
             install_path,
@@ -89,8 +94,8 @@ def get_serv_lock(af, proto, serv_port, serv_ip, install_path):
 
     # TODO: use a more portable approach that's safer.
     try:
-        import fasteners
-        return fasteners.InterProcessLock(pidfile_path)
+        from ..vendor.fasteners import InterProcessLock
+        return InterProcessLock(pidfile_path)
     except Exception:
         return None
 
