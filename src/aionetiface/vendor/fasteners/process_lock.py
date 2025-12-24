@@ -62,9 +62,9 @@ class InterProcessLock:
     DELAY_INCREMENT = 0.01  # For backwards compatibility
 
     def __init__(self,
-                 path: Union[Path, str],
-                 sleep_func: Callable[[float], None] = time.sleep,
-                 logger: Optional[logging.Logger] = None):
+                path: Union[Path, str],
+                sleep_func: Callable[[float], None] = time.sleep,
+                logger: Optional[logging.Logger] = None):
         """
         args:
             path:
@@ -155,7 +155,7 @@ class InterProcessLock:
             self._do_open()
             watch = StopWatch(duration=timeout)
             r = Retry(delay, max_delay,
-                             sleep_func=self.sleep_func, watch=watch)
+                            sleep_func=self.sleep_func, watch=watch)
             with watch:
                 gotten = r(self._try_acquire, blocking, watch)
             
@@ -209,7 +209,7 @@ class InterProcessLock:
                 self._do_close()
             except IOError:
                 self.logger.exception("Could not close the file handle"
-                                      " opened on `%s`", self.path)
+                                    " opened on `%s`", self.path)
             else:
                 self.logger.log(BLATHER,
                                 "Unlocked and closed file lock open on"
@@ -235,9 +235,9 @@ class InterProcessReaderWriterLock:
     DELAY_INCREMENT = 0.01  # for backwards compatibility
 
     def __init__(self,
-                 path: Union[Path, str],
-                 sleep_func: Callable[[float], None] = time.sleep,
-                 logger: Optional[logging.Logger] = None):
+                path: Union[Path, str],
+                sleep_func: Callable[[float], None] = time.sleep,
+                logger: Optional[logging.Logger] = None):
         """
         Args:
             path:
@@ -265,7 +265,7 @@ class InterProcessReaderWriterLock:
         """Context manager that grans a read lock"""
 
         self.acquire_read_lock(blocking=True, delay=delay,
-                               max_delay=max_delay, timeout=None)
+                            max_delay=max_delay, timeout=None)
         try:
             yield
         finally:
@@ -276,7 +276,7 @@ class InterProcessReaderWriterLock:
         """Context manager that grans a write lock"""
 
         gotten = self.acquire_write_lock(blocking=True, delay=delay,
-                                         max_delay=max_delay, timeout=None)
+                                        max_delay=max_delay, timeout=None)
 
         if not gotten:
             # This shouldn't happen, but just in case...
@@ -314,24 +314,24 @@ class InterProcessReaderWriterLock:
             self.lockfile = _interprocess_reader_writer_mechanism.get_handle(self.path)
 
     def acquire_read_lock(self,
-                          blocking: bool = True,
-                          delay: float = 0.01,
-                          max_delay: float = 0.1,
-                          timeout: float = None) -> bool:
+                        blocking: bool = True,
+                        delay: float = 0.01,
+                        max_delay: float = 0.1,
+                        timeout: float = None) -> bool:
         """Attempt to acquire a reader's lock."""
         return self._acquire(blocking, delay, max_delay, timeout, exclusive=False)
 
     def acquire_write_lock(self,
-                           blocking: bool = True,
-                           delay: float = 0.01,
-                           max_delay: float = 0.1,
-                           timeout: float = None) -> bool:
+                        blocking: bool = True,
+                        delay: float = 0.01,
+                        max_delay: float = 0.1,
+                        timeout: float = None) -> bool:
         """Attempt to acquire a writer's lock."""
         return self._acquire(blocking, delay, max_delay, timeout, exclusive=True)
 
     def _acquire(self, blocking=True,
-                 delay=0.01, max_delay=0.1,
-                 timeout=None, exclusive=True):
+                delay=0.01, max_delay=0.1,
+                timeout=None, exclusive=True):
 
         if delay < 0:
             raise ValueError("Delay must be greater than or equal to zero")
@@ -344,7 +344,7 @@ class InterProcessReaderWriterLock:
             self._do_open()
             watch = StopWatch(duration=timeout)
             r = Retry(delay, max_delay,
-                             sleep_func=self.sleep_func, watch=watch)
+                            sleep_func=self.sleep_func, watch=watch)
             with watch:
                 gotten = r(self._try_acquire, blocking, watch, exclusive)
             
@@ -373,8 +373,8 @@ class InterProcessReaderWriterLock:
     
     # Re-implementing _acquire to be cleaner and safer
     def _acquire(self, blocking=True,
-                 delay=0.01, max_delay=0.1,
-                 timeout=None, exclusive=True):
+                delay=0.01, max_delay=0.1,
+                timeout=None, exclusive=True):
         if delay < 0:
             raise ValueError("Delay must be greater than or equal to zero")
         if timeout is not None and timeout < 0:
@@ -387,7 +387,7 @@ class InterProcessReaderWriterLock:
             self._do_open()
             watch = StopWatch(duration=timeout)
             r = Retry(delay, max_delay,
-                             sleep_func=self.sleep_func, watch=watch)
+                            sleep_func=self.sleep_func, watch=watch)
             with watch:
                 gotten = r(self._try_acquire, blocking, watch, exclusive)
             
@@ -415,13 +415,13 @@ class InterProcessReaderWriterLock:
             _interprocess_reader_writer_mechanism.unlock(self.lockfile)
         except IOError:
             self.logger.exception("Could not unlock the acquired lock opened"
-                                  " on `%s`", self.path)
+                                " on `%s`", self.path)
         else:
             try:
                 self._do_close()
             except IOError:
                 self.logger.exception("Could not close the file handle"
-                                      " opened on `%s`", self.path)
+                                    " opened on `%s`", self.path)
             else:
                 self.logger.log(BLATHER,
                                 "Unlocked and closed file lock open on"
@@ -433,13 +433,13 @@ class InterProcessReaderWriterLock:
             _interprocess_reader_writer_mechanism.unlock(self.lockfile)
         except IOError:
             self.logger.exception("Could not unlock the acquired lock opened"
-                                  " on `%s`", self.path)
+                                " on `%s`", self.path)
         else:
             try:
                 self._do_close()
             except IOError:
                 self.logger.exception("Could not close the file handle"
-                                      " opened on `%s`", self.path)
+                                    " opened on `%s`", self.path)
             else:
                 self.logger.log(BLATHER,
                                 "Unlocked and closed file lock open on"
@@ -492,7 +492,7 @@ def interprocess_locked(path: Union[Path, str]):
 
     Args:
         path: Path to the file used for locking.
-   """
+    """
     lock = InterProcessLock(path)
 
     def decorator(f):

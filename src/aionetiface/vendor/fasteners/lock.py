@@ -33,8 +33,8 @@ class ReaderWriterLock(object):
     READER = 'r'  #: Reader owner type/string constant.
 
     def __init__(self,
-                 condition_cls=threading.Condition,
-                 current_thread_functor=threading.current_thread):
+                condition_cls=threading.Condition,
+                current_thread_functor=threading.current_thread):
         """
         Args:
             condition_cls:
@@ -123,8 +123,8 @@ class ReaderWriterLock(object):
     def _acquire_read_lock(self, me):
         if me in self._pending_writers:
             raise RuntimeError("Writer %s can not acquire a read lock"
-                               " while waiting for the write lock"
-                               % me)
+                            " while waiting for the write lock"
+                            % me)
         with self._cond:
             while True:
                 # No active writer, or we are the writer;
@@ -177,7 +177,7 @@ class ReaderWriterLock(object):
     def _acquire_write_lock(self, me):
         if self.is_reader():
             raise RuntimeError("Reader %s to writer privilege"
-                               " escalation not allowed" % me)
+                            " escalation not allowed" % me)
 
         with self._cond:
             self._pending_writers.append(me)
