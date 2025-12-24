@@ -2,7 +2,6 @@
 from setuptools import setup, find_packages
 from codecs import open
 from os import path
-import sys
 
 
 here = path.abspath(path.dirname(__file__))
@@ -11,16 +10,16 @@ here = path.abspath(path.dirname(__file__))
 with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
-install_reqs = ["ntplib", "ecdsa"]
-if sys.platform != "win32":
-    install_reqs += ["netifaces"]
-    if sys.platform != "darwin":
-        install_reqs += ["pyroute2"]
-else:
-    install_reqs += ["winregistry"]
+install_reqs = [
+    "ntplib",
+    "ecdsa",
+    "netifaces; platform_system != 'Windows'",
+    "pyroute2; platform_system == 'Linux'",
+    "winregistry; platform_system == 'Windows'",
+]
 
 setup(
-    version='0.0.8',
+    version='0.0.9',
     name='aionetiface',
     description='Asynchronous networking library ',
     keywords=('test, python'),
