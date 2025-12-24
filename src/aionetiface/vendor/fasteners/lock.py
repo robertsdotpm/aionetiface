@@ -283,7 +283,7 @@ def locked(*args, **kwargs):
         def wrapper(self, *args, **kwargs):
             attr_value = getattr(self, attr_name)
             if isinstance(attr_value, (tuple, list)):
-                with _utils.LockStack(logger=logger) as stack:
+                with LockStack(logger=logger) as stack:
                     for i, lock in enumerate(attr_value):
                         if not stack.acquire_lock(lock):
                             raise threading.ThreadError("Unable to acquire"
