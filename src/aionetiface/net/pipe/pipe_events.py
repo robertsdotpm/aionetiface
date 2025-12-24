@@ -378,12 +378,17 @@ class PipeEvents(BaseACKProto):
         """
         if self.sock:
             loop = asyncio.get_event_loop()
-            on_close = loop.await_fd_close(self.sock)
+            if hasattr(loop, "await_fd_close"):
+                on_close = loop.await_fd_close(self.sock)
+            else:
+                on_close = None
+
             if self.transport is not None:
                 self.transport.close()
                 await asyncio.sleep(0)
 
-            await on_close
+            if on_close:
+                await on_close
 
         """
         If it's a TCP server close TCP client cons.
