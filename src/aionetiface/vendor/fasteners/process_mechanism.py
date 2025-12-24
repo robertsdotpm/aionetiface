@@ -73,17 +73,17 @@ class _WindowsInterProcessReaderWriterLockMechanism(_InterProcessReaderWriterLoc
     def trylock(lockfile, exclusive):
 
         if exclusive:
-            flags = win32con.LOCKFILE_FAIL_IMMEDIATELY | win32con.LOCKFILE_EXCLUSIVE_LOCK
+            flags = LOCKFILE_FAIL_IMMEDIATELY | LOCKFILE_EXCLUSIVE_LOCK
         else:
             flags = win32con.LOCKFILE_FAIL_IMMEDIATELY
 
         handle = msvcrt.get_osfhandle(lockfile.fileno())
-        ok = win32file.LockFileEx(handle, flags, 0, 1, 0, win32file.pointer(pywintypes.OVERLAPPED()))
+        ok = LockFileEx(handle, flags, 0, 1, 0, pointer(OVERLAPPED()))
         if ok:
             return True
         else:
-            last_error = win32file.GetLastError()
-            if last_error == win32file.ERROR_LOCK_VIOLATION:
+            last_error = GetLastError()
+            if last_error == ERROR_LOCK_VIOLATION:
                 return False
             else:
                 raise OSError(last_error)
@@ -91,9 +91,9 @@ class _WindowsInterProcessReaderWriterLockMechanism(_InterProcessReaderWriterLoc
     @staticmethod
     def unlock(lockfile):
         handle = msvcrt.get_osfhandle(lockfile.fileno())
-        ok = win32file.UnlockFileEx(handle, 0, 1, 0, win32file.pointer(pywintypes.OVERLAPPED()))
+        ok = UnlockFileEx(handle, 0, 1, 0, pointer(OVERLAPPED()))
         if not ok:
-            raise OSError(win32file.GetLastError())
+            raise OSError(GetLastError())
 
     @staticmethod
     def get_handle(path):
@@ -140,9 +140,10 @@ class _FcntlInterProcessReaderWriterLockMechanism(_InterProcessReaderWriterLockM
 
 if os.name == 'nt':
     import msvcrt
-    import fasteners.pywin32.pywintypes as pywintypes
-    import fasteners.pywin32.win32con as win32con
-    import fasteners.pywin32.win32file as win32file
+    from .pywintypes import OVERLAPPED
+    from .win32con import LOCKFILE_EXCLUSIVE_LOCK, LOCKFILE_FAIL_IMMEDIATELY
+    from .pywin32.win32file import GetLastError, pointer, UnlockFileEx
+    from .pywin32.win32file import ERROR_LOCK_VIOLATION, LockFileEx
 
     _interprocess_reader_writer_mechanism = _WindowsInterProcessReaderWriterLockMechanism()
     _interprocess_mechanism = _WindowsInterProcessMechanism()

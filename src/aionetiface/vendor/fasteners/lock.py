@@ -378,7 +378,7 @@ def write_locked(*args, **kwargs):
 
 
 @contextlib.contextmanager
-def try_lock(lock: threading.Lock) -> bool:
+def try_lock(lock: threading.Lock):
     """Context manager that attempts to acquire a lock without a timeout, and
     releases it on exit (if acquired).
 
