@@ -19,7 +19,7 @@ install_reqs = [
 ]
 
 setup(
-    version='0.0.10',
+    version='0.0.12',
     name='aionetiface',
     description='Asynchronous networking library ',
     keywords=('test, python'),
