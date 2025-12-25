@@ -3,6 +3,10 @@
 to get the tup from the new function
 - replace bind tup code in Bind
 - add new fallback code to interface
+
+todo: older python versions on windows have %name added to the ipv6 bind tup output
+that varies based on the python version. Need to normalize that in the binder function
+without breaking it.
 """
 
 from aionetiface import *
@@ -24,12 +28,12 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
             [
                 "Windows",
                 [IP6, "localhost", 80, None],
-                ('0000:0000:0000:0000:0000:0000:0000:0001', 80, 0, 0)
+                ('::1', 80, 0, 0)
             ],
             [
                 "Windows",
                 [IP6, "::1", 80, None],
-                ('0000:0000:0000:0000:0000:0000:0000:0001', 80, 0, 0)
+                ('::1', 80, 0, 0)
             ],
             [
                 "Windows",
@@ -49,22 +53,22 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
             [
                 "Windows",
                 [IP6, "*", 80, None],
-                ('0000:0000:0000:0000:0000:0000:0000:0000', 80, 0, 0)
+                ('::', 80, 0, 0)
             ],
             [
                 "Windows",
                 [IP6, "", 80, None],
-                ('0000:0000:0000:0000:0000:0000:0000:0000', 80, 0, 0)
+                ('::', 80, 0, 0)
             ],
             [
                 "Windows",
                 [IP6, "::", 80, None],
-                ('0000:0000:0000:0000:0000:0000:0000:0000', 80, 0, 0)
+                ('::', 80, 0, 0)
             ],
             [
                 "Windows",
                 [IP6, "::/0", 80, None],
-                ('0000:0000:0000:0000:0000:0000:0000:0000', 80, 0, 0)
+                ('::', 80, 0, 0)
             ],
             [
                 "Windows",
@@ -79,17 +83,17 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
             [
                 "Windows",
                 [IP6, "fe80::6c00:b217:18ca:e365", 80, 3],
-                ('fe80:0000:0000:0000:6c00:b217:18ca:e365', 80, 0, 3)
+                ('fe80::6c00:b217:18ca:e365%3', 80, 0, 3)
             ],
             [
                 "Windows",
                 [IP6, "fd12:3456:789a:1::1", 80, 3],
-                ('fd12:3456:789a:0001:0000:0000:0000:0001', 80, 0, 3)
+                ('fd12:3456:789a:1::1%3', 80, 0, 3)
             ],
             [
                 "Windows",
                 [IP6, "2402:1f00:8101:83f::1", 80, 3],
-                ('2402:1f00:8101:083f:0000:0000:0000:0001', 80, 0, 0)
+                ('2402:1f00:8101:83f::1', 80, 0, 0)
             ],
             [
                 "debian",
@@ -99,7 +103,7 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
             [
                 "debian",
                 [IP6, "::", 80, 3],
-                ('0000:0000:0000:0000:0000:0000:0000:0000', 80, 0, 0)
+                ('::', 80, 0, 0)
             ],
             [
                 "debian",
@@ -109,12 +113,12 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
             [
                 "debian",
                 [IP6, "fe80::6c00:b217:18ca:e365", 80, 3],
-                ('fe80:0000:0000:0000:6c00:b217:18ca:e365', 80, 0, 3)
+                ('fe80::6c00:b217:18ca:e365', 80, 0, 3)
             ],
             [
                 "debian",
                 [IP6, "2402:1f00:8101:83f::1", 80, 3],
-                ('2402:1f00:8101:083f:0000:0000:0000:0001', 80, 0, 0)
+                ('2402:1f00:8101:83f::1', 80, 0, 0)
             ],
             [
                 "debian",
@@ -128,6 +132,7 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
             ],
         ]
 
+        failed = 0
         for vector in vectors:
             our_plat = platform.system()
             plat, params, expected = vector
@@ -144,7 +149,9 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
             if out != expected:
                 print("test_binder failed")
                 print(plat, " ", out, " != ", expected)
-                assert(False)
+                failed += 1
+
+        assert(failed == 0)
 
     async def test_bind_closure(self):
         pass

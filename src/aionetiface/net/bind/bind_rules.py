@@ -69,8 +69,8 @@ def resolve_bind_tuple(initial_tup, ip, af, nic_id, plat, bind_magic):
     Processes IP_BIND_TUP rules to modify the tuple (e.g. Scope IDs) after lookup.
     """
     bind_tup = initial_tup
-    ip = ip_norm(initial_tup[0]) # Strip % from IP for consistency.
-    bind_tup = (ip, ) + bind_tup[1:]
+    #ip = ip_norm(initial_tup[0]) # Strip % from IP for consistency.
+    #bind_tup = [ip, ] + bind_tup[1:]
 
     for bind_rule in bind_magic:
         # Skip rule types we're not processing.
