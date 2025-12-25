@@ -101,7 +101,9 @@ def resolve_bind_tuple(initial_tup, ip, af, nic_id, plat, bind_magic):
     portion stripped from the IP and only in the fourth field.
     Older versions don't do that, hence keep the tup consistent.
     """
-    bind_tup = (ip_strip_if(bind_tup[0]),) + bind_tup[1:]
+    if af == IP6:
+        bind_tup = (ip_strip_if(bind_tup[0]),) + bind_tup[1:]
+    
     return bind_tup
 
 # --- Main Functions ---
