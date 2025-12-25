@@ -149,13 +149,9 @@ def aionetiface_setup_event_loop():
             multiprocessing.set_start_method("spawn")
 
     patch_asyncio_backports(CustomEventLoop)
-
-    """
-    TODO: re-enable this later. 
     policy = asyncio.get_event_loop_policy()
     if not isinstance(policy, CustomEventLoopPolicy):
         asyncio.set_event_loop_policy(CustomEventLoopPolicy())
-    """
 
     """
     # Patch that also advances logical time of registered sys clocks.
