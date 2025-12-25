@@ -1,10 +1,12 @@
 include requirements.txt
 include LICENSE
 include CREDITS.md
+include src/aionetiface/net/asyncio/create_udp_fallback.py
 graft examples
 graft docs
 graft tests
 graft notes
 global-exclude __pycache__
-global-exclude *.py[cod]
+global-exclude *.pyc
+global-exclude *.pyo
 global-exclude program.log
