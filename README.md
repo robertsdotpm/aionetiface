@@ -1,8 +1,6 @@
 # aionetiface
 
-Python: >= 3.5 asyncio
-
-OSes: Windows, Linux, Mac, BSD, Android
+Python: >= 3.5 asyncio Windows, Linux, Mac, BSD, Android
 
 Event loops: Selector, Proactor (Windows), "CustomEventLoop" (aionetifaces
 slightly better version of selector), maybe uvloop in the future.
