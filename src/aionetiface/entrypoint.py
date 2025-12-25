@@ -128,18 +128,6 @@ async def aionetiface_setup_netifaces():
         _cached_netifaces = netifaces
         return netifaces
 
-
-def init_process_pool():
-    # Make selector default event loop.
-    # On Windows this changes it from proactor to selector.
-    asyncio.set_event_loop_policy(CustomEventLoopPolicy())
-
-    # Create new event loop in the process.
-    loop = asyncio.get_event_loop()
-
-    # Handle exceptions on close.
-    loop.set_exception_handler(handle_exceptions)
-
 def aionetiface_setup_event_loop():
     # -----------------------------
     # Patch logic based on Python version
@@ -161,9 +149,13 @@ def aionetiface_setup_event_loop():
             multiprocessing.set_start_method("spawn")
 
     patch_asyncio_backports(CustomEventLoop)
+
+    """
+    TODO: re-enable this later. 
     policy = asyncio.get_event_loop_policy()
     if not isinstance(policy, CustomEventLoopPolicy):
         asyncio.set_event_loop_policy(CustomEventLoopPolicy())
+    """
 
     """
     # Patch that also advances logical time of registered sys clocks.

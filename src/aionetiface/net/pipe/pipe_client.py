@@ -5,6 +5,7 @@ from ..net_utils import *
 from ..ip_range import *
 from .pipe_defs import *
 from .pipe_utils import *
+from ..asyncio.create_udp_fallback import PolledDatagramTransport
 
 """
 The code in this class supports a pull / fetch style use-case.
@@ -12,6 +13,7 @@ More suitable for some apps whereas the parent class allows
 for handles to handle messages as they come in. The fetching
 API needs for messages to be subscribed to beforehand.
 """
+DGRAM_TYPES_EXTENDED = DATAGRAM_TYPES + (PolledDatagramTransport,)
 class PipeClient(ACKUDP):
     def __init__(self, pipe_events, loop=None, conf=NET_CONF):
         super().__init__()
@@ -218,7 +220,8 @@ class PipeClient(ACKUDP):
 
             # UDP send -- not connected - can be sent to anyone.
             # Single handle for multiplexing.
-            if isinstance(handle, DATAGRAM_TYPES):
+            if isinstance(handle, DGRAM_TYPES_EXTENDED):
+                print("handle in dgram types ", handle, dest_tup)
                 handle.sendto(
                     data,
                     dest_tup

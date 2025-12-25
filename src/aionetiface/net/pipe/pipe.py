@@ -20,6 +20,7 @@ https://bugs.python.org/issue34795
 """
 
 import asyncio
+import sys
 from ...utility.utils import *
 from ..net_utils import *
 from ..bind import *
@@ -27,11 +28,12 @@ from .pipe_events import *
 from ..address import Address
 from ..ip_range import IPRange
 from ..address import *
-from ..asyncio.asyncio_patches import *
+from ..asyncio.asyncio_patches import create_datagram_endpoint
 from ..asyncio.async_run import *
 from .pipe_tcp_events import *
 from ..socket import *
 from .pipe_defs import *
+from ..asyncio.create_udp_fallback import *
 
 class PipeError(Exception):
     pass
@@ -293,13 +295,31 @@ class Pipe:
             self.pipe_events.add_msg_cb(msg_cb)
 
         # UDP / RUDP setup
+        major, minor = sys.version_info[:2]
         if self.proto in (UDP, RUDP):
             # Create a new protocol-based datagram transport.
-            transport, _ = await create_datagram_endpoint(
-                loop, 
-                lambda: self.pipe_events, 
-                sock=self.sock
-            )
+            """
+            On old Python versions on Windows with ProactorEventLoop,
+            asyncio's default UDP transport does not work. Use
+            a fallback implementation instead.
+            """
+            old_python = (major, minor) < (3, 8)
+            on_windows = sys.platform == "win32"
+            with_proactor = isinstance(loop, asyncio.ProactorEventLoop)
+            if old_python and on_windows and with_proactor:
+                if not hasattr(loop, "udp_poller"):
+                    udp_poller = UdpPoller(loop)
+                    loop.udp_poller = udp_poller
+
+                transport = PolledDatagramTransport(loop, self.sock, self.pipe_events)
+                loop.udp_poller.register(transport)
+            else:
+                # Use standard asyncio method for creating UDP transport.
+                transport, _ = await create_datagram_endpoint(
+                    loop, 
+                    lambda: self.pipe_events, 
+                    sock=self.sock
+                )
 
             # Likely never triggered as exceptions are raised instead.
             if transport is None:
