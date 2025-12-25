@@ -1,7 +1,12 @@
 # aionetiface
 
+Python: >= 3.5 asyncio
+OSes: Windows, Linux, Mac, BSD, Android
+Event loops: Selector, Proactor (Windows), "CustomEventLoop" (aionetifaces
+slightly better version of selector), maybe uvloop in the future.
+
 Aionetiface is a networking library for >= Python 3.5 that supports
-multi-interface networking on most modern OSes. It includes back-ported patches from recent Python versions to make asyncio work better on older versions of Python as well as new features that aren't possible with asyncio today. EG:
+multi-interface networking on most modern OSes. It includes back-ported patches from recent Python versions to make asyncio work better on older versions of Python as well as new features that aren't possible with asyncio today. 
 
 ```python3
    from aionetiface import *
@@ -11,7 +16,7 @@ multi-interface networking on most modern OSes. It includes back-ported patches 
 
 You can use aionetiface to write software that works across multiple networks (like VPNs, proxies, file software, servers, etc.) The
 software has many interesting features that set it apart from other libraries like being able to correctly identify external addressing
-information and making that easy to use. 
+information and making that easy to use.
 
 ```python3
    # Bind to the first external IPv6 available

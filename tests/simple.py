@@ -1,7 +1,7 @@
 from aionetiface import *
 
 # set event loop to ProactorEventLoop
-asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+#asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 async def workspace():
     loop = asyncio.get_event_loop()

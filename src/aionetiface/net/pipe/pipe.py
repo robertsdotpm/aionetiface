@@ -305,7 +305,11 @@ class Pipe:
             """
             old_python = (major, minor) < (3, 8)
             on_windows = sys.platform == "win32"
-            with_proactor = isinstance(loop, asyncio.ProactorEventLoop)
+            if hasattr(asyncio, "ProactorEventLoop"):
+                with_proactor = isinstance(loop, asyncio.ProactorEventLoop)
+            else:
+                with_proactor = False
+
             if old_python and on_windows and with_proactor:
                 if not hasattr(loop, "udp_poller"):
                     udp_poller = UdpPoller(loop)
