@@ -136,20 +136,22 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
         for vector in vectors:
             our_plat = platform.system()
             plat, params, expected = vector
-            if our_plat != "Windows" and plat == "Windows":
+            if our_plat != plat:
                 continue
 
             try:
                 out = await binder_async(*params, plat=plat)
             except:
                 what_exception()
-                print("skipping ", cvector)
+                print("skipping ", vector)
                 continue
 
             if out != expected:
                 print("test_binder failed")
                 print(plat, " ", out, " != ", expected)
                 failed += 1
+            else:
+                print(plat, " ", out, " == ", expected)
 
         assert(failed == 0)
 
