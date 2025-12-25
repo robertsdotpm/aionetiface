@@ -95,6 +95,12 @@ def resolve_bind_tuple(initial_tup, ip, af, nic_id, plat, bind_magic):
         # Only one rule ran per type.
         break
     
+    """
+    On recent versions of getaddr info when you pass in ip%scope_id
+    the function returns the 4 tuple bind address with the scope_id
+    portion stripped from the IP and only in the fourth field.
+    Older versions don't do that, hence keep the tup consistent.
+    """
     bind_tup = (ip_strip_if(bind_tup[0]),) + bind_tup[1:]
     return bind_tup
 
