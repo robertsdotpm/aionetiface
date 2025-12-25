@@ -22,7 +22,7 @@ def get_bind_magic_table(af):
         ["*", IP4, IP_APPEND, V4_VALID_ANY, "0.0.0.0", ""],
 
         # Windows needs the nic no added to v6 private IPs.
-        ["Windows", IP6, IP_APPEND, IP_PRIVATE, "", "nic_id"],
+        #["Windows", IP6, IP_APPEND, IP_PRIVATE, "", "nic_id"],
 
         # ... whereas other operating systems use the interface name.
         ["*", IP6, IP_APPEND, IP_PRIVATE, "", "nic_id"],
