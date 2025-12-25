@@ -39,7 +39,7 @@ class TestPyExamples(unittest.IsolatedAsyncioTestCase):
             coro = globals().get("example")
             await coro()
 
-        log("py example ", n, " passed")
+        log("py example " + str(n) + " passed")
 
     async def test_2(self):
         await self.do_py_example(2)
