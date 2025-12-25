@@ -221,7 +221,6 @@ class PipeClient(ACKUDP):
             # UDP send -- not connected - can be sent to anyone.
             # Single handle for multiplexing.
             if isinstance(handle, DGRAM_TYPES_EXTENDED):
-                print("handle in dgram types ", handle, dest_tup)
                 handle.sendto(
                     data,
                     dest_tup
