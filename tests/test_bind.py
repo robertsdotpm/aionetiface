@@ -138,12 +138,12 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
                 out = await binder_async(*params, plat=plat)
             except:
                 what_exception()
-                print(f"skipping {vector}")
+                print("skipping ", cvector)
                 continue
 
             if out != expected:
                 print("test_binder failed")
-                print(f"{plat} {out} != {expected}")
+                print(plat, " ", out, " != ", expected)
                 assert(False)
 
     async def test_bind_closure(self):

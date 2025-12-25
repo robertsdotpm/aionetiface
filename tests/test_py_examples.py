@@ -16,7 +16,7 @@ EXAMPLES_DIR = os.path.join(
 class TestPyExamples(unittest.IsolatedAsyncioTestCase):
     async def do_py_example(self, n):
         print(n)
-        py_path = os.path.join(EXAMPLES_DIR, f"example_{n}.py")
+        py_path = os.path.join(EXAMPLES_DIR, "example_" + str(n) + ".py")
         with open(py_path) as fp:
             py_code = fp.read()
 
@@ -31,7 +31,7 @@ class TestPyExamples(unittest.IsolatedAsyncioTestCase):
             try:
                 exec(py_code, globals())
             except Exception as e:
-                print(f"Py example {n} failed.")
+                print("Py example ", n, " failed")
                 what_exception()
                 assert(0)
 
@@ -39,7 +39,7 @@ class TestPyExamples(unittest.IsolatedAsyncioTestCase):
             coro = globals().get("example")
             await coro()
 
-        log(f"py example {n} passed")
+        log("py example ", n, " passed")
 
     async def test_2(self):
         await self.do_py_example(2)

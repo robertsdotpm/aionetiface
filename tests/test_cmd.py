@@ -11,7 +11,7 @@ class TestCmd(unittest.IsolatedAsyncioTestCase):
         # So paths with spaces don't break the command.
         py = sys.executable
         c = "import sys; print(sys.argv[-1], end='')"
-        buf = f"{py}\" -c \"{c}\" " + s
+        buf = py + "\" -c \"" + c + "\" " + s
         return await cmd(buf)
 
     async def test_escape(self):
@@ -142,13 +142,13 @@ class TestCmd(unittest.IsolatedAsyncioTestCase):
             # How is param serialized.
             exp_param = await self.do_esc_test(safe_param)
             if exp_param != unsafe_param:
-                print(f"{exp_param} != {unsafe_param}")
+                print(exp_param, " != ", unsafe_param)
 
             self.assertTrue(isinstance(exp_param, str))
 
     async def test_cmd(self):
         py = sys.executable
-        out = await cmd(f""""{py}" -c "print('something')" """)
+        out = await cmd('"' + py + """"" -c "print('something')" """)
         self.assertTrue("something" in out)
 
     async def test_is_root(self):
