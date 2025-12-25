@@ -83,12 +83,12 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
             [
                 "Windows",
                 [IP6, "fe80::6c00:b217:18ca:e365", 80, 3],
-                ('fe80::6c00:b217:18ca:e365%3', 80, 0, 3)
+                ('fe80::6c00:b217:18ca:e365', 80, 0, 3)
             ],
             [
                 "Windows",
                 [IP6, "fd12:3456:789a:1::1", 80, 3],
-                ('fd12:3456:789a:1::1%3', 80, 0, 3)
+                ('fd12:3456:789a:1::1', 80, 0, 3)
             ],
             [
                 "Windows",
