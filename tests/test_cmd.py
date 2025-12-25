@@ -148,7 +148,7 @@ class TestCmd(unittest.IsolatedAsyncioTestCase):
 
     async def test_cmd(self):
         py = sys.executable
-        out = await cmd('"' + py + """"" -c "print('something')" """)
+        out = await cmd('"' + py + '" -c "print(\'something\')"')
         self.assertTrue("something" in out)
 
     async def test_is_root(self):
