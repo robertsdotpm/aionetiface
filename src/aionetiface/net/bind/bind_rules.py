@@ -95,7 +95,7 @@ def resolve_bind_tuple(initial_tup, ip, af, nic_id, plat, bind_magic):
         # Only one rule ran per type.
         break
     
-    bind_tup = (ip_norm(bind_tup[0]),) + bind_tup[1:]
+    bind_tup = (ip_strip_if(bind_tup[0]),) + bind_tup[1:]
     return bind_tup
 
 # --- Main Functions ---
