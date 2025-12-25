@@ -589,22 +589,6 @@ async def gather_or_cancel(tasks, timeout):
     finally:
         return []
 
-def selector_event_loop():
-    selector = selectors.SelectSelector()
-    return asyncio.SelectorEventLoop(selector)
-
-def get_loop(loop=None):
-    return selector_event_loop()
-    if loop is None:
-        if sys.platform == "win32":
-            loop = asyncio.ProactorEventLoop()
-        else:
-            loop = asyncio.get_event_loop()
-    else:
-        loop = loop()
-
-    return loop
-
 # Handle stray exceptions in the event loop.
 def handle_exceptions(loop, context):
     pass

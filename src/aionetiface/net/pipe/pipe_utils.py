@@ -10,7 +10,8 @@ def tup_to_sub(dest_tup):
 
 def norm_client_tup(client_tup):
     ip = ip_norm(client_tup[0])
-    return (ip, client_tup[1])
+    return (ip, client_tup[1]) 
+    return (ip,) + client_tup[1:]
 
 async def close_all_clients(tcp_clients, loop=None, timeout=1.0):
     if loop is None:

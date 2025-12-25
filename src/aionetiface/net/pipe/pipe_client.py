@@ -221,11 +221,31 @@ class PipeClient(ACKUDP):
             # UDP send -- not connected - can be sent to anyone.
             # Single handle for multiplexing.
             if isinstance(handle, DGRAM_TYPES_EXTENDED):
+                # On Windows with ProactorEventLoop we need
+                # to add the interface index for link-local
+                # and global IPv6 addresses.
+                if isinstance(self.loop, asyncio.ProactorEventLoop):
+                    if self.route.af == IP6:
+                        if dest_tup[:2] in ("fe", "fd",):
+                            nic_id = int(self.route.interface.id)
+                        else:
+                            nic_id = 0
+                        
+                        # 4 tup dest for UDP IPv6.
+                        dest_tup = (
+                            dest_tup[0],
+                            dest_tup[1],
+                            0,
+                            nic_id
+                        )
+
                 handle.sendto(
                     data,
                     dest_tup
                 )
+
                 return 1
+
 
             # TCP send -- already bound to transport con.
             # TCP Transport instance.
@@ -238,7 +258,6 @@ class PipeClient(ACKUDP):
                     data
                 )
                 """
-                
 
                 return 1
 

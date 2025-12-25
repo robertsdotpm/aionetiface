@@ -1,4 +1,5 @@
 import asyncio
+import sys
 from ...utility.utils import *
 from ..net_utils import *
 from ..bind import *
@@ -7,7 +8,7 @@ from ..address import *
 from ..asyncio.asyncio_patches import *
 from .pipe_defs import *
 
-
+PY_13_OR_LATER = sys.version_info >= (3, 13)
 
 """
 StreamReaderProtocol provides a way to "translate" between
@@ -18,21 +19,20 @@ a client connection to a TCP server in a BaseProto object.
 """
 class TCPClientProtocol(asyncio.StreamReaderProtocol):
     def __init__(self, stream_reader, pipe_events, loop, conf=NET_CONF):
-        """
-        Patch for Python 3.13. Would be SOOOO fun if the Python
-        brainlets stopped randomly breaking the whole f***ing project. 
-        """
-        def set_streams(_reader, _writer):
-            if not hasattr(self, "_stream_reader"):
-                self._stream_reader = _reader
+        if PY_13_OR_LATER:
+            super().__init__(stream_reader)
+        else:
+            # Keep the old 3.5–3.12 set_streams hack
+            def set_streams(_reader, _writer):
+                if not hasattr(self, "_stream_reader"):
+                    self._stream_reader = _reader
 
-            if not hasattr(self, "_stream_writer"):
-                self._stream_writer = _writer
-                
-            return 1
+                if not hasattr(self, "_stream_writer"):
+                    self._stream_writer = _writer
 
-        # Setup stream reader / writers.
-        super().__init__(stream_reader, set_streams, loop=loop)
+                return 1
+
+            super().__init__(stream_reader, set_streams, loop=loop)
 
         """
         PipeEvents is created once before creating the main server with
@@ -69,6 +69,11 @@ class TCPClientProtocol(asyncio.StreamReaderProtocol):
         return False
 
     def connection_made(self, transport):
+        if PY_13_OR_LATER:
+            # Create StreamWriter manually
+            writer = asyncio.StreamWriter(transport, self, self._stream_reader, self.loop)
+            self._stream_writer = writer
+
         # Wrap this connection in a BaseProto object.
         self.transport = transport
         self.sock = transport.get_extra_info('socket')
