@@ -13,7 +13,7 @@ More suitable for some apps whereas the parent class allows
 for handles to handle messages as they come in. The fetching
 API needs for messages to be subscribed to beforehand.
 """
-DGRAM_TYPES_EXTENDED = DATAGRAM_TYPES + (PolledDatagramTransport,)
+
 class PipeClient(ACKUDP):
     def __init__(self, pipe_events, loop=None, conf=NET_CONF):
         super().__init__()
@@ -220,7 +220,7 @@ class PipeClient(ACKUDP):
 
             # UDP send -- not connected - can be sent to anyone.
             # Single handle for multiplexing.
-            if isinstance(handle, DGRAM_TYPES_EXTENDED):
+            if self.pipe_events.proto in (UDP, RUDP,):
                 """
                 When you bind to IPv6 you specify the 4 tup. The 4 tup must be
                 provided for dest (ip, port, 0, scope_id) but the last two can be
@@ -252,7 +252,7 @@ class PipeClient(ACKUDP):
 
             # TCP send -- already bound to transport con.
             # TCP Transport instance.
-            if isinstance(handle, STREAM_TYPES):
+            if self.pipe_events.proto == TCP:
                 # This also works for SSL wrapped sockets.
                 handle.write(data)
                 """
@@ -266,6 +266,7 @@ class PipeClient(ACKUDP):
 
             return 0
         except Exception as e:
+            what_exception()
             log(fstr(" send error {0}", (self.handle,)))
             log_exception()
             return 0

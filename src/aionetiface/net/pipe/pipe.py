@@ -34,6 +34,7 @@ from .pipe_tcp_events import *
 from ..socket import *
 from .pipe_defs import *
 from ..asyncio.create_udp_fallback import *
+from ..asyncio.event_loop import CustomEventLoop
 
 class PipeError(Exception):
     pass
@@ -319,11 +320,19 @@ class Pipe:
                 loop.udp_poller.register(transport)
             else:
                 # Use standard asyncio method for creating UDP transport.
-                transport, _ = await create_datagram_endpoint(
-                    loop, 
-                    lambda: self.pipe_events, 
-                    sock=self.sock
-                )
+                # Note: Use patched version of create_datagram_endpoint.
+                if isinstance(loop, (asyncio.SelectorEventLoop, CustomEventLoop,)):
+                    transport, _ = await create_datagram_endpoint(
+                        loop=loop, 
+                        protocol_factory=lambda: self.pipe_events, 
+                        sock=self.sock
+                    )
+                else:
+                    # Unknown event loop: Use the loops own version.
+                    transport, _ = await loop.create_datagram_endpoint(
+                        protocol_factory=lambda: self.pipe_events, 
+                        sock=self.sock
+                    )
 
             # Likely never triggered as exceptions are raised instead.
             if transport is None:
@@ -401,7 +410,7 @@ class Pipe:
 
                 # Wrap an already connected TCP socket.
                 await loop.create_connection(
-                    lambda: self.pipe_events, 
+                    protocol_factory=lambda: self.pipe_events, 
                     sock=self.sock, 
                     ssl=ctx, 
                     server_hostname=server_hostname

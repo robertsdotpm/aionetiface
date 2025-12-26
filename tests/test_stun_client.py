@@ -15,13 +15,14 @@ class TestStunClient(unittest.IsolatedAsyncioTestCase):
     Disabled for now (theres enough indirect tests for stun.)
     """
     async def test_stun_client(self):
-        return
-        i = await Interface()
+        i = await Interface("default")
         print(i)
     
-        dest = ("3.132.228.249", 3478)
-        s = STUNClient(IP4, dest, i)
-        _, _, p = await s.get_mapping()
+        dest = ("52.24.174.49", 3478)
+        s = STUNClient(IP4, dest, i, mode=RFC5389)
+        out = await s.get_wan_ip()
+        print(out)
+        return
     
 
         ctup = ("3.135.212.85", 3479)

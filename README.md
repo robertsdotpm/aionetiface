@@ -3,7 +3,7 @@
 Python: >= 3.5 asyncio Windows, Linux, Mac, BSD, Android
 
 Event loops: Selector, Proactor (Windows), "CustomEventLoop" (aionetifaces
-slightly better version of selector), maybe uvloop in the future.
+slightly better version of selector), uvloop
 
 Aionetiface is a networking library for >= Python 3.5 that supports
 multi-interface networking on most modern OSes. It includes back-ported patches from recent Python versions to make asyncio work better on older versions of Python as well as new features that aren't possible with asyncio today. 

@@ -117,7 +117,6 @@ PROTO_LOOKUP = {
 DATAGRAM_TYPES = [
     asyncio.selector_events._SelectorDatagramTransport,
     asyncio.DatagramTransport,
-    
 ]
 if sys.platform == "win32":
     if hasattr(asyncio.proactor_events, "_ProactorDatagramTransport"):

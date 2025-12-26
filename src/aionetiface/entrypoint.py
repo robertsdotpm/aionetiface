@@ -1,5 +1,5 @@
-import multiprocessing
 import asyncio
+import multiprocessing
 import socket
 import sys
 from .settings import *
@@ -138,6 +138,7 @@ def aionetiface_setup_event_loop():
         # First time setting this otherwise it will throw an error.
         if start_method is None:
             multiprocessing.set_start_method("spawn")
+
 
     patch_asyncio_backports(CustomEventLoop)
     policy = asyncio.get_event_loop_policy()
