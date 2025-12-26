@@ -221,24 +221,26 @@ class PipeClient(ACKUDP):
             # UDP send -- not connected - can be sent to anyone.
             # Single handle for multiplexing.
             if isinstance(handle, DGRAM_TYPES_EXTENDED):
-                # On Windows with ProactorEventLoop we need
-                # to add the interface index for link-local
-                # and global IPv6 addresses.
+                """
+                When you bind to IPv6 you specify the 4 tup. The 4 tup must be
+                provided for dest (ip, port, 0, scope_id) but the last two can be
+                inferred. However, that depends on OS, event-loop type, and Python
+                version. The correct pattern is to provide the full 4 tup for
+                the dest tup as well.
+                """
                 if self.route.af == IP6:
-                    if hasattr(asyncio, "ProactorEventLoop"):
-                        if isinstance(self.loop, asyncio.ProactorEventLoop):
-                            if dest_tup[:2] in ("fe", "fd",):
-                                nic_id = int(self.route.interface.id)
-                            else:
-                                nic_id = 0
-                            
-                            # 4 tup dest for UDP IPv6.
-                            dest_tup = (
-                                dest_tup[0],
-                                dest_tup[1],
-                                0,
-                                nic_id
-                            )
+                    if dest_tup[:2] in ("fe", "fd",):
+                        nic_id = int(self.route.interface.id)
+                    else:
+                        nic_id = 0
+                    
+                    # 4 tup dest for UDP IPv6.
+                    dest_tup = (
+                        dest_tup[0],
+                        dest_tup[1],
+                        0,
+                        nic_id
+                    )
 
                 handle.sendto(
                     data,

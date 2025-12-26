@@ -72,15 +72,6 @@ async def aionetiface_setup_netifaces():
 
         # Attempt to get monkey patched netifaces.
         if sys.platform == "win32":
-            """
-            loop = get_running_loop()
-
-            # This happens if the asyncio REPL is used.
-            # Nested event loops are a work around.
-            if loop is not None:
-                import nest_asyncio
-                nest_asyncio.apply()
-            """
             netifaces = await Netifaces().start()
         else:
             netifaces = sys.modules["netifaces"]
