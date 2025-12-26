@@ -25,6 +25,7 @@ class MinReader(asyncio.StreamReaderProtocol):
         super().__init__(reader)
 
     def connection_made(self, transport):
+
         self.transport = transport
         super().connection_made(transport)
 
@@ -33,6 +34,7 @@ class MinReader(asyncio.StreamReaderProtocol):
 
     # Patch for stream reader protocol bug.
     def eof_received(self):
+        return True
         reader = self._stream_reader
         if reader is not None:
             reader.feed_eof()
@@ -42,6 +44,7 @@ class MinReader(asyncio.StreamReaderProtocol):
     def connection_lost(self, exc):
         # The socket has been closed
         self.close_set = True
+        super().connection_lost(exc)
 
 async def create_server():
     reader = asyncio.StreamReader(limit=10000)
@@ -65,7 +68,7 @@ class TestPipe(unittest.IsolatedAsyncioTestCase):
         # intermittent on win 3.79 proactor
         # Run listen server.
 
-        
+
         server, dest, mr = await create_server()
 
         # Create client socket.
