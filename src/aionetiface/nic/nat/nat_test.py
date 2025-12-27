@@ -37,18 +37,22 @@ NAT_TEST_TIMEOUT = 0.5
 # Shows order of RFC 3489 NAT enumeration sets.
 NAT_TEST_SCHEMA = [
     # Detects: open NAT.
-    [STUN_CHANGE_NONE, "primary", "primary", "primary", "primary"],
+    # dest: primary, primary. reply: primary, primary
+    [STUN_CHANGE_NONE, 0, 0, 0, 0],
 
     # Detects: full cone NAT.
     # Change both reply IP and port.
-    [STUN_CHANGE_BOTH, "primary", "primary", "secondary", "secondary"],
+    # dest: primary, primary. reply: secondary, secondary
+    [STUN_CHANGE_BOTH, 0, 0, 3, 3],
 
     # Detects: non-symmetric NAT.
-    [STUN_CHANGE_NONE, "secondary", "primary", "secondary", "primary"],
+    # dest secondary, primary. reply: secondary, primary
+    [STUN_CHANGE_NONE, 2, 2, 2, 0],
 
     # Detects: between restrict and port restrict.
     # Change only the reply port.
-    [STUN_CHANGE_PORT, "secondary", "primary", "secondary", "secondary"],
+    # dest: secondary, primary. reply: secondary, secondary.
+    [STUN_CHANGE_PORT, 2, 2, 3, 3],
 ]
 
 async def nat_test_exec(dest_addr, reply_addr, payload, mode, pipe, q, test_coro):
@@ -107,7 +111,7 @@ async def nat_test_workers(pipe, q, test_index, test_coro, servers, test_no):
                     payload,
 
                     # Mode to use for stun server.
-                    servers[server_no]["mode"],
+                    RFC3489,
 
                     # Pipe to reuse for UDP.
                     pipe,
@@ -163,8 +167,7 @@ def no_stun_resp_check(q_list):
 async def fast_nat_test(pipe, test_no=NAT_TEST_NO, timeout=NAT_TEST_TIMEOUT):
     # Use a random portion of change servers for
     # the NAT test.
-    serv_list = STUN_CHANGE_SERVERS[UDP][pipe.route.af]
-    serv_list = list_clone_rand(serv_list, test_no)
+    serv_list = get_infra(pipe.route.af, UDP, "STUN(test_nat)", no=test_no)
     test_servers = serv_list
 
     # Store STUN request results here.
@@ -250,6 +253,8 @@ async def nic_load_nat(nic, nat_tests=5, delta_tests=12, servs=None, timeout=4):
         af,
         test_no,
         nic,
+        RFC3489,
+        proto=UDP,
         servs=servs
     )
 

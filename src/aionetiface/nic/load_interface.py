@@ -96,13 +96,13 @@ async def load_interface(nic, netifaces, min_agree, max_agree, timeout):
         nic.rp[af] = RoutePool()
 
         # Used to resolve nic addresses.
-        servs = STUN_MAP_SERVERS[UDP][af][:max(20, max_agree)]
-        random.shuffle(servs)
+        servers = get_infra(af, UDP, "STUN(see_ip)", 20)
         stun_clients = await get_stun_clients(
             af,
             max_agree,
             nic,
-            servs=servs
+            RFC5389,
+            servs=servers
         )
 
         assert(len(stun_clients) <= max_agree)

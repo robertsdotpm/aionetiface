@@ -50,6 +50,7 @@ from .stun_defs import *
 from .stun_utils import *
 from ...utility.pattern_factory import *
 from ...settings import *
+from ...servers import *
 from ...nic.route.route import Route
 from ...net.bind.bind import *
 
@@ -177,7 +178,7 @@ class STUNClient():
         if hasattr(reply, "rtup"):
             return (ltup[1], reply.rtup[1], reply.pipe)
 
-async def get_stun_clients(af, max_agree, interface, proto=UDP, servs=None, conf=NET_CONF):
+async def get_stun_clients(af, max_agree, interface, mode, proto=UDP, servs=None, conf=NET_CONF):
     class MockRoute:
         def __init__(self):
             self.af = af
@@ -185,29 +186,31 @@ async def get_stun_clients(af, max_agree, interface, proto=UDP, servs=None, conf
 
     # Copy random STUN servers to use.
     if servs is None:
-        if proto == UDP:
-            stun_servs = STUN_CHANGE_SERVERS[proto][af]
-        else:
-            stun_servs = STUN_MAP_SERVERS[proto][af]
+        if mode == RFC3489:
+            name = "STUN(test_nat)"
+
+        if mode == RFC5389:
+            name = "STUN(see_ip)"
         
-        serv_list = list_clone_rand(stun_servs, max_agree)
+        serv_list = get_infra(af, proto, name, no=max_agree)
     else:
         serv_list = servs
 
     mock_route = MockRoute()
     stun_clients = []
     for serv_info in serv_list:
+        serv_info = serv_info[0]
         async def get_stun_client(serv_info):
             dest = (
-                serv_info["primary"]["ip"],
-                serv_info["primary"]["port"],
+                serv_info["ip"],
+                serv_info["port"],
             )
             return STUNClient(
                 af,
                 dest,
                 interface,
                 proto=proto,
-                mode=serv_info["mode"],
+                mode=mode,
                 conf=conf,
             )
         
