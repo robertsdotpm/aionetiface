@@ -1,7 +1,7 @@
 import os
 import pathlib
 import inspect
-import shutil
+import json
 from .utility.utils import *
 
 # Path to where the script is running from.
@@ -24,26 +24,6 @@ def get_aionetiface_install_root():
         )
     )
 
-# Home dir / aionetiface / kvs.sqlite3.
-# Used to store ECDSA key pairs that own PDNS names.
-def get_kvs_db_install_path(install_root):
-    return os.path.realpath(
-        os.path.join(
-            install_root,
-            "kvs.sqlite3"
-        )
-    )
-
-# Location in aionetiface install where the blank KVS db lives.
-def get_kvs_db_copy_path(script_parent):
-    return os.path.realpath(
-        os.path.join(
-            script_parent,
-            "scripts",
-            "kvs_schema.sqlite3"
-        )
-    )
-
 # Installs aionetiface files into home dir.
 # The software only needs this for using PDNS functions.
 def copy_aionetiface_install_files_as_needed():
@@ -51,13 +31,7 @@ def copy_aionetiface_install_files_as_needed():
     install_root = get_aionetiface_install_root()
     pathlib.Path(install_root).mkdir(parents=True, exist_ok=True)
 
-    # Copy KVS db if needed.
-    script_parent = get_script_parent()
-    kvs_db_copy_path = get_kvs_db_copy_path(script_parent)
-    kvs_db_install_path = get_kvs_db_install_path(install_root)
-    if not os.path.isfile(kvs_db_install_path):
-        shutil.copy(kvs_db_copy_path, kvs_db_install_path)
-
 
 if __name__ == '__main__':
     pass
+

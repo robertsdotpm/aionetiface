@@ -3,7 +3,7 @@ from functools import reduce
 import operator
 from .net.net_defs import *
 
-buf = """{
+INFRA_BUF = """{
   "STUN(see_ip)": {
     "IPv4": {
       "UDP": [
@@ -23002,10 +23002,16 @@ buf = """{
 }
 """
 
-INFRA = json.loads(buf)
+INFRA = json.loads(INFRA_BUF)
 
+"""
+could have an algorithm that expands the total server set like:
+[:attempt * 5] then random choice from it. it still makes use
+of the most reliable servers but the choices are expanded each
+time the function fails.
+"""
 # Placeholder.
-def get_infra(af, proto, name, no=1, attempt=0):
+def get_infra(af, proto, name, no=1, attempt=1):
 	af_str = ".IPv4" if af == IP4 else ".IPv6"
 	proto_str = ".UDP" if proto == UDP else ".TCP"
 	name = name + af_str + proto_str

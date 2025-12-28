@@ -9,10 +9,13 @@ from .net.asyncio.event_loop import *
 from .net.asyncio.async_run import *
 from .net.asyncio.asyncio_patches import *
 from .nic.interface_utils import *
+
 if sys.platform == "win32":
     from .nic.netifaces.windows.win_netifaces import *
 else:
     import netifaces as netifaces
+
+from .install import *
 
 _cached_netifaces = None
 _cache_lock = asyncio.Lock()

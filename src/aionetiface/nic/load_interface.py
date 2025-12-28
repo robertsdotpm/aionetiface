@@ -8,6 +8,8 @@ from .nat.nat_utils import *
 from .route.route_table import *
 from ..protocol.stun.stun_client import *
 from ..entrypoint import *
+from ..servers import *
+from ..updater import *
 
 # Load mac, nic_no, and process name.
 def load_if_info(nic):
@@ -67,6 +69,13 @@ async def load_interface(nic, netifaces, min_agree, max_agree, timeout):
     # Not needed.
     if nic.name == "default":
         return nic
+    
+    # Update internal server list if needed.
+    # Uses time.time which may not be accurate.
+    update_req, infra_buf, infra = await update_server_list(nic.__class__("default"))
+    if update_req:
+        INFRA_BUF = infra_buf
+        INFRA = infra
 
     stack = nic.stack
     log(fstr("Starting resolve with stack type = {0}", (stack,)))
