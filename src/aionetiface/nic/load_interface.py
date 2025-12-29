@@ -80,7 +80,7 @@ async def load_interface(nic, netifaces, min_agree, max_agree, timeout):
         INFRA_BUF = infra_buf
 
         # Merge entries that need to preserve order.
-        #reconcile_infra(INFRA, infra)
+        reconcile_infra(INFRA, infra)
         INFRA = infra
 
     stack = nic.stack

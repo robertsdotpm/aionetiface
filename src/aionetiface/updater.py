@@ -97,7 +97,7 @@ async def update_server_list(nic, sys_clock=time, init_infra_buf=INFRA_BUF, init
 
             # Basic output validation.
             # If server crashes, has a bug, etc, might not return anything.
-            if "timestamp" in infra:
+            if "timestamp" in resp_infra:
                 infra_buf = resp_buf
                 infra = resp_infra
                 update_req = True
@@ -112,10 +112,13 @@ async def update_server_list(nic, sys_clock=time, init_infra_buf=INFRA_BUF, init
     # Update the saved server file.
     # Only update it if needed.
     if update_req:
-        if os.path.exists(servers_path):
-            os.remove(servers_path)
-        with open(servers_path, 'w', encoding='utf-8') as fp:
+        # Write to a temp file.
+        tmp_path = servers_path + ".tmp"
+        with open(tmp_path, "w", encoding="utf-8") as fp:
             fp.write(infra_buf)
+
+        # Replace original server list with temp file.
+        os.replace(tmp_path, servers_path)
 
     # Can then be used to update env variables.
     return update_req, infra_buf, infra
