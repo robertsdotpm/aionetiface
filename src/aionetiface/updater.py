@@ -3,6 +3,61 @@ from .net.address import Address
 from .protocol.http.http_client_lib import WebCurl
 from .install import *
 
+"""
+Some existing code relies on preserving offsets for server
+entries so this keeps existing servers in place.
+"""
+def reconcile_lists(old_list, new_list):
+    def get_id(x):
+        return x[0]["id"]
+
+    new_by_id = {get_id(x): x for x in new_list}
+    old_by_id = {get_id(x): x for x in old_list}
+    old_ids = set(old_by_id.keys())
+
+    out = []
+    for x in old_list:
+        x_id = get_id(x)
+        if x_id in new_by_id:
+            # merge: use the new item
+            new_item = new_by_id[x_id].copy()
+
+            # if both port and old_port exist, swap them
+            if "port" in new_item[0] and "old_port" in old_by_id[x_id][0]:
+                new_item[0]["port"], new_item[0]["old_port"] = old_by_id[x_id][0]["old_port"], new_item[0]["port"]
+
+            out.append(new_item)
+        else:
+            # copy the old item and set port to 0
+            item_copy = x.copy()
+            item_copy[0]["old_port"] = item_copy[0]["port]"]
+            item_copy[0]["port"] = 0
+            out.append(item_copy)
+
+    # append new items not in old_list
+    for x in new_list:
+        x_id = get_id(x)
+        if x_id not in old_ids:
+            out.append(x)
+
+    return out
+
+"""
+TODO: just use a different address format for these.
+"""
+def reconcile_infra(old_infra, new_infra):
+    names = ("MQTT", "TURN",)
+    for name in names:
+        for af_str in ("IPv4", "IPv6"):
+            for proto_str in ("UDP", "TCP"):
+                try:
+                    new_infra[name][af_str][proto_str] = reconcile_lists(
+                        old_infra[name][af_str][proto_str],
+                        new_infra[name][af_str][proto_str]
+                    )
+                except Exception:
+                    log_exception()
+
 async def update_server_list(nic, sys_clock=time, init_infra_buf=INFRA_BUF, init_infra=INFRA):
     copy_aionetiface_install_files_as_needed()
     install_root = get_aionetiface_install_root()

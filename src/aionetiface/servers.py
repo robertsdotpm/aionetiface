@@ -23048,7 +23048,7 @@ def get_servers(servers, n, attempt):
         candidate_pool = servers[-n:]
         
     return random.sample(candidate_pool, n)
-
+    
 def get_infra(af, proto, name, no=1, attempt=0, chunk_size=4):
 	rng = random.Random(INFRA_SEED)
 	af_str = ".IPv4" if af == IP4 else ".IPv6"
