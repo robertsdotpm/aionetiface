@@ -37,9 +37,15 @@ async def update_server_list(nic, sys_clock=time, init_infra_buf=INFRA_BUF, init
             addr = ("ovh1.p2pd.net", 8000)
             client = WebCurl(addr, nic.route())
             resp = await client.get("/servers")
-            infra_buf = to_s(resp.out)
-            infra = json.loads(infra_buf)
-            update_req = True
+            resp_buf = to_s(resp.out)
+            resp_infra = json.loads(resp_buf)
+
+            # Basic output validation.
+            # If server crashes, has a bug, etc, might not return anything.
+            if "timestamp" in infra:
+                infra_buf = resp_buf
+                infra = resp_infra
+                update_req = True
         except Exception:
             log("Cannot fetch new server list.")
             log_exception()

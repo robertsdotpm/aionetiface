@@ -1,3 +1,4 @@
+import random
 import json
 from functools import reduce
 import operator
@@ -23003,26 +23004,57 @@ INFRA_BUF = """{
 """
 
 INFRA = json.loads(INFRA_BUF)
+INFRA_SEED = random.randint(1, 1000000000)
 
 """
-could have an algorithm that expands the total server set like:
-[:attempt * 5] then random choice from it. it still makes use
-of the most reliable servers but the choices are expanded each
-time the function fails.
+The get_servers function retrieves a randomized subset of n servers 
+from a quality-sorted list, using a sliding window strategy to balance 
+performance with load distribution. It targets the highest-ranked
+servers first but progressively shifts the selection pool down the 
+list as the attempt count increases. This ensures that initial 
+requests get the best available servers while retries access fresh 
+candidates, preventing "hotspots" where top servers get overloaded.
 """
-# Placeholder.
-def get_infra(af, proto, name, no=1, attempt=1):
+def get_servers(servers, n, attempt):
+    total_servers = len(servers)
+    
+    # --- Dynamic Configuration ---
+    
+    # 1. Calculate Window Size: 10% of fleet, but at least 5, max 100
+    pct_window = int(total_servers * 0.10)
+    window_size = max(5, min(100, pct_window))
+    
+    # 2. Calculate Slide Factor: Move the window by half its length on retry
+    slide_factor = max(1, window_size // 2)
+    
+    # --- Selection Logic ---
+    
+    # 3. Determine start index
+    start_index = attempt * slide_factor
+    
+    # 4. Determine end index
+    end_index = start_index + window_size
+    
+    # 5. Boundary Handling (prevent index errors)
+    if start_index >= total_servers:
+        # If we've slid past the end, just take the last 'n' servers
+        return servers[-n:]
+    
+    # 6. Slice the pool
+    candidate_pool = servers[start_index : end_index]
+    
+    # 7. Fallback if pool is too small (e.g. near end of list)
+    if len(candidate_pool) < n:
+        candidate_pool = servers[-n:]
+        
+    return random.sample(candidate_pool, n)
+
+def get_infra(af, proto, name, no=1, attempt=0, chunk_size=4):
+	rng = random.Random(INFRA_SEED)
 	af_str = ".IPv4" if af == IP4 else ".IPv6"
 	proto_str = ".UDP" if proto == UDP else ".TCP"
 	name = name + af_str + proto_str
-	out = []
 	parent = reduce(operator.getitem, name.split("."), INFRA)
-	
-	# 0 is len, otherwise any limit <= len.
-	limit = min(no, len(parent)) if no else len(parent)
-	for _ in range(0, limit):
-		out.append(random.choice(parent))
-		
-	return out
+	return get_servers(parent, no, attempt)
 
 
