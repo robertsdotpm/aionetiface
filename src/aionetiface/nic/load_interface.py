@@ -80,7 +80,7 @@ async def load_interface(nic, netifaces, min_agree, max_agree, timeout):
         INFRA_BUF = infra_buf
 
         # Merge entries that need to preserve order.
-        reconcile_infra(INFRA, infra)
+        #reconcile_infra(INFRA, infra)
         INFRA = infra
 
     stack = nic.stack
@@ -111,7 +111,7 @@ async def load_interface(nic, netifaces, min_agree, max_agree, timeout):
         nic.rp[af] = RoutePool()
 
         # Used to resolve nic addresses.
-        servers = get_infra(af, UDP, "STUN(see_ip)", 20)
+        servers = get_infra(af, UDP, "STUN(see_ip)", max_agree + 5)
         stun_clients = await get_stun_clients(
             af,
             max_agree,

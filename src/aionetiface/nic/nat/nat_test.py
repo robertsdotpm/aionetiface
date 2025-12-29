@@ -253,7 +253,7 @@ async def nic_load_nat(nic, nat_tests=5, delta_tests=12, servs=None, timeout=4):
         af,
         test_no,
         nic,
-        RFC3489,
+        RFC5389,
         proto=UDP,
         servs=servs
     )
