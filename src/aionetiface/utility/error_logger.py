@@ -36,10 +36,17 @@ def open_log_fd(tid):
 def log(msg):
     if not os.path.exists(LOGS_ROOT_PATH):
         return
+    
+    if type(msg) not in (str, bytes):
+        return
 
     tid = threading.get_ident()
     fd = open_log_fd(tid)
-    os.write(fd, msg.encode("utf-8") + b"\n")
+
+    if type(msg) == bytes:
+        os.write(fd, msg + b"\n")
+    else:
+        os.write(fd, msg.encode("utf-8") + b"\n")
 
 def log_exception():
     exc = "".join(traceback.format_exception(*sys.exc_info()))

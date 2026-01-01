@@ -31,13 +31,13 @@ https://datatracker.ietf.org/doc/html/rfc8489
 PNP_SERVERS = {
     IP4: [
         {
-            "host": "ovh1.aionetiface.net",
+            "host": "ovh1.p2pd.net",
             "ip": "158.69.27.176",
             "port": 5300,
             "pk": "03f20b5dcfa5d319635a34f18cb47b339c34f515515a5be733cd7a7f8494e97136"
         },
         {
-            "host": "hetzner1.aionetiface.net",
+            "host": "hetzner1.p2pd.net",
             "ip": "88.99.211.216",
             "port": 5300,
             "pk": "0249fb385ed71aee6862fdb3c0d4f8b193592eca4d61acc983ac5d6d3d3893689f"
@@ -45,13 +45,13 @@ PNP_SERVERS = {
     ],
     IP6: [
         {
-            "host": "ovh1.aionetiface.net",
+            "host": "ovh1.p2pd.net",
             "ip": "2607:5300:0060:80b0:0000:0000:0000:0001",
             "port": 5300,
             "pk": "03f20b5dcfa5d319635a34f18cb47b339c34f515515a5be733cd7a7f8494e97136"
         },
         {
-            "host": "hetzner1.aionetiface.net",
+            "host": "hetzner1.p2pd.net",
             "ip": "2a01:04f8:010a:3ce0:0000:0000:0000:0003",
             "port": 5300,
             "pk": "0249fb385ed71aee6862fdb3c0d4f8b193592eca4d61acc983ac5d6d3d3893689f"
