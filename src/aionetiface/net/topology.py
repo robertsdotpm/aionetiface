@@ -2,7 +2,7 @@ from .net_defs import *
 from .net_utils import *
 from .ip_range import *
 from ..nic.nat.nat_defs import *
-from ..nic.nat.nat_predict import *
+from ..nic.nat.nat_utils import *
 from ..settings import *
 import struct
 
