@@ -54,10 +54,14 @@ def parse_node_addr(addr):
         signal = []
         for dest_buf in p:
             dest_parts = dest_buf.split(b",")
-            if len(dest_parts) != 2:
+            if len(dest_parts) != 3:
                 continue
 
-            dest = (to_s(dest_parts[0]), int(dest_parts[1]))
+            dest = (
+                int(dest_parts[0]),
+                to_s(dest_parts[1]), 
+                int(dest_parts[2])
+            )
             signal.append(dest)
 
     # Parsed dict.
@@ -132,8 +136,18 @@ def parse_node_addr(addr):
     validate_node_addr(out)
 
     # Convert to tuple to prevent change.
-    out["signal"] = tuple(out["signal"])
+    #out["signal"] = tuple(out["signal"])
+    signal = {
+        IP4: [],
+        IP6: [],
+    }
+    for sig_item in out["signal"]:
+        if sig_item[0] == 4:
+            signal[IP4].append(sig_item[1:])
+        else:
+            signal[IP6].append(sig_item[1:])
 
+    out["signal"] = signal
     return out
 
 def node_addr_extract_exts(p2p_addr):
@@ -205,7 +219,8 @@ def make_node_addr(node_id, machine_id, interface_list, sig_servers, port=NODE_P
     if len(sig_servers):
         sig_servers_buf = b""
         for dest in sig_servers:
-            dest_buf = to_b(dest[0]) + b"," + to_b(str(dest[1])) + b";"
+            dest_buf = to_b(str(dest[0])) + b"," + to_b(dest[1]) + b","
+            dest_buf += to_b(str(dest[2])) + b";"
             sig_servers_buf += dest_buf
 
         bufs = [
@@ -276,7 +291,7 @@ if __name__ == "__main__": # pragma: no cover
         if_list = [x, x]
         node_id = b"noasdfosdfo"
 
-        sig_servers = [("ovh1.p2pd.net", 8887), ("test.mosquitto.tld", 8887)]
+        sig_servers = [(4, "ovh1.p2pd.net", 8887), (6, "test.mosquitto.tld", 8887)]
         b_addr = make_node_addr(node_id, node_id, if_list, sig_servers)
         print(b_addr)
 
