@@ -36,8 +36,8 @@ def get_default_routes(nic):
 def use_default_interface(nic):
     nic.name = "default"
     nic.timeout = 4
-    nic.netiface_index = -1
-    nic.nic_no = -1
+    nic.netiface_index = 0
+    nic.nic_no = 0
     nic.id = None
     nic.mac = ""
     nic.nat = nat_info()
