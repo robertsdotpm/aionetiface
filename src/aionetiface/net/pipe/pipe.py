@@ -145,47 +145,9 @@ class Pipe:
         return asyncio.get_event_loop()
 
     async def resolve_route_and_dest(self):
-        """
-        This allows passing a nic in for the third param
-        and letting the code work out what route to use with an
-        address family supported by the destination
-        """
-        if self.route is not None and self.route.__name__ == "Interface":
-            # Resolve to IP(s) indexed by address family.
-            nic = self.route
-            dest = await self.resolve_dest(
-                self.dest, 
-                nic,
-                self.conf, 
-            )
-
-            # Loop over AFs supported by NIC and find a supported one.
-            self.route = None
-            for af in nic.supported():
-                try:
-                    dest.select_ip(af)
-                    self.route = nic.route(af)
-                    break
-                except KeyError:
-                    continue
-
-            # Failure.
-            if not self.route:
-                raise Exception("Dest incompatible address family.")
-
-            # Otherwise use route for binding.
-            self.route = await self.resolve_route(self.route, self.route.af)
-        else:
-            af_hint = getattr(self.route, "af", None)
-            self.route = await self.resolve_route(self.route, af_hint)
-            dest = await self.resolve_dest(
-                self.dest, 
-                self.route.interface,
-                self.conf, 
-            )
-
-        # Select compatible IP for route AF
-        self.dest = dest.select_ip(self.route.af)
+        af_hint = getattr(self.route, "af", None)
+        self.route = await self.resolve_route(self.route, af_hint)
+        self.dest = await self.resolve_dest(self.dest, self.route, self.conf)
 
     async def resolve_route(self, route, af):
         """
@@ -193,11 +155,17 @@ class Pipe:
         Covers the case where a network Interface is passed instead of a route.
         In that case, just use the first available route at first supported AF.
         """
+        if route is not None and route.__name__ == "Interface":
+            nic = route
+
+            # For legacy code that passes Interface.
+            route = nic.route()
+
         # If no route is set -- load a default interface.
         # This is slow and is used as a fallback.
         if route is None:
             from ...nic.interface import Interface
-            nic = Interface("default")
+            nic = await Interface()
             route = await nic.route(af)
 
         # Routes all need to be bound.
@@ -207,7 +175,7 @@ class Pipe:
 
         return route
 
-    async def resolve_dest(self, dest, nic, conf):
+    async def resolve_dest(self, dest, route, conf):
         """
         Converts dest into an Address instance if necessary.
         Supports IP:port tuples, int IPs, bytes, IPRange, or Address instances.
@@ -219,17 +187,26 @@ class Pipe:
         if isinstance(dest, (list, tuple)):
             ip, port = dest
 
+            # Supports int for IP, converts using CIDR
+            if isinstance(ip, int):
+                af = route.af
+                cidr = CIDR_WAN if af is None else af_to_cidr(af)
+                ip = IPRange(ip, cidr=cidr)
+
             # Normalize IPRange
             if isinstance(ip, IPRange):
                 ip = ipr_norm(ip)
 
             # Standard address class for resolving addresses.
-            dest = Address(ip, port, nic, conf=conf)
+            dest = Address(ip, port, conf=conf)
 
         # Ensure address instances are resolved to IPs.
         if isinstance(dest, Address):
             if not dest.resolved:
-                await dest
+                await dest.res(route)
+
+            # Select compatible IP for route AF
+            dest = dest.select_ip(route.af)
 
         return dest
 
