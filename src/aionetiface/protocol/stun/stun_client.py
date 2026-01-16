@@ -220,7 +220,7 @@ async def get_stun_clients(af, max_agree, interface, mode, proto=UDP, servs=None
 
     return await asyncio.gather(*stun_clients)
 
-async def get_n_stun_clients(af, n, interface, proto=UDP, limit=5, conf=NET_CONF):
+async def get_n_stun_clients(af, n, interface, mode, proto=UDP, limit=5, conf=NET_CONF):
     # Find a working random STUN server.
     # Limit to 5 attempts.
     async def worker():
@@ -229,6 +229,7 @@ async def get_n_stun_clients(af, n, interface, proto=UDP, limit=5, conf=NET_CONF
                 stun = (await get_stun_clients(
                         af=af,
                         max_agree=1,
+                        mode=mode,
                         interface=interface,
                         proto=proto,
                         conf=conf,

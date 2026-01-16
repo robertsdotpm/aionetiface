@@ -52,8 +52,7 @@ class ObjCollection():
         print(servers)
         
         # Construct fresh list of objects.
-        relevant = func_relevant_params(self.obj_factory, kv)
-        objs = [self.obj_factory(relevant, dest=servers[i]) for i in range(0, n)]
+        objs = [self.obj_factory(kv["factory"], dest=servers[i]) for i in range(0, n)]
 
         # Run objects await methods if awaitable.
         await asyncio.gather(
@@ -69,7 +68,6 @@ class ObjCollection():
         out = []
         attempts = 0
         min_success = min_success or n
-
         while attempts < max_attempts:
             needed = min_success - len(out)
             if needed <= 0:

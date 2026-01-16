@@ -39,6 +39,8 @@ Iterable and sliceable -- returns ip_addr objs.
 @total_ordering
 class IPRange():
     def __init__(self, ip, netmask=None, cidr=CIDR_WAN, af=None):
+        self.route = None
+
         # Set full bit mask based on af.
         if af:
             cidr = af_to_cidr(af)
@@ -353,9 +355,9 @@ def ipr_in_interfaces(needle_ipr, if_list, mode=IP_PUBLIC):
 def ipr_norm(ipr):
     return ip_norm(str(ipr[0]))
 
-def IPR(ip, af):
-    cidr = af_to_cidr(af)
-    return IPRange(ip, cidr=cidr)
+def IPR(ip, af=None):
+    af = af or IP6 if ":" in ip else IP4
+    return IPRange(ip, af=af)
 
 def ensure_ip_is_public(ip):
     ip = ip_norm(ip)

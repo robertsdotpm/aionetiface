@@ -150,7 +150,6 @@ def is_socket_closed(sock):
         return False
     return False
 
-
 """
 If trying to reach a destination that uses a private address
 and its a machine in the LA, then binding() a local socket
@@ -215,3 +214,4 @@ async def safe_sock_connect(loop, sock, dest):
         # Handles e.g. ENETUNREACH, ETIMEDOUT, ECONNRESET
         log("Socket connect error to " + str(dest) + ":" + str(e))
         return False
+    

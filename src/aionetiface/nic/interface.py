@@ -171,6 +171,18 @@ class Interface():
         o = self.from_dict(state)
         self.__dict__ = o.__dict__
 
+    # Make all nic IPs across route pools a generator.
+    # Return both the nic_ipr and route they belong to.
+    def __iter__(self):
+        seen = set()
+        for af in (IP4, IP6):
+            for route in self.rp[af]:
+                for nic_ipr in route.nic_ips + route.link_locals:
+                    if nic_ipr not in seen:
+                        nic_ipr.route = route
+                        seen.add(nic_ipr)
+                        yield nic_ipr
+
 if __name__ == "__main__": # pragma: no cover
     async def test_interface():
         nic = Interface("default")

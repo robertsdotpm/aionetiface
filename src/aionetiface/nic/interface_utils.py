@@ -267,4 +267,12 @@ assuming immediate execution.
 
     return nics
 
+def get_nic_for_af(nic_list):
+    ret = {}
+    for af in (IP4, IP6):
+        for nic in nic_list:
+            if af in nic.supported():
+                ret[af] = nic
+                break
 
+    return ret

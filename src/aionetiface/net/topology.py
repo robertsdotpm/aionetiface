@@ -40,7 +40,7 @@ def parse_node_addr(addr):
         return addr
 
     addr = to_b(addr)
-    af_parts = addr.split(b'-')
+    af_parts = addr.split(b'^')
     if len(af_parts) != 5:
         log("p2p addr invalid parts")
         return None
@@ -188,7 +188,6 @@ def is_node_addr_us(addr_bytes, if_list):
     return False
 
 """
-    Absolutely DERANGED. Or is it?
 
         can be up to N interfaces
 [ IP4 nics
@@ -282,11 +281,12 @@ def make_node_addr(node_id, machine_id, interface_list, sig_servers, port=NODE_P
     
     bufs.append(to_b(node_id))
     bufs.append(to_b(machine_id))
-    return b'-'.join(bufs)
+    return b'^'.join(bufs)
 
 if __name__ == "__main__": # pragma: no cover
     from aionetiface.nic.interface import Interface
     async def test_p2p_addr():
+        """
         x = Interface("default")
         if_list = [x, x]
         node_id = b"noasdfosdfo"
@@ -294,6 +294,9 @@ if __name__ == "__main__": # pragma: no cover
         sig_servers = [(4, "ovh1.p2pd.net", 8887), (6, "test.mosquitto.tld", 8887)]
         b_addr = make_node_addr(node_id, node_id, if_list, sig_servers)
         print(b_addr)
+        """
+
+        b_addr = b"2,broker-cn.emqx.io,1883;^[1,0,113.29.240.148,10.0.1.230,3000,3,2,0]^0^e430b89759a5d75f9ec80798a^7a64285df710807300863496142f032a5b2365ce6a4a11f9b400fc1e6b4326e5"
 
         addr = parse_node_addr(b_addr)
         print(addr)
