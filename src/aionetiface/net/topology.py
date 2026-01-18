@@ -203,7 +203,7 @@ def is_node_addr_us(addr_bytes, if_list):
     ,... more interfaces for AF family
 ],[IP6 nics ...],node_id
 """
-def make_node_addr(node_id, machine_id, interface_list, sig_servers, port=NODE_PORT, ip=None, nat=None, if_index=None):
+def make_node_addr(node_id, machine_id, interface_list, sig_servers, port, ip=None, nat=None, if_index=None):
     ensure_resolved(interface_list)
 
     # Make the program crash early on invalid addr inputs.

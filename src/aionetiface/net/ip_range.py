@@ -355,9 +355,9 @@ def ipr_in_interfaces(needle_ipr, if_list, mode=IP_PUBLIC):
 def ipr_norm(ipr):
     return ip_norm(str(ipr[0]))
 
-def IPR(ip, af=None):
+def IPR(ip, af=None, cidr=CIDR_WAN):
     af = af or IP6 if ":" in ip else IP4
-    return IPRange(ip, af=af)
+    return IPRange(ip, af=af, cidr=cidr)
 
 def ensure_ip_is_public(ip):
     ip = ip_norm(ip)

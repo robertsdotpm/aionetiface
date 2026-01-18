@@ -2,9 +2,14 @@ from ...utility.utils import *
 from .nat_utils import *
 from ..interface import *
 from ...protocol.stun.stun_client import *
-from ...traversal.plugins.punch.punch_defs import *
 
 MAX_PREDICT_NO = 100
+
+# Duplicate defs
+# TODO: should this module be moved into nat lib? probably.
+TCP_PUNCH_LAN = 1
+TCP_PUNCH_REMOTE = 2
+TCP_PUNCH_SELF = 3
 
 class NATMapping():
     def __init__(self, mapping, sock=None):

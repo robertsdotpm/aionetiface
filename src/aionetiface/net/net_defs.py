@@ -92,7 +92,6 @@ VALID_LOOPBACKS = ["127.0.0.1", "::1"]
 VALID_ANY_ADDR = ["0.0.0.0", "::"]
 ANY_ADDR = ["0.0.0.0", "ff02::1", "::/0", "255.255.255.255"]
 LOOPBACK_BIND = 3
-NODE_PORT = 10001
 
 # Address object types.
 IPA_TYPES = ipa_types = (ipaddress.IPv4Address, ipaddress.IPv6Address)
