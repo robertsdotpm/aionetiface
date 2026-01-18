@@ -25,6 +25,7 @@ def selector_proxy(socket_p, destination):
             for key, mask in events:
                 sock = key.fileobj
                 peer = peers[sock]
+                buffers.setdefault(peer, b"")
 
                 # --- READ ---
                 if mask & selectors.EVENT_READ:
