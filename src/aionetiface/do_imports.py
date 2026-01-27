@@ -18,6 +18,7 @@ if __name__ != '__main__':
     from .nic.route.route import Route
     from .nic.route.route_pool import RoutePool
     from .nic.route.route_load import discover_nic_wan_ips
+    from .nic.route.rp_from_ip import sort_ips_by_nic, route_pool_from_ips
     from .net.asyncio.create_udp_fallback import *
     from .net.pipe.pipe import *
     from .nic.interface import Interface, aionetiface_setup_event_loop

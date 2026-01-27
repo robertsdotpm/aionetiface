@@ -719,6 +719,12 @@ async def sleep_random(min_ms=100, max_ms=2000):
     delay = random.randrange(min_ms, max_ms + 1) / 1000.0
     await asyncio.sleep(delay)
 
+def find_intersect(list_a, list_b):
+    for list_a_val in list_a:
+        for list_b_val in list_b:
+            if list_a_val == list_b_val:
+                return list_a_val
+
 
 if __name__ == "__main__": # pragma: no cover
     x = [1, 1]
