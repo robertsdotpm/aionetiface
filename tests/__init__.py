@@ -1,4 +1,4 @@
 try:
     from aionetiface.utility.test_init import *
-except:
+except Exception:
     from aionetiface.utility.test_init import *

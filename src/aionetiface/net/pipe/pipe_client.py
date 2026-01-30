@@ -266,7 +266,6 @@ class PipeClient(ACKUDP):
 
             return 0
         except Exception as e:
-            what_exception()
             log(fstr(" send error {0}", (self.handle,)))
             log_exception()
             return 0

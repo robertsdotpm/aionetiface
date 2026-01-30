@@ -16,6 +16,16 @@ v_to_af = lambda v: IP4 if v == 4 else IP6
 af_to_cidr = max_cidr = lambda af: 32 if af == IP4 else 128
 i_to_af = lambda x: IP4 if x == 2 else IP6
 
+def sock_has_data(sock):
+    try:
+        ready = sock.recv(1, socket.MSG_PEEK)
+        if ready:
+            return True
+    except BlockingIOError:
+        return False
+    
+    return False
+
 def af_from_ip_s(ip_s):
     ip_s = to_s(ip_s)
     ip_obj = ip_f(ip_s)

@@ -348,7 +348,10 @@ class Daemon():
 
     async def close(self):
         async def func(server):
-            await server.close()
+            try:
+                await server.close()
+            except Exception:
+                pass
 
         await for_server_in_daemon(self, func)
 
