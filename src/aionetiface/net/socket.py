@@ -11,8 +11,8 @@ async def socket_factory(route, dest_addr=None, sock_type=TCP, conf=NET_CONF):
         if not dest_addr.resolved:
             raise Exception("net sock factory: dest addr not resolved")
         else:
-            if not dest_addr.port:
-                raise Exception("net: dest port is 0!")
+            #if not dest_addr.port:
+            #    raise Exception("net: dest port is 0!")
 
             # If dest_addr was a domain = AF_ANY.
             # Stills needs a sock type tho

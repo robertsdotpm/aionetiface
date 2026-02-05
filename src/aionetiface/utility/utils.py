@@ -20,6 +20,7 @@ import copy
 import hashlib
 import unittest
 import ecdsa
+import traceback
 import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
 from ecdsa.curves import NIST192p
@@ -381,9 +382,39 @@ def field_dist(x, y, field):
         return ret
 
 def what_exception():
-    exc_type, exc_obj, exc_tb = sys.exc_info()
-    fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-    print(exc_type, fname, exc_tb.tb_lineno)
+    # 1. Get exception details
+    exc_type, exc_value, exc_tb = sys.exc_info()
+    
+    # 2. Default values in case metadata is missing
+    fname = "Unknown"
+    lineno = 0
+    
+    # 3. Check if we have a traceback object
+    if exc_tb is not None:
+        # Walk to the end of the traceback (where the actual error is)
+        curr_tb = exc_tb
+        while curr_tb.tb_next:
+            curr_tb = curr_tb.tb_next
+            
+        try:
+            # Safely check for frame and code attributes
+            if hasattr(curr_tb, 'tb_frame') and curr_tb.tb_frame:
+                filename = curr_tb.tb_frame.f_code.co_filename
+                fname = os.path.split(filename)[1]
+            
+            lineno = curr_tb.tb_lineno
+        except AttributeError:
+            # Fallback if the object doesn't have expected attributes
+            pass
+
+    # 4. Print the summary using .format()
+    print("--- Exception Detected ---")
+    print("Type: {0}".format(exc_type.__name__ if exc_type else "None"))
+    print("File: {0}".format(fname))
+    print("Line: {0}".format(lineno))
+    
+    # 5. Print the full stack trace
+    print("\nFull Traceback:")
     print(traceback.format_exc())
 
 async def async_wrap_errors(coro, timeout=None):
@@ -723,7 +754,7 @@ def find_intersect(list_a, list_b):
     for list_a_val in list_a:
         for list_b_val in list_b:
             if list_a_val == list_b_val:
-                return list_a_val
+                yield list_a_val
 
 
 if __name__ == "__main__": # pragma: no cover

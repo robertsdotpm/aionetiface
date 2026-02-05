@@ -1,4 +1,5 @@
 import asyncio
+import threading
 from asyncio import events, coroutines, tasks
 
 def patch_asyncio_backports(loop_cls=None):
@@ -89,12 +90,23 @@ def async_run(main, *, debug=False):
         return loop.run_until_complete(main)
     finally:
         try:
+            print("before _cancel all tasks")
             _cancel_all_tasks(loop)
+            print(" after _cancel all tasks")
             if hasattr(loop, "shutdown_asyncgens"):
+                print("before shutdown async gens")
                 loop.run_until_complete(loop.shutdown_asyncgens())
+                print("after shutdown async gens")
 
             if hasattr(loop, "shutdown_default_executor"):
+                print("before shutdown_default_executor")
+
+                print("\n--- Active Threads ---")
+                for thread in threading.enumerate():
+                    print("Thread name: {0}, Daemon: {1}".format(thread.name, thread.daemon))
+
                 loop.run_until_complete(loop.shutdown_default_executor())
+                print("after shutdown_default_executor")
         finally:
             events.set_event_loop(None)
             loop.close()

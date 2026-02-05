@@ -50,7 +50,7 @@ def v6_route_pool_from_ips(ipr_list, nic):
     for route in nic.rp[IP6]:
         # If public exts are specified limit to only those routes.
         if pub_iprs:
-            pub_ipr = find_intersect(pub_iprs, route.ext_ips)
+            pub_ipr = list(find_intersect(pub_iprs, route.ext_ips))
             if not pub_ipr:
                 continue
 
@@ -74,12 +74,12 @@ def v4_route_pool_from_ips(ipr_list, nic):
     routes = []
     for route in nic.rp[IP4]:
         # Use pre-existing route as template.
-        nic_ipr = find_intersect(priv_iprs, route.nic_ips)
+        nic_ipr = list(find_intersect(priv_iprs, route.nic_ips))
         if not nic_ipr:
             continue
 
         # Select only a certain WAN if chosen.
-        wan_ipr = find_intersect(pub_iprs, route.ext_ips)
+        wan_ipr = list(find_intersect(pub_iprs, route.ext_ips))
         if wan_ipr:
             ext_ips = [wan_ipr]
         else:

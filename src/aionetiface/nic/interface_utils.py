@@ -258,7 +258,13 @@ assuming immediate execution.
             )
 
             if not skip_nat:
-                await nic.load_nat(timeout=timeout)
+                nat = await async_wrap_errors(
+                    nic.load_nat(timeout=timeout)
+                )
+
+                if nat is None:
+                    log("Could not load NAT for " + if_name)
+                    
             nics.append(nic)
         except asyncio.CancelledError:
             raise
@@ -268,7 +274,7 @@ assuming immediate execution.
     return nics
 
 def get_nic_for_af(nic_list):
-    ret = {}
+    ret = {IP4: None, IP6: None}
     for af in (IP4, IP6):
         for nic in nic_list:
             if af in nic.supported():
