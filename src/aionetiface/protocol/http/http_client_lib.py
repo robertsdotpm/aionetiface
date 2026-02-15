@@ -172,7 +172,6 @@ async def do_web_req(addr, http_buf, do_close, route, conf=NET_CONF):
     while True:
         buf = await p.recv(SUB_ALL, timeout=conf['recv_timeout'])
         if not buf:
-            print("break 1")
             break
         out += buf
 
@@ -182,7 +181,6 @@ async def do_web_req(addr, http_buf, do_close, route, conf=NET_CONF):
             content_len_search = re.search(b"[cC]ontent-[lL]ength: *([0-9]+)", out)
             if content_len_search:
                 content_len = int(content_len_search.group(1))
-                print("break 2")
                 break
 
     # Extract headers and pre-existing content
@@ -191,20 +189,14 @@ async def do_web_req(addr, http_buf, do_close, route, conf=NET_CONF):
         parts = re.split(b"\r\n\r\n", out, maxsplit=1)
         headers, content = parts[0], parts[1] if len(parts) > 1 else b""
 
-    print("hdr ended = ", hdr_ended)
-    print("content len = ", content_len)
-
     # Read remaining content if needed
     if content_len:
         while len(content) < content_len:
             buf = await p.recv(SUB_ALL, timeout=conf['recv_timeout'])
             if not buf:
-                print("break 4")
                 break
 
             content += buf
-
-    print("recv buf len ", len(content))
 
     # Some connections may be left open.
     if do_close:
