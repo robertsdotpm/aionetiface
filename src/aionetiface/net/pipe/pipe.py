@@ -41,9 +41,9 @@ class PipeError(Exception):
 
 class Pipe:
     def __init__(self, proto, dest=None, route=None, sock=None, conf=NET_CONF):
+        self.set_nic_and_route(route)
         self.proto = proto
         self.sock = sock
-        self.route = route
         self.dest = dest
         self.pipe_events = None
         self.conf = conf or {}
@@ -143,30 +143,36 @@ class Pipe:
         if self.conf.get("loop") is not None:
             return self.conf["loop"]()
         return asyncio.get_event_loop()
+    
+    def set_nic_and_route(self, unknown):
+        self.route = None
+        self.nic = None
+        if unknown:
+            if unknown.__name__ == "Interface":
+                self.nic = unknown
+            else:
+                self.nic = unknown.interface
+                self.route = unknown
+        else:
+            from ...nic.interface import Interface
+            self.nic = Interface("default")
 
     async def resolve_route_and_dest(self):
-        af_hint = getattr(self.route, "af", None)
-        self.route = await self.resolve_route(self.route, af_hint)
-        self.dest = await self.resolve_dest(self.dest, self.route, self.conf)
+        self.route = await self.resolve_route(self.route)
 
-    async def resolve_route(self, route, af):
+        # By this point there's a route + nic.
+        assert(self.route and self.nic)
+        self.dest = await self.resolve_dest(self.dest, self.conf)
+
+    async def resolve_route(self, route):
         """
         Resolves the route to bind the socket.
         Covers the case where a network Interface is passed instead of a route.
         In that case, just use the first available route at first supported AF.
         """
-        if route is not None and route.__name__ == "Interface":
-            nic = route
-
-            # For legacy code that passes Interface.
-            route = nic.route()
-
-        # If no route is set -- load a default interface.
-        # This is slow and is used as a fallback.
         if route is None:
-            from ...nic.interface import Interface
-            nic = await Interface()
-            route = await nic.route(af)
+            # For legacy code that passes Interface.
+            route = self.nic.route()
 
         # Routes all need to be bound.
         if not route.resolved:
@@ -175,7 +181,7 @@ class Pipe:
 
         return route
 
-    async def resolve_dest(self, dest, route, conf):
+    async def resolve_dest(self, dest, conf):
         """
         Converts dest into an Address instance if necessary.
         Supports IP:port tuples, int IPs, bytes, IPRange, or Address instances.
@@ -187,28 +193,32 @@ class Pipe:
         if isinstance(dest, (list, tuple)):
             ip, port = dest
 
-            # Supports int for IP, converts using CIDR
-            if isinstance(ip, int):
-                af = route.af
-                cidr = CIDR_WAN if af is None else af_to_cidr(af)
-                ip = IPRange(ip, cidr=cidr)
-
             # Normalize IPRange
             if isinstance(ip, IPRange):
                 ip = ipr_norm(ip)
 
             # Standard address class for resolving addresses.
-            dest = Address(ip, port, conf=conf)
+            dest = Address(ip, port, nic=self.nic, conf=conf)
 
         # Ensure address instances are resolved to IPs.
         if isinstance(dest, Address):
             if not dest.resolved:
-                await dest.res(route)
+                await dest.res(route=self.route)
+
+            # Auto-select IP based on route af or chosen nic.
+            if self.route:
+                af_list = (self.route.af,)
+            else:
+                af_list = self.nic.supported()
 
             # Select compatible IP for route AF
-            dest = dest.select_ip(route.af)
+            lookup = {IP4: "IP4", IP6: "IP6"}
+            for af in af_list:
+                # If its not none use it.
+                if getattr(dest, lookup[af]):
+                    return dest.select_ip(af)
 
-        return dest
+        raise Exception("No supported IPs for resolv dest")
 
     async def create_or_use_socket(self):
         """

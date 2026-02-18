@@ -83,6 +83,8 @@ class STUNClient():
         if isinstance(unknown, Bind):
             route = unknown
 
+        assert(route)
+
         # Otherwise use details to make a new pipe.
         self.dest = await resolv_dest(self.af, self.dest, self.interface)
         return await Pipe(self.proto, self.dest, route, conf=self.conf).connect()

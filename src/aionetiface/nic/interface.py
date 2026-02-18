@@ -94,6 +94,9 @@ class Interface():
             return self.route(af).nic()
 
     def route(self, af=None, bind_port=0):
+        if not self.resolved:
+            assert(af is not None)
+
         # Sanity check.
         if self.resolved:
             af = af or self.supported()[0]
