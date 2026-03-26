@@ -756,6 +756,27 @@ def find_intersect(list_a, list_b):
             if list_a_val == list_b_val:
                 yield list_a_val
 
+def as_slice(needle, hey):
+    pos = hey.find(needle)
+    if pos == -1:
+        return None
+    else:
+        return slice(pos, pos + len(needle))
+    
+def is_ascii(data):
+    if isinstance(data, bytes):
+        try:
+            data.decode('ascii')
+            return True
+        except UnicodeDecodeError:
+            return False
+    else:
+        try:
+            data.encode('ascii')
+            return True
+        except UnicodeEncodeError:
+            return False
+
 
 if __name__ == "__main__": # pragma: no cover
     x = [1, 1]

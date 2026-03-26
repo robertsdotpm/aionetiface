@@ -200,6 +200,15 @@ class PipeClient(ACKUDP):
         except Exception as e:
             return None
 
+    async def recv_n(self, n, sub=SUB_ALL):
+        buf = b""
+        while len(buf) < n:
+            out = await self.recv(sub)
+            if out:
+                buf += out
+
+        return buf
+
     # Async send for TCP and UDP cons.
     # Listen servers also supported.
     async def send(self, data, dest_tup):
@@ -261,6 +270,7 @@ class PipeClient(ACKUDP):
                     data
                 )
                 """
+                #await handle.drain()
 
                 return 1
 

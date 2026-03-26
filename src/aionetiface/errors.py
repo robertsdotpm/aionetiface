@@ -30,3 +30,6 @@ class TunnelFailed(Exception):
 
 class StartNodeNicknameFailed(Exception):
     pass
+
+class BadProtoResp(Exception):
+    pass

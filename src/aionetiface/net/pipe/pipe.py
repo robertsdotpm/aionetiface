@@ -21,6 +21,7 @@ https://bugs.python.org/issue34795
 
 import asyncio
 import sys
+from asyncio import StreamWriter
 from ...utility.utils import *
 from ..net_utils import *
 from ..bind import *
@@ -162,6 +163,7 @@ class Pipe:
 
         # By this point there's a route + nic.
         assert(self.route and self.nic)
+        
         self.dest = await self.resolve_dest(self.dest, self.conf)
 
     async def resolve_route(self, route):
@@ -419,7 +421,7 @@ class Pipe:
                     wrap_overhead = 2
 
                 # Wrap an already connected TCP socket.
-                await loop.create_connection(
+                transport, protocol = await loop.create_connection(
                     protocol_factory=lambda: self.pipe_events, 
                     sock=self.sock, 
                     ssl=ctx, 
@@ -437,7 +439,12 @@ class Pipe:
 
                 # Set the con handles.
                 self.pipe_events.stream.set_handle(
-                    self.pipe_events.transport, 
+                    StreamWriter(
+                        transport, 
+                        protocol, 
+                        None, 
+                        loop
+                    ), 
                     self.dest.tup
                 )
 

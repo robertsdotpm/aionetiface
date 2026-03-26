@@ -410,6 +410,9 @@ class PipeEvents(BaseACKProto):
     # Return a matching message, async, non-blocking.
     async def recv(self, sub=SUB_ALL, timeout=2, full=False):
         return await self.stream.recv(sub, timeout, full)
+    
+    async def recv_n(self, n, sub=SUB_ALL):
+        return await self.stream.recv_n(n, sub)
 
     async def send(self, data, dest_tup=None):
         dest_tup = dest_tup or self.stream.dest_tup

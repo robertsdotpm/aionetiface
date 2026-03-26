@@ -47,3 +47,7 @@ async def concurrent_first_agree_or_best(min_agree, tasks, timeout, wait_all=Fal
     if results:
         return max(results, key=results.get)
     
+async def repeat_every(n, coro_func, *args, **kwargs):
+    while True:
+        await coro_func(*args, **kwargs)
+        await asyncio.sleep(n)
