@@ -264,12 +264,16 @@ class PipeClient(ACKUDP):
             if self.pipe_events.proto == TCP:
                 # This also works for SSL wrapped sockets.
                 handle.write(data)
+
+                #await self.pipe_events.safe_write(data)
+
                 """
                 await self.loop.sock_sendall(
                     self.pipe_events.sock,
                     data
                 )
                 """
+
                 #await handle.drain()
 
                 return 1

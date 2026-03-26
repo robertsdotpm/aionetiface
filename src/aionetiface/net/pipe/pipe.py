@@ -79,9 +79,9 @@ class Pipe:
 
         return self
     
-    async def close(self):
+    async def close(self, force=False):
         if self.pipe_events is not None:
-            await self.pipe_events.close()
+            await self.pipe_events.close(force=force)
 
     async def accept(self):
         if self.pipe_events is not None:
@@ -421,7 +421,7 @@ class Pipe:
                     wrap_overhead = 2
 
                 # Wrap an already connected TCP socket.
-                transport, protocol = await loop.create_connection(
+                await loop.create_connection(
                     protocol_factory=lambda: self.pipe_events, 
                     sock=self.sock, 
                     ssl=ctx, 
@@ -439,12 +439,7 @@ class Pipe:
 
                 # Set the con handles.
                 self.pipe_events.stream.set_handle(
-                    StreamWriter(
-                        transport, 
-                        protocol, 
-                        None, 
-                        loop
-                    ), 
+                    self.pipe_events.transport, 
                     self.dest.tup
                 )
 

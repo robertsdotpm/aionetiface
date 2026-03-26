@@ -366,7 +366,7 @@ class PipeEvents(BaseACKProto):
         except Exception:
             log_exception()
 
-    async def close(self):
+    async def close(self, force=False):
         if not self.is_running:
             raise AlreadyClosedError()
 
@@ -384,7 +384,10 @@ class PipeEvents(BaseACKProto):
                 on_close = None
 
             if self.transport is not None:
-                self.transport.close()
+                if force:
+                    self.transport.abort()
+                else:
+                    self.transport.close()
                 await asyncio.sleep(0)
 
             if on_close:
@@ -431,3 +434,26 @@ class PipeEvents(BaseACKProto):
         buf = bytearray().join([b"ECHO ", msg, b"\n"])
         await self.send(buf, dest_tup)
 
+    async def safe_write(self, data):
+        print("in safe write")
+
+        print("con close == ", self.on_close.is_set())
+
+        # 1. Check BEFORE writing
+        if self.on_close.is_set() or self.transport is None or self.transport.is_closing():
+            raise ConnectionError("Attempted to write to a closed socket.")
+
+        # 2. Perform the write
+        self.transport.write(data)
+
+        await asyncio.sleep(0)
+        if self.on_close.is_set():
+            raise ConnectionError("Socket closed during flush.")
+
+        # 3. Simple Drain (Wait for buffer to clear)
+        # We wait until the transport buffer size is 0
+        while self.transport.get_write_buffer_size() > 0:
+            if self.on_close.is_set():
+                raise ConnectionError("Socket closed during flush.")
+            
+            await asyncio.sleep(0.01) # Small yields to the loop
