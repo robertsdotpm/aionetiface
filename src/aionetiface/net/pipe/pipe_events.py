@@ -13,6 +13,8 @@ Extra work means extra CPU.
 
 Networking is generally supposed to be as fast as possible so
 this design might not be ideal.
+
+TODO: revisit drain and shutdown for close.
 """
 
 import asyncio
@@ -387,9 +389,20 @@ class PipeEvents(BaseACKProto):
                 if force:
                     self.transport.abort()
                 else:
+                    # Send data pending in socket buffer.
+                    if hasattr(self.transport, "drain"):
+                        await self.transport.drain()
+
+                    # Signal EOF with clean shutdown.
+                    if hasattr(self.transport, "can_write_eof"):
+                        if self.transport.can_write_eof():
+                                self.transport.write_eof()
+
+                    # Schedule the transport to close.
                     self.transport.close()
                 await asyncio.sleep(0)
 
+            # Await close if it's possible to do so.
             if on_close:
                 await on_close
 

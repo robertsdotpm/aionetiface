@@ -2,53 +2,62 @@ import asyncio
 import socket
 import selectors
 import traceback
+import weakref
 from ...utility.utils import *
 
-# Map: FD -> Future object
+# Map: id(socket_object) -> Future
+# We use id() because FDs are recycled, but Python object memory IDs 
+# are unique for the lifetime of that specific socket object.
 CLOSE_FUTURES = {}
 
 class ProxySelector:
-    """A wrapper around the actual selector object to intercept unregister calls."""
+    """A wrapper around elector object to intercept unregister calls."""
     
     def __init__(self, selector_instance, loop):
         self.selector = selector_instance
         self.loop = loop
+
+        # Proxy standard methods
         self.select = selector_instance.select
         self.close = selector_instance.close
         self.register = selector_instance.register
         self.get_map = selector_instance.get_map
         self.get_key = selector_instance.get_key
 
-    def maybe_signal_removal(self, fd: int, events: int, data: tuple) -> None:
-        """Helper to signal the future if the FD is being completely unregistered."""
+    def maybe_signal_removal(self, fd, events, data):
+        """Helper to signal if FD is being completely unregistered."""
         
-        # Check if the FD's future exists
+        # Check if the FD's future exists in the global map
         if fd not in CLOSE_FUTURES:
-            #CLOSE_FUTURES[fd] = self.loop.create_future()
             return
 
-        # In the context of a fully-removed item:
+        # In the context of a fully-removed item (events=0 or explicit unregister):
         if events == 0 and data is None:
-            future = CLOSE_FUTURES.pop(fd)
-            if not future.done():
-                self.loop.call_soon(future.set_result, True)
+            # Pop entries for FD to clear the state for potential FD recycling
+            entries = CLOSE_FUTURES.pop(fd, [])
+            for sock_id, future in entries:
+                if not future.done():
+                    # Use call_soon to set result in the next tick to avoid 
+                    # potential recursion issues during selector processing
+                    self.loop.call_soon(future.set_result, True)
 
     def unregister(self, fd):
         """Intercepts the complete removal of the FD."""
-        # The FD is being completely removed. Signal the removal future.
+        # fileobj/fd is being removed. Signal before the actual OS unregister 
+        # so metadata is still technically valid if needed.
         self.maybe_signal_removal(fd, 0, None)
         return self.selector.unregister(fd)
     
     def modify(self, fd, events, data=None):
         """Intercepts modification, checking if FD is effectively unregistered."""
-        if events == 0:
-            # FD modified to watch for 0 events, it's equivalent to unregister.
-            self.maybe_signal_removal(fd, 0, None)
-        elif events != 0:
-            # NOTE: This is tricky, the SelectorEventLoop mostly handles this.
-            # We focus on the unregister/events=0 case for reliability.
-            pass
+        # fileobj/fd check
+        real_fd = fd if isinstance(fd, int) else fd.fileno()
 
+        if events == 0:
+            # In many SelectorLoop implementations, modify(fd, 0) is the 
+            # precursor to a full close or a complete stop of the transport.
+            self.maybe_signal_removal(real_fd, 0, None)
+            
         return self.selector.modify(fd, events, data)
 
 class CustomEventLoop(asyncio.SelectorEventLoop):
@@ -71,48 +80,23 @@ class CustomEventLoop(asyncio.SelectorEventLoop):
         # The base SelectorEventLoop expects a selector object here.
         super().__init__(proxy_selector)
 
-        # --- Begin added code for clock support ---
-        # Internal set of registered clocks
-        clocks = set()
-
-
-        # Overwrite the sleep method
-        async def sleep(async_sleep, seconds, *args, **kwargs):
-            result = await async_sleep(seconds, *args, **kwargs)
-            
-            # Advance all registered clocks by the sleep duration
-            for clock in clocks:
-                continue
-                clock.advance(seconds)
-
-            return result
-
-        self.sleep = sleep
-        self.clocks = clocks
-
     # Add your public API method back (using the global map from the proxy)
-    def await_fd_close(self, sock: socket) -> asyncio.Future:
+    def await_fd_close(self, sock):
+        # Ensure we are not returning a coroutine
         fd = sock.fileno()
         if fd == -1:
-            log("-1 passed to await_fd_close()!")
-            f = self.create_future()
+            f = self.loop.create_future() # Use self.loop or self
             f.set_result(True)
             return f
 
+        fut = self.create_future()
+        sock_id = id(sock)
+
         if fd not in CLOSE_FUTURES:
-            CLOSE_FUTURES[fd] = self.create_future()
+            CLOSE_FUTURES[fd] = []
             
-        return CLOSE_FUTURES[fd]
-
-    # --- Begin added methods for clock registration ---
-    def register_clock(self, clock):
-        """Register a clock instance to be advanced on sleeps."""
-        self.clocks.add(clock)
-
-    def unregister_clock(self, clock):
-        """Unregister a clock instance."""
-        self.clocks.discard(clock)
-    # --- End added methods ---
+        CLOSE_FUTURES[fd].append((sock_id, fut))
+        return fut
 
 class CustomEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
     @staticmethod
