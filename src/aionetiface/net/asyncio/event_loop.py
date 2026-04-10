@@ -85,7 +85,7 @@ class CustomEventLoop(asyncio.SelectorEventLoop):
         # Ensure we are not returning a coroutine
         fd = sock.fileno()
         if fd == -1:
-            f = self.loop.create_future() # Use self.loop or self
+            f = self.create_future() # Use self.loop or self
             f.set_result(True)
             return f
 

@@ -415,7 +415,7 @@ class PipeEvents(BaseACKProto):
 
         # No longer running.
         self.transport = None
-        self.socket = None
+        self.sock = None
         self.is_running = False
         self.tcp_server = None
         self.tcp_server_task = None
