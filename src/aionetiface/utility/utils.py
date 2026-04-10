@@ -617,8 +617,6 @@ async def gather_or_cancel(tasks, timeout):
         # Event loop closed prob.
         log_exception()
         return []
-    finally:
-        return []
 
 # Handle stray exceptions in the event loop.
 def handle_exceptions(loop, context):

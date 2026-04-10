@@ -69,10 +69,13 @@ class UdpPoller:
     def register(self, transport):
         self.sockets.append(transport)
 
+    def close(self):
+        self.task.cancel()
+
     async def poll_loop(self):
         while True:
+            # Remove closed transports to avoid accumulation.
+            self.sockets = [t for t in self.sockets if not t.is_closing()]
             for transport in self.sockets:
-                if not transport.is_closing():
-                    transport.poll()
-                    
+                transport.poll()
             await asyncio.sleep(self.interval)

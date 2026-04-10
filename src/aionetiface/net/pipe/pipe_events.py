@@ -231,7 +231,7 @@ class PipeEvents(BaseACKProto):
 
         # Make sure it runs if this is already closed.
         if not self.is_running:
-            self.run_handlers(end_cb)
+            self.run_handlers([end_cb])
 
         return self
 
@@ -341,7 +341,6 @@ class PipeEvents(BaseACKProto):
 
     def error_received(self, exp):
         log_exception()
-        raise exp
 
     # UDP packets.
     def datagram_received(self, data, client_tup):
@@ -370,7 +369,7 @@ class PipeEvents(BaseACKProto):
 
     async def close(self, force=False):
         if not self.is_running:
-            raise AlreadyClosedError()
+            return
 
         """
         If this is a transport for a TCP server its important to close
@@ -387,16 +386,25 @@ class PipeEvents(BaseACKProto):
 
             if self.transport is not None:
                 if force:
-                    self.transport.abort()
+                    # abort() is not available on asyncio.Server (TCP server transport).
+                    if hasattr(self.transport, "abort"):
+                        self.transport.abort()
+                    else:
+                        self.transport.close()
                 else:
                     # Send data pending in socket buffer.
                     if hasattr(self.transport, "drain"):
                         await self.transport.drain()
 
                     # Signal EOF with clean shutdown.
-                    if hasattr(self.transport, "can_write_eof"):
+                    # can_write_eof() raises NotImplementedError on UDP transports,
+                    # and Server objects (stored as transport for TCP servers) don't
+                    # have this method at all.
+                    try:
                         if self.transport.can_write_eof():
-                                self.transport.write_eof()
+                            self.transport.write_eof()
+                    except (NotImplementedError, AttributeError):
+                        pass
 
                     # Schedule the transport to close.
                     self.transport.close()
@@ -448,10 +456,6 @@ class PipeEvents(BaseACKProto):
         await self.send(buf, dest_tup)
 
     async def safe_write(self, data):
-        print("in safe write")
-
-        print("con close == ", self.on_close.is_set())
-
         # 1. Check BEFORE writing
         if self.on_close.is_set() or self.transport is None or self.transport.is_closing():
             raise ConnectionError("Attempted to write to a closed socket.")

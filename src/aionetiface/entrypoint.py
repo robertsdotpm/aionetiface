@@ -110,12 +110,6 @@ async def aionetiface_setup_netifaces():
             why the library won't work then to silently fail.
             """
             raise Exception("Error this library needs UDP support to work.")
-        
-
-            ENABLE_UDP = False
-            ENABLE_STUN = False
-            log("UDP sockets blocked! Disabling STUN.")
-            log_exception()
         finally:
             if sock is not None:
                 sock.close()

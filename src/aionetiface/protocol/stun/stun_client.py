@@ -149,6 +149,7 @@ class STUNClient():
 
     # Return only your remote IP.
     async def get_wan_ip(self, pipe=None):
+        caller_pipe = pipe
         pipe = await self._get_dest_pipe(pipe)
         try:
             reply = await get_stun_reply(
@@ -161,7 +162,8 @@ class STUNClient():
             if hasattr(reply, "rtup"):
                 return ip_norm(reply.rtup[0])
         finally:
-            if pipe is not None:
+            # Only close the pipe if we opened it ourselves.
+            if caller_pipe is None and pipe is not None:
                 await pipe.close()
 
     # Return information on your local + remote port.
@@ -239,6 +241,9 @@ async def get_n_stun_clients(af, n, interface, mode, proto=UDP, limit=5, conf=NE
 
                 out = await stun.get_mapping()
                 if out is not None:
+                    # Close the probe pipe; caller manages their own pipes.
+                    if len(out) >= 3 and out[2] is not None:
+                        await out[2].close()
                     return stun
             except asyncio.CancelledError:
                 raise

@@ -59,9 +59,11 @@ class RoutePool():
         self.link_locals = link_locals or []
 
         # Avoid duplicates in routes.
+        seen = []
         for route in self.routes:
-            if route not in self.routes:
-                self.routes.append(route)
+            if route not in seen:
+                seen.append(route)
+        self.routes = seen
 
         # Make a list of the address size for WAN portions of routes.
         # Such information will be used for dereferencing routes.

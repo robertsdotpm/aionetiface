@@ -6,6 +6,7 @@ except ImportError:  # pragma: no cover
 import asyncio
 import socket
 import os
+import sys
 import stat
 import select
 import errno
@@ -188,8 +189,10 @@ async def create_datagram_endpoint(loop, protocol_factory,
             raise exceptions[0]
 
     protocol = protocol_factory()
-    #waiter = loop.create_future()
-    waiter = asyncio.futures.Future(loop=loop)
+    if sys.version_info >= (3, 12):
+        waiter = asyncio.futures.Future()
+    else:
+        waiter = asyncio.futures.Future(loop=loop)
     transport = loop._make_datagram_transport(
         sock, protocol, r_addr, waiter)
     if loop._debug:

@@ -143,6 +143,9 @@ class Pipe:
     async def get_loop(self):
         if self.conf.get("loop") is not None:
             return self.conf["loop"]()
+        # get_running_loop() is preferred in async contexts (Python 3.7+).
+        if hasattr(asyncio, "get_running_loop"):
+            return asyncio.get_running_loop()
         return asyncio.get_event_loop()
     
     def set_nic_and_route(self, unknown):

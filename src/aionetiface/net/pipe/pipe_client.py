@@ -204,8 +204,9 @@ class PipeClient(ACKUDP):
         buf = b""
         while len(buf) < n:
             out = await self.recv(sub)
-            if out:
-                buf += out
+            if out is None:
+                break
+            buf += out
 
         return buf
 
@@ -238,7 +239,7 @@ class PipeClient(ACKUDP):
                 the dest tup as well.
                 """
                 if self.route.af == IP6:
-                    if dest_tup[:2] in ("fe", "fd",):
+                    if dest_tup[0][:2] in ("fe", "fd",):
                         nic_id = int(self.route.interface.id)
                     else:
                         nic_id = 0

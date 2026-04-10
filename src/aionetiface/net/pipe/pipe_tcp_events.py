@@ -161,7 +161,6 @@ class TCPClientProtocol(asyncio.StreamReaderProtocol):
 
     def error_received(self, exp):
         log_exception()
-        raise exp
 
     def data_received(self, data):
         log(fstr("Base proto recv tcp client = {0}", (data,)))
@@ -180,7 +179,10 @@ async def create_tcp_server(sock, pipe_events, *, loop=None, conf=NET_CONF, **kw
     # Main vars.
     loop = loop or asyncio.get_event_loop()
     def factory():
-        reader = asyncio.StreamReader(limit=conf["reader_limit"], loop=loop)
+        if sys.version_info >= (3, 10):
+            reader = asyncio.StreamReader(limit=conf["reader_limit"])
+        else:
+            reader = asyncio.StreamReader(limit=conf["reader_limit"], loop=loop)
         return TCPClientProtocol(
             reader,
             pipe_events,
