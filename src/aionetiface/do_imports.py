@@ -9,6 +9,7 @@ if __name__ != '__main__':
     from .utility.utils import log, what_exception, log_exception, async_test
     from .utility.cmd_tools import *
     from .vendor.ecies import *
+    from .utility.signing import *
     from .net.net_utils import *
     from .net.bind import *
     from .net.address import Address

@@ -103,7 +103,7 @@ class SysClock:
                 try:
                     serv = random.choice(NTP_SERVERS)
                     addr = await Address(serv["host"], 123, self.interface).res()
-                    tup = addr.select_ip(af)
+                    tup = addr.select_ip(af).tup
                     ntp = await get_ntp_from_dest(
                         af=af,
                         nic=self.interface,

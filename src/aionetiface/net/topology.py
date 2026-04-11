@@ -41,28 +41,9 @@ def parse_node_addr(addr):
 
     addr = to_b(addr)
     af_parts = addr.split(b'^')
-    if len(af_parts) != 5:
+    if len(af_parts) != 4:
         log("p2p addr invalid parts")
         return None
-
-    # Parse signal server offsets.
-    sig_part = af_parts.pop(0)
-    if sig_part == b"None":
-        signal = []
-    else:
-        p = sig_part.split(b";")
-        signal = []
-        for dest_buf in p:
-            dest_parts = dest_buf.split(b",")
-            if len(dest_parts) != 3:
-                continue
-
-            dest = (
-                int(dest_parts[0]),
-                to_s(dest_parts[1]), 
-                int(dest_parts[2])
-            )
-            signal.append(dest)
 
     # Parsed dict.
     schema = [is_no, is_no, is_b, is_b, is_no,  is_no, is_no, is_no]
@@ -70,8 +51,7 @@ def parse_node_addr(addr):
     out = {
         IP4: {},
         IP6: {},
-        "node_id": to_s(af_parts[2]),
-        "signal": signal,
+        "pub_key_hex": to_s(af_parts[2]),
         "machine_id": to_s(af_parts[3]),
         "vk": None,
         "bytes": addr,
@@ -135,19 +115,6 @@ def parse_node_addr(addr):
     # Sanity check address.
     validate_node_addr(out)
 
-    # Convert to tuple to prevent change.
-    #out["signal"] = tuple(out["signal"])
-    signal = {
-        IP4: [],
-        IP6: [],
-    }
-    for sig_item in out["signal"]:
-        if sig_item[0] == 4:
-            signal[IP4].append(sig_item[1:])
-        else:
-            signal[IP6].append(sig_item[1:])
-
-    out["signal"] = signal
     return out
 
 def node_addr_extract_exts(p2p_addr):
@@ -201,35 +168,18 @@ def is_node_addr_us(addr_bytes, if_list):
         delta_val
     ]
     ,... more interfaces for AF family
-],[IP6 nics ...],node_id
+],[IP6 nics ...],pub_key_hex
 """
-def make_node_addr(node_id, machine_id, interface_list, sig_servers, port, ip=None, nat=None, if_index=None):
+def make_node_addr(pub_key_hex, machine_id, interface_list, port, ip=None, nat=None, if_index=None):
     ensure_resolved(interface_list)
 
     # Make the program crash early on invalid addr inputs.
-    assert(isinstance(node_id, (str, bytes)))
+    assert(isinstance(pub_key_hex, (str, bytes)))
     assert(isinstance(machine_id, (str, bytes)))
     assert(len(interface_list))
     assert(port)
-    assert(isinstance(sig_servers, list))
 
-
-    # Signal offsets to load.
-    if len(sig_servers):
-        sig_servers_buf = b""
-        for dest in sig_servers:
-            dest_buf = to_b(str(dest[0])) + b"," + to_b(dest[1]) + b","
-            dest_buf += to_b(str(dest[2])) + b";"
-            sig_servers_buf += dest_buf
-
-        bufs = [
-            # Make signal pipe buf.
-            sig_servers_buf
-        ]
-    else:
-        # No signal offsets.
-        bufs = [b"None"]
-
+    bufs = []
     for af in [IP4, IP6]:
         af_bufs = []
         for i, interface in enumerate(interface_list):
@@ -279,7 +229,7 @@ def make_node_addr(node_id, machine_id, interface_list, sig_servers, port, ip=No
         # Expected and okay.
         bufs.append(af_bufs or b"0")
     
-    bufs.append(to_b(node_id))
+    bufs.append(to_b(pub_key_hex))
     bufs.append(to_b(machine_id))
     return b'^'.join(bufs)
 
@@ -291,12 +241,11 @@ if __name__ == "__main__": # pragma: no cover
         if_list = [x, x]
         node_id = b"noasdfosdfo"
 
-        sig_servers = [(4, "ovh1.p2pd.net", 8887), (6, "test.mosquitto.tld", 8887)]
-        b_addr = make_node_addr(node_id, node_id, if_list, sig_servers)
+        b_addr = make_node_addr(node_id, node_id, if_list, port=3000)
         print(b_addr)
         """
 
-        b_addr = b"2,broker-cn.emqx.io,1883;^[1,0,113.29.240.148,10.0.1.230,3000,3,2,0]^0^e430b89759a5d75f9ec80798a^7a64285df710807300863496142f032a5b2365ce6a4a11f9b400fc1e6b4326e5"
+        b_addr = b"[1,0,113.29.240.148,10.0.1.230,3000,3,2,0]^0^e430b89759a5d75f9ec80798a^7a64285df710807300863496142f032a5b2365ce6a4a11f9b400fc1e6b4326e5"
 
         addr = parse_node_addr(b_addr)
         print(addr)

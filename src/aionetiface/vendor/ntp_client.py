@@ -295,6 +295,7 @@ class NTPClient:
 
         # create the socket
         try:
+            print(dest)
             pipe = await Pipe(UDP, dest, route).connect()
 
             # create the request packet - mode 3 is client
@@ -318,8 +319,12 @@ class NTPClient:
             raise NTPException("No response received from host")
         except Exception as e:
             log_exception()
+            return None
 
         # construct corresponding statistics
+        if response_packet is None:
+            return None
+
         stats = NTPStats()
         stats.from_data(response_packet)
         stats.dest_timestamp = dest_timestamp
