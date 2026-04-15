@@ -263,7 +263,7 @@ assuming immediate execution.
                 )
 
                 if nat is None:
-                    log("Could not load NAT for " + if_name)
+                    log("Could not load NAT for " + to_s(if_name))
                     
             nics.append(nic)
         except asyncio.CancelledError:

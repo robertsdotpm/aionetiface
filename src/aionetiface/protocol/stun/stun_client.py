@@ -54,7 +54,6 @@ from ...servers import *
 from ...nic.route.route import Route
 from ...net.bind.bind import *
 
-
 class STUNClient():
     def __init__(self, af, dest, nic, proto=UDP, mode=RFC3489, conf=NET_CONF):
         self.dest = dest
@@ -182,12 +181,7 @@ class STUNClient():
         if hasattr(reply, "rtup"):
             return (ltup[1], reply.rtup[1], reply.pipe)
 
-async def get_stun_clients(af, max_agree, interface, mode, proto=UDP, servs=None, conf=NET_CONF):
-    class MockRoute:
-        def __init__(self):
-            self.af = af
-            self.interface = interface
-
+def get_stun_clients(af, max_agree, interface, mode, proto=UDP, servs=None, conf=NET_CONF):
     # Copy random STUN servers to use.
     if servs is None:
         if mode == RFC3489:
@@ -200,16 +194,12 @@ async def get_stun_clients(af, max_agree, interface, mode, proto=UDP, servs=None
     else:
         serv_list = servs
 
-    mock_route = MockRoute()
     stun_clients = []
     for serv_info in serv_list:
         serv_info = serv_info[0]
-        async def get_stun_client(serv_info):
-            dest = (
-                serv_info["ip"],
-                serv_info["port"],
-            )
-            return STUNClient(
+        try:
+            dest = (serv_info["ip"], serv_info["port"])
+            stun_client = STUNClient(
                 af,
                 dest,
                 interface,
@@ -217,12 +207,22 @@ async def get_stun_clients(af, max_agree, interface, mode, proto=UDP, servs=None
                 mode=mode,
                 conf=conf,
             )
+
+            if stun_client:
+                stun_clients.append(stun_client)
+        except Exception:
+            log_exception()
+            log("unexpected exception in get_stun_client helper")
         
-        stun_clients.append(get_stun_client(serv_info))
         if len(stun_clients) >= max_agree:
             break
 
-    return await asyncio.gather(*stun_clients)
+    # Check that its the correct type.
+    stun_clients = strip_none(stun_clients)
+    for client in stun_clients:
+        assert isinstance(client, STUNClient)
+
+    return stun_clients
 
 async def get_n_stun_clients(af, n, interface, mode, proto=UDP, limit=5, conf=NET_CONF):
     # Find a working random STUN server.
@@ -230,7 +230,7 @@ async def get_n_stun_clients(af, n, interface, mode, proto=UDP, limit=5, conf=NE
     async def worker():
         for _ in range(0, limit):
             try:
-                stun = (await get_stun_clients(
+                stun = (get_stun_clients(
                         af=af,
                         max_agree=1,
                         mode=mode,

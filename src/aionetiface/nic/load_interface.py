@@ -112,7 +112,7 @@ async def load_interface(nic, netifaces, min_agree, max_agree, timeout):
 
         # Used to resolve nic addresses.
         servers = get_infra(af, UDP, "STUN(see_ip)", max_agree + 5)
-        stun_clients = await get_stun_clients(
+        stun_clients = get_stun_clients(
             af,
             max_agree,
             nic,

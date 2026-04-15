@@ -1,3 +1,11 @@
+"""
+There's a chance that if you run tests too closely in the same duration. Or a test
+suite with lots of calls to resolve external IPs then you hit the same servers many
+times. Then those servers interpret it as a DoS and add a temp limit on messages.
+That would make tests fail sometimes when it otherwise works. Caching addresses
+for IFs in some way could be a good idea.
+"""
+
 import platform
 import pprint
 from ..errors import *

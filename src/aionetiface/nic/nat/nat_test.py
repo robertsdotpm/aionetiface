@@ -249,7 +249,7 @@ async def nic_load_nat(nic, nat_tests=5, delta_tests=12, servs=None, timeout=4):
 
     # Copy random STUN servers to use.
     test_no = max(nat_tests, delta_tests)
-    stun_clients = await get_stun_clients(
+    stun_clients = get_stun_clients(
         af,
         test_no,
         nic,
