@@ -225,32 +225,57 @@ def get_stun_clients(af, max_agree, interface, mode, proto=UDP, servs=None, conf
     return stun_clients
 
 async def get_n_stun_clients(af, n, interface, mode, proto=UDP, limit=5, conf=NET_CONF):
-    # Find a working random STUN server.
-    # Limit to 5 attempts.
-    async def worker():
-        for _ in range(0, limit):
-            try:
-                stun = (get_stun_clients(
-                        af=af,
-                        max_agree=1,
-                        mode=mode,
-                        interface=interface,
-                        proto=proto,
-                        conf=conf,
-                    ))[0]
+    # Try a single STUN candidate; close the probe pipe on success.
+    async def try_one(stun):
+        try:
+            out = await stun.get_mapping()
+            if out is not None:
+                # Close the probe pipe; caller manages their own pipes.
+                if len(out) >= 3 and out[2] is not None:
+                    await out[2].close()
+                return stun
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log_exception()
+        return None
 
-                out = await stun.get_mapping()
-                if out is not None:
-                    # Close the probe pipe; caller manages their own pipes.
-                    if len(out) >= 3 and out[2] is not None:
-                        await out[2].close()
-                    return stun
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                log_exception()
-                continue
-            
+    # Race `limit` candidate servers concurrently instead of retrying
+    # sequentially.  Sequential retries paid a full TCP timeout
+    # (con_timeout + recv_timeout ≈ 4 s) for every unresponsive server,
+    # making worst-case latency O(limit × timeout).  Racing candidates in
+    # parallel reduces that to O(1 × timeout).
+    async def worker():
+        candidates = get_stun_clients(
+            af=af,
+            max_agree=limit,
+            mode=mode,
+            interface=interface,
+            proto=proto,
+            conf=conf,
+        )
+        if not candidates:
+            return None
+
+        tasks = [asyncio.ensure_future(try_one(c)) for c in candidates]
+        winner = None
+        try:
+            for fut in asyncio.as_completed(tasks):
+                result = await fut
+                if result is not None:
+                    winner = result
+                    break
+        finally:
+            # Cancel any still-running attempts now that we have a winner.
+            for t in tasks:
+                if not t.done():
+                    t.cancel()
+                    try:
+                        await t
+                    except (asyncio.CancelledError, Exception):
+                        pass
+        return winner
+
     # Create list of worker tasks for concurrency (faster.)
     tasks = []
     for _ in range(0, n):
