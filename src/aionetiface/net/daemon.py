@@ -369,19 +369,12 @@ class Daemon():
         return False
 
 async def daemon_rewrite_workspace():
-    serv = None
-    try:
-        nic = await Interface("wlx00c0cab5760d")
-        serv = Daemon()
-
+    nic = await Interface("wlx00c0cab5760d")
+    async with Daemon() as serv:
         await serv.listen_local(TCP, 1337, nic)
         print(serv.pipes)
-
-        while 1:
+        while True:
             await asyncio.sleep(1)
-    except Exception:
-        await serv.close()
-        log_exception()
 
 
 if __name__ == "__main__":
