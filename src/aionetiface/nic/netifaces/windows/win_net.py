@@ -1,6 +1,8 @@
 # pragma: no cover
 import re
-import winreg
+import sys
+if sys.platform == 'win32':
+    import winreg
 from ....utility.utils import *
 from ....utility.cmd_tools import *
 from ....net.net_utils import *

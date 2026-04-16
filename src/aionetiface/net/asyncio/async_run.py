@@ -7,7 +7,15 @@ def patch_asyncio_backports(loop_cls=None):
 
     # Default to whatever class is passed, or fall back to the base event loop
     if loop_cls is None:
-        loop_cls = asyncio.get_event_loop().__class__
+        try:
+            if hasattr(asyncio, 'get_running_loop'):
+                loop_cls = type(asyncio.get_running_loop())
+            else:
+                raise RuntimeError("no running loop")
+        except RuntimeError:
+            _tmp = asyncio.new_event_loop()
+            loop_cls = type(_tmp)
+            _tmp.close()
 
     if not hasattr(loop_cls, "shutdown_asyncgens"):
         async def _noop(self): pass

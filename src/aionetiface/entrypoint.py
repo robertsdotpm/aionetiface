@@ -55,7 +55,10 @@ async def aionetiface_setup_netifaces():
             return _cached_netifaces
 
         # Setup event loop.
-        loop = asyncio.get_event_loop()
+        if hasattr(asyncio, 'get_running_loop'):
+            loop = asyncio.get_running_loop()
+        else:
+            loop = asyncio.get_event_loop()
         loop.set_debug(False)
         loop.set_exception_handler(CustomEventLoopPolicy.exception_handler)
         
@@ -165,4 +168,4 @@ async def entrypoint_test():
     print(out)
 
 if __name__ == "__main__": # pragma: no cover
-    asyncio.run(entrypoint_test())
+    async_run(entrypoint_test())

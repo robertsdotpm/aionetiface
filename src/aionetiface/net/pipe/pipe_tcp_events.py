@@ -70,8 +70,8 @@ class TCPClientProtocol(asyncio.StreamReaderProtocol):
 
     def connection_made(self, transport):
         if PY_13_OR_LATER:
-            # Create StreamWriter manually
-            writer = asyncio.StreamWriter(transport, self, self._stream_reader, self.loop)
+            # In 3.13 StreamWriter.__init__ dropped the loop parameter.
+            writer = asyncio.StreamWriter(transport, self, self._stream_reader)
             self._stream_writer = writer
 
         # Wrap this connection in a BaseProto object.

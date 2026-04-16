@@ -1,6 +1,8 @@
 import re
 import asyncio
-import winreg
+import sys
+if sys.platform == 'win32':
+    import winreg
 
 from ....net.net_utils import *
 from ....utility.cmd_tools import *

@@ -43,9 +43,10 @@ class ProxySelector:
 
     def unregister(self, fd):
         """Intercepts the complete removal of the FD."""
-        # fileobj/fd is being removed. Signal before the actual OS unregister 
-        # so metadata is still technically valid if needed.
-        self.maybe_signal_removal(fd, 0, None)
+        # CLOSE_FUTURES is keyed by integer fd.  Convert a socket/file object
+        # to its integer fd before the lookup so the future is actually found.
+        real_fd = fd if isinstance(fd, int) else fd.fileno()
+        self.maybe_signal_removal(real_fd, 0, None)
         return self.selector.unregister(fd)
     
     def modify(self, fd, events, data=None):
@@ -79,6 +80,27 @@ class CustomEventLoop(asyncio.SelectorEventLoop):
         # 2. Initialize the base class with our proxy
         # The base SelectorEventLoop expects a selector object here.
         super().__init__(proxy_selector)
+
+    def close(self):
+        """
+        Override to drain CLOSE_FUTURES when the loop is closed.
+
+        If the loop is torn down before every transport has been properly
+        unregistered from the selector (e.g. after task-cancellation during
+        shutdown), awaiter futures registered via await_fd_close() would
+        otherwise leak in the module-level CLOSE_FUTURES dict indefinitely.
+        Resolve them so any remaining awaiters unblock, then remove the
+        entries to reclaim memory.
+        """
+        for fd, entries in list(CLOSE_FUTURES.items()):
+            for _sock_id, fut in entries:
+                if not fut.done():
+                    try:
+                        fut.set_result(True)
+                    except Exception:
+                        pass
+            CLOSE_FUTURES.pop(fd, None)
+        super().close()
 
     # Add your public API method back (using the global map from the proxy)
     def await_fd_close(self, sock):
@@ -143,7 +165,11 @@ class CustomEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
     def loop_setup(loop):
         loop.set_debug(False)
         loop.set_exception_handler(CustomEventLoopPolicy.exception_handler)
-        loop.default_exception_handler = CustomEventLoopPolicy.exception_handler
+        # Note: do NOT assign to loop.default_exception_handler here.
+        # asyncio calls set_exception_handler callbacks as handler(loop, context)
+        # but calls default_exception_handler as handler(context) — one argument,
+        # not two.  Assigning our staticmethod (which needs two args) would cause a
+        # TypeError the first time the default handler is invoked directly.
 
     def new_event_loop(self):
         selector = selectors.SelectSelector()

@@ -1,5 +1,6 @@
 from ...net.daemon import *
 from ...utility.fstr import fstr
+from ...net.asyncio.async_run import async_run
 
 class EchoServer(Daemon):
     def __init__(self):
@@ -63,4 +64,4 @@ if __name__ == "__main__": # pragma: no cover
         while 1:
             await asyncio.sleep(1)
 
-    asyncio.run(echo_main())
+    async_run(echo_main())

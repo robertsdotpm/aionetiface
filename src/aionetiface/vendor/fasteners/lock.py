@@ -155,7 +155,7 @@ class ReaderWriterLock(object):
                     self._readers.pop(me)
             except KeyError:
                 if raise_on_not_owned:
-                    raise RuntimeError(f"Thread {me} does not own a read lock")
+                    raise RuntimeError("Thread {0} does not own a read lock".format(me))
             self._cond.notify_all()
 
     @contextlib.contextmanager
@@ -224,7 +224,7 @@ class ReaderWriterLock(object):
             if self._writer_entries == 0:
                 self._release_write_lock(me)
         else:
-            raise RuntimeError(f"Thread {me} does not own a write lock")
+            raise RuntimeError("Thread {0} does not own a write lock".format(me))
 
     @contextlib.contextmanager
     def write_lock(self):

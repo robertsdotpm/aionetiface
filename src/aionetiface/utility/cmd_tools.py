@@ -69,6 +69,8 @@ async def nt_set_pshell_unrestricted():
     mk_unrestricted(pshell_path)
 
 def nt_is_admin():
+    if sys.platform != 'win32':
+        return False
     try:
         return ctypes.windll.shell32.IsUserAnAdmin()
     except Exception:
@@ -339,6 +341,8 @@ def is_root():
     return True
 
 def win_uac():
+    if sys.platform != 'win32':
+        return
     ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
 
 def ensure_root():
