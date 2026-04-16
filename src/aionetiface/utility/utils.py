@@ -596,7 +596,10 @@ def cancel_tasks(tasks):
 # Wait for tasks to finish up until a timeout.
 # Otherwise cancel them and wait for errors.
 async def gather_or_cancel(tasks, timeout):
-    group_task = asyncio.gather(*tasks)
+    # return_exceptions=True means gather never re-raises — it collects
+    # everything including CancelledError (a BaseException in 3.8+) so
+    # the "except Exception" hole that existed before is gone.
+    group_task = asyncio.gather(*tasks, return_exceptions=True)
     try:
         await asyncio.wait_for(
             group_task,
@@ -606,8 +609,11 @@ async def gather_or_cancel(tasks, timeout):
         for task in tasks:
             task.cancel()
 
+        # Wait for all cancellations to propagate; return_exceptions keeps
+        # CancelledError from bubbling out of gather.
+        cancelled = asyncio.gather(*tasks, return_exceptions=True)
         try:
-            await group_task
+            await cancelled
         except Exception:
             pass
         await asyncio.sleep(0)

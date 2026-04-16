@@ -70,7 +70,19 @@ class UdpPoller:
         self.sockets.append(transport)
 
     def close(self):
-        self.task.cancel()
+        """Schedule cancellation of the polling task (non-blocking)."""
+        if self.task and not self.task.done():
+            self.task.cancel()
+
+    async def aclose(self):
+        """Async close — cancels the polling task and waits for it to exit."""
+        self.close()
+        if self.task is not None:
+            try:
+                await self.task
+            except asyncio.CancelledError:
+                pass
+            self.task = None
 
     async def poll_loop(self):
         while True:

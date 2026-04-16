@@ -260,29 +260,16 @@ class Pipe:
             loop = await self.get_loop()
             self.sock.settimeout(0)
             self.sock.setblocking(0)
-            con_task = asyncio.create_task(
-                loop.sock_connect(
-                    self.sock, 
-                    self.dest.tup
-                )
-            )
-
-            # Wait for connection, async style.
-            await asyncio.wait_for(con_task, self.conf["con_timeout"])
-
-            """
+            # Pass the coroutine directly — no intermediate create_task needed.
+            # wait_for wraps it in a task internally and cancels it on timeout,
+            # avoiding the "orphaned task" pattern that leaks on older Python.
             try:
-                success = await asyncio.wait_for(
-                    safe_sock_connect(loop, self.sock, self.dest.tup), 
-                    timeout
+                await asyncio.wait_for(
+                    loop.sock_connect(self.sock, self.dest.tup),
+                    self.conf["con_timeout"],
                 )
             except asyncio.TimeoutError:
-                # Don't cancel underlying connect
-                pass
-
-            if not success:
-                raise PipeError("Pipe error for safe sock connect.")
-            """
+                raise PipeError("TCP connect timed out")
 
     async def setup_pipe_events(self, msg_cb=None, up_cb=None):
         """
@@ -353,15 +340,19 @@ class Pipe:
             if transport is None:
                 raise PipeError("Failed to create datagram endpoint")
 
-            # ---------------------------
-            # Non-cancelling wait pattern
-            # ---------------------------
+            # Wait for the UDP transport to signal ready.
+            # Use ensure_future so we can cancel the wait without cancelling
+            # the underlying Event (which stays set for later callers), but
+            # we DO cancel the waiting coroutine itself to free the task.
             fut = asyncio.ensure_future(self.pipe_events.stream_ready.wait())
             try:
-                await asyncio.wait_for(fut, timeout=2)
+                await asyncio.wait_for(asyncio.shield(fut), timeout=2)
             except asyncio.TimeoutError:
-                # Don't cancel underlying event; UDP may still be ready later
-                pass
+                fut.cancel()
+                try:
+                    await fut
+                except asyncio.CancelledError:
+                    pass
 
             # Record type of transport in pipe events.
             self.pipe_events.stream.set_handle(transport, client_tup=None)
@@ -431,14 +422,16 @@ class Pipe:
                     server_hostname=server_hostname
                 )
 
-                # ---------------------------
-                # Non-cancelling wait pattern
-                # ---------------------------
+                # Wait for the TCP connection to signal ready.
                 fut = asyncio.ensure_future(self.pipe_events.stream_ready.wait())
                 try:
-                    await asyncio.wait_for(fut, timeout=wrap_overhead)
+                    await asyncio.wait_for(asyncio.shield(fut), timeout=wrap_overhead)
                 except asyncio.TimeoutError:
-                    pass
+                    fut.cancel()
+                    try:
+                        await fut
+                    except asyncio.CancelledError:
+                        pass
 
                 # Set the con handles.
                 self.pipe_events.stream.set_handle(

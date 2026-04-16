@@ -421,6 +421,21 @@ class PipeEvents(BaseACKProto):
             await close_all_clients(self.tcp_clients, timeout=1.0)
             await asyncio.sleep(0)
 
+        # Cancel the tcp_server serve_forever task before nulling it.
+        if self.tcp_server_task is not None and not self.tcp_server_task.done():
+            self.tcp_server_task.cancel()
+            try:
+                await self.tcp_server_task
+            except asyncio.CancelledError:
+                pass
+
+        # Cancel any in-flight send/recv tasks.
+        live = [t for t in self.tasks if not t.done()]
+        for t in live:
+            t.cancel()
+        if live:
+            await asyncio.gather(*live, return_exceptions=True)
+
         # No longer running.
         self.transport = None
         self.sock = None
@@ -428,6 +443,7 @@ class PipeEvents(BaseACKProto):
         self.tcp_server = None
         self.tcp_server_task = None
         self.tcp_clients = []
+        self.tasks.clear()
         if self.proc_lock is not None:
             self.proc_lock.release()
 
