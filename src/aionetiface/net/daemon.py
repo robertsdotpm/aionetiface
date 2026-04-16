@@ -342,7 +342,13 @@ class Daemon():
         async def func(server):
             server.add_msg_cb(msg_cb)
 
-        asyncio.create_task(
+        # Return the task so callers that need to guarantee the handler is
+        # registered before processing begins can do: await daemon.add_msg_cb(h)
+        # Callers that don't care can ignore the return value as before.
+        # Background: create_task schedules registration for a future event-loop
+        # tick.  Any messages that arrive before that tick are delivered without
+        # the handler, causing a silent miss.
+        return asyncio.create_task(
             for_server_in_daemon(self, func)
         )
 

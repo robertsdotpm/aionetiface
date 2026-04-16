@@ -23026,7 +23026,7 @@ def filter_by_score(groups, threshold=0.8):
 
     return filtered
 
-def get_infra(af, proto, name, no=1, attempt=0, sample=True):
+def get_infra(af, proto, name, no=1, attempt=0, sample=False):
     af_str = ".IPv4" if af == IP4 else ".IPv6"
     proto_str = ".UDP" if proto == UDP else ".TCP"
     name = name + af_str + proto_str

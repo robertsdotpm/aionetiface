@@ -81,11 +81,11 @@ def v4_route_pool_from_ips(ipr_list, nic):
         # Select only a certain WAN if chosen.
         wan_ipr = list(find_intersect(pub_iprs, route.ext_ips))
         if wan_ipr:
-            ext_ips = [wan_ipr]
+            ext_ips = wan_ipr
         else:
             ext_ips = route.ext_ips
 
-        routes.append(Route(IP4, [nic_ipr], ext_ips, nic))
+        routes.append(Route(IP4, nic_ipr, ext_ips, nic))
 
     return routes
 

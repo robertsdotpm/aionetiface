@@ -181,7 +181,7 @@ class STUNClient():
         if hasattr(reply, "rtup"):
             return (ltup[1], reply.rtup[1], reply.pipe)
 
-def get_stun_clients(af, max_agree, interface, mode, proto=UDP, servs=None, conf=NET_CONF):
+def get_stun_clients(af, max_agree, interface, mode, proto=UDP, servs=None, conf=NET_CONF, attempt=0):
     # Copy random STUN servers to use.
     if servs is None:
         if mode == RFC3489:
@@ -189,8 +189,8 @@ def get_stun_clients(af, max_agree, interface, mode, proto=UDP, servs=None, conf
 
         if mode == RFC5389:
             name = "STUN(see_ip)"
-        
-        serv_list = get_infra(af, proto, name, no=max_agree)
+
+        serv_list = get_infra(af, proto, name, no=max_agree, attempt=attempt)
     else:
         serv_list = servs
 
@@ -240,12 +240,18 @@ async def get_n_stun_clients(af, n, interface, mode, proto=UDP, limit=5, conf=NE
             log_exception()
         return None
 
-    # Race `limit` candidate servers concurrently instead of retrying
-    # sequentially.  Sequential retries paid a full TCP timeout
-    # (con_timeout + recv_timeout ≈ 4 s) for every unresponsive server,
-    # making worst-case latency O(limit × timeout).  Racing candidates in
-    # parallel reduces that to O(1 × timeout).
-    async def worker():
+    # Hedged requests: try candidates one at a time but stagger launches so
+    # we don't wait for a full TCP timeout before moving on.  A new candidate
+    # is only started if the previous one hasn't responded within HEDGE_DELAY.
+    # This avoids the original O(limit × timeout) worst case while keeping
+    # total connections close to 1 on a healthy network.
+    #
+    # get_infra uses a deterministic RNG seeded by `attempt`, so each
+    # worker is passed a distinct attempt index to ensure they sample
+    # different server pools rather than all querying the same servers.
+    HEDGE_DELAY = 0.5  # seconds before launching the next candidate
+
+    async def worker(attempt):
         candidates = get_stun_clients(
             af=af,
             max_agree=limit,
@@ -253,20 +259,29 @@ async def get_n_stun_clients(af, n, interface, mode, proto=UDP, limit=5, conf=NE
             interface=interface,
             proto=proto,
             conf=conf,
+            attempt=attempt,
         )
         if not candidates:
             return None
 
-        tasks = [asyncio.ensure_future(try_one(c)) for c in candidates]
+        tasks = []
         winner = None
         try:
-            for fut in asyncio.as_completed(tasks):
-                result = await fut
-                if result is not None:
-                    winner = result
-                    break
+            for candidate in candidates:
+                t = asyncio.ensure_future(try_one(candidate))
+                tasks.append(t)
+
+                # Wait briefly; if this candidate responds in time we're done
+                # and never launch the next one.
+                done, _ = await asyncio.wait({t}, timeout=HEDGE_DELAY)
+                if done:
+                    result = t.result()
+                    if result is not None:
+                        winner = result
+                        break
+                # No result yet — loop and launch the next candidate in parallel.
         finally:
-            # Cancel any still-running attempts now that we have a winner.
+            # Cancel any still-running attempts.
             for t in tasks:
                 if not t.done():
                     t.cancel()
@@ -274,14 +289,29 @@ async def get_n_stun_clients(af, n, interface, mode, proto=UDP, limit=5, conf=NE
                         await t
                     except (asyncio.CancelledError, Exception):
                         pass
+
+        # If no candidate won during the staggered loop, check whether any
+        # of the already-launched tasks finished successfully.
+        if winner is None:
+            for t in tasks:
+                if t.done() and not t.cancelled():
+                    try:
+                        result = t.result()
+                        if result is not None:
+                            winner = result
+                            break
+                    except Exception:
+                        pass
         return winner
 
     # Create list of worker tasks for concurrency (faster.)
+    # Pass a distinct attempt index per worker so get_infra's deterministic
+    # RNG seeds differently, giving each worker a different server pool.
     tasks = []
-    for _ in range(0, n):
+    for i in range(0, n):
         tasks.append(
             async_wrap_errors(
-                worker()
+                worker(attempt=i)
             )
         )
 
