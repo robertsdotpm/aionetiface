@@ -22,12 +22,11 @@ def get_default_routes(nic):
 
         # create a UDP socket to the host
         try:
-            s = socket.socket(af, socket.SOCK_DGRAM)
-            s.connect(dest)
-            nic_ipr = IPR(ip_norm(s.getsockname()[0]), af=af)
-            ext_ipr = IPR(dests[af], af=af)
-            routes[af] = Route(af, [nic_ipr], [ext_ipr], nic)
-            s.close()
+            with socket.socket(af, socket.SOCK_DGRAM) as s:
+                s.connect(dest)
+                nic_ipr = IPR(ip_norm(s.getsockname()[0]), af=af)
+                ext_ipr = IPR(dests[af], af=af)
+                routes[af] = Route(af, [nic_ipr], [ext_ipr], nic)
         except OSError:
             pass
 

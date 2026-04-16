@@ -496,3 +496,10 @@ class PipeEvents(BaseACKProto):
             if t.get_write_buffer_size() == 0:
                 break
             await asyncio.sleep(0.01) # Small yields to the loop
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_):
+        await self.close()
+        return False

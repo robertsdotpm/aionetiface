@@ -182,20 +182,16 @@ services on interfaces on the same machine.
 def determine_if_path(af, dest):
     # Setup socket for connection.
     src_ip = None
-    s = socket.socket(af, UDP)
-
-    # We don't care about connection success.
-    # But avoiding delays is important.
-    s.settimeout(0)
-    try:
+    with socket.socket(af, UDP) as s:
+        # We don't care about connection success.
+        # But avoiding delays is important.
+        s.settimeout(0)
         # Large port avoids perm errors.
         # Doesn't matter if it exists or not.
         s.connect((dest, 12345))
 
         # Get the interface bind address.
         src_ip = s.getsockname()[0]
-    finally:
-        s.close()
 
     return src_ip
 

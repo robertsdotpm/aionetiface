@@ -361,6 +361,13 @@ class Daemon():
 
         await for_server_in_daemon(self, func)
 
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_):
+        await self.close()
+        return False
+
 async def daemon_rewrite_workspace():
     serv = None
     try:
