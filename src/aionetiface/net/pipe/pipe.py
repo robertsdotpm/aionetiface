@@ -79,9 +79,12 @@ class Pipe:
 
         return self
     
-    async def close(self, force=False):
+    async def close(self, force=False, keep_clients=False):
         if self.pipe_events is not None:
-            await self.pipe_events.close(force=force)
+            await self.pipe_events.close(
+                force=force, 
+                keep_clients=keep_clients
+            )
 
     async def accept(self):
         if self.pipe_events is not None:

@@ -4,6 +4,7 @@ Write log messages to per-thread log files under ~/aionetiface/logs.
 If that directory does not exist, all log calls are silently ignored.
 """
 
+import atexit
 import os
 import sys
 import threading
@@ -17,6 +18,17 @@ LOGS_ROOT_PATH = os.path.join(
 )
 
 log_fds = {}
+
+def _close_log_fds():
+    """Close all open log file descriptors at interpreter shutdown."""
+    for fd in list(log_fds.values()):
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+    log_fds.clear()
+
+atexit.register(_close_log_fds)
 
 def open_log_fd(tid):
     if tid not in log_fds:

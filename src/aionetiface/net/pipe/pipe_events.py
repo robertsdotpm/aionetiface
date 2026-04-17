@@ -367,7 +367,7 @@ class PipeEvents(BaseACKProto):
         except Exception:
             log_exception()
 
-    async def close(self, force=False):
+    async def close(self, force=False, keep_clients=False):
         if not self.is_running:
             return
 
@@ -417,7 +417,7 @@ class PipeEvents(BaseACKProto):
         """
         If it's a TCP server close TCP client cons.
         """
-        if self.tcp_clients:
+        if self.tcp_clients and not keep_clients:
             await close_all_clients(self.tcp_clients, timeout=1.0)
             await asyncio.sleep(0)
 

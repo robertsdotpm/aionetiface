@@ -32,7 +32,7 @@ def reconcile_lists(old_list, new_list):
         else:
             # copy the old item and set port to 0
             item_copy = x.copy()
-            item_copy[0]["old_port"] = item_copy[0]["port]"]
+            item_copy[0]["old_port"] = item_copy[0]["port"]
             item_copy[0]["port"] = 0
             out.append(item_copy)
 
@@ -78,13 +78,19 @@ async def update_server_list(nic, sys_clock=time, init_infra_buf=INFRA_BUF, init
         stored_json = None
         stored_infra = None
         if os.path.exists(servers_path):
-            with open(servers_path, 'r') as fp:
-                stored_json = fp.read()
+            try:
+                with open(servers_path, 'r') as fp:
+                    stored_json = fp.read()
                 stored_infra = json.loads(stored_json)
+            except Exception:
+                # Corrupted or truncated file; keep the built-in list.
+                log("Stored server file unreadable; using built-in list.")
+                log_exception()
+                stored_infra = None
 
             # If the stored server list is more recent -- use that instead.
             if stored_infra:
-                if stored_infra["timestamp"] > infra["timestamp"]:
+                if stored_infra.get("timestamp", 0) > infra["timestamp"]:
                     infra = stored_infra
                     infra_buf = stored_json
 

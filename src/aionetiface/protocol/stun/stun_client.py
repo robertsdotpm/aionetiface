@@ -166,20 +166,37 @@ class STUNClient():
                 await pipe.close()
 
     # Return information on your local + remote port.
-    # The pipe is left open to be used with punch code.
-    # NOTE: Pipe doesn't get closed from this. Intentional?
+    # On success the pipe is intentionally left open and returned to the
+    # caller so it can be reused for hole-punching.  On failure the pipe
+    # is closed here so it does not leak.
     async def get_mapping(self, pipe=None):
+        caller_supplied_pipe = pipe is not None
         pipe = await self._get_dest_pipe(pipe)
-        reply = await get_stun_reply(
-            self.mode,
-            self.dest,
-            self.dest,
-            pipe
-        )
+        try:
+            reply = await get_stun_reply(
+                self.mode,
+                self.dest,
+                self.dest,
+                pipe
+            )
 
-        ltup = reply.pipe.sock.getsockname()
-        if hasattr(reply, "rtup"):
-            return (ltup[1], reply.rtup[1], reply.pipe)
+            ltup = reply.pipe.sock.getsockname()
+            if hasattr(reply, "rtup"):
+                # Pipe ownership transfers to the caller.
+                return (ltup[1], reply.rtup[1], reply.pipe)
+
+            # Server replied but did not include a mapped-address attribute.
+            # Close the pipe we opened (unless the caller supplied it).
+            if not caller_supplied_pipe:
+                await pipe.close()
+            return None
+        except Exception:
+            if not caller_supplied_pipe:
+                try:
+                    await pipe.close()
+                except Exception:
+                    pass
+            raise
 
 def get_stun_clients(af, max_agree, interface, mode, proto=UDP, servs=None, conf=NET_CONF, attempt=0):
     # Copy random STUN servers to use.
@@ -246,10 +263,13 @@ async def get_n_stun_clients(af, n, interface, mode, proto=UDP, limit=5, conf=NE
     # This avoids the original O(limit × timeout) worst case while keeping
     # total connections close to 1 on a healthy network.
     #
+    # IPv6 probes take longer than IPv4 (tunnels, 6in4, smaller server pool,
+    # wider geographic spread) so the hedge window is wider for AF_INET6.
+    #
     # get_infra uses a deterministic RNG seeded by `attempt`, so each
     # worker is passed a distinct attempt index to ensure they sample
     # different server pools rather than all querying the same servers.
-    HEDGE_DELAY = 0.5  # seconds before launching the next candidate
+    HEDGE_DELAY = 1.5 if af == IP6 else 0.5
 
     async def worker(attempt):
         candidates = get_stun_clients(
@@ -275,7 +295,14 @@ async def get_n_stun_clients(af, n, interface, mode, proto=UDP, limit=5, conf=NE
                 # and never launch the next one.
                 done, _ = await asyncio.wait({t}, timeout=HEDGE_DELAY)
                 if done:
-                    result = t.result()
+                    # The task may have completed with an exception (e.g.
+                    # CancelledError from an external cancellation arriving
+                    # while asyncio.wait was running).  Guard t.result() so
+                    # a single bad candidate cannot crash the whole worker.
+                    try:
+                        result = t.result()
+                    except (asyncio.CancelledError, Exception):
+                        result = None
                     if result is not None:
                         winner = result
                         break

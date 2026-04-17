@@ -216,7 +216,11 @@ class Daemon():
         # so we can store the pipe under the correct quad-tuple.
         # No proc_lock is created because OS-chosen ports never conflict.
         if not bind_port:
-            _, port = pipe.sock.getsockname()
+            try:
+                _, port = pipe.sock.getsockname()
+            except Exception:
+                log_exception()
+                raise
 
         # Store the server pipe.
         self.servers[route.af][proto].setdefault(port, {})

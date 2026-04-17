@@ -166,13 +166,17 @@ async def do_web_req(addr, http_buf, do_close, route, conf=NET_CONF):
     out = b""
     content_len = 0
     hdr_ended = False
+    headers = b""
+    content = b""
     while True:
         buf = await p.recv(SUB_ALL, timeout=conf['recv_timeout'])
         if not buf:
             break
         out += buf
 
-        # Check if headers end and find Content-Length
+        # Check if headers end and find Content-Length.
+        # HTTP/1.0: break early only when Content-Length is known; otherwise
+        # the connection close (buf == b"") signals end-of-body.
         if b"\r\n\r\n" in out:
             hdr_ended = True
             content_len_search = re.search(b"[cC]ontent-[lL]ength: *([0-9]+)", out)
@@ -180,19 +184,18 @@ async def do_web_req(addr, http_buf, do_close, route, conf=NET_CONF):
                 content_len = int(content_len_search.group(1))
                 break
 
-    # Extract headers and pre-existing content
-    content = b""
+    # Split raw response into header block and initial body bytes.
     if hdr_ended:
         parts = re.split(b"\r\n\r\n", out, maxsplit=1)
-        headers, content = parts[0], parts[1] if len(parts) > 1 else b""
+        headers = parts[0]
+        content = parts[1] if len(parts) > 1 else b""
 
-    # Read remaining content if needed
+    # Read remaining content if a Content-Length told us how much to expect.
     if content_len:
         while len(content) < content_len:
             buf = await p.recv(SUB_ALL, timeout=conf['recv_timeout'])
             if not buf:
                 break
-
             content += buf
 
     # Some connections may be left open.
@@ -200,13 +203,16 @@ async def do_web_req(addr, http_buf, do_close, route, conf=NET_CONF):
         await p.close()
         p = None
 
-    # Parse HTTP response.
-    if out is not None:
-        out = ParseHTTPResponse(headers)
+    # Parse HTTP response.  Bail out cleanly if no headers were received
+    # (e.g. connection dropped before the blank line separator arrived).
+    if not hdr_ended:
+        return None, None
+
+    out = ParseHTTPResponse(headers)
 
     if content:
         out.out = lambda: content
-        
+
     return p, out
 
 class WebCurl():

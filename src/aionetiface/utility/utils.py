@@ -684,6 +684,12 @@ def async_to_sync(f, params=None, loop=None):
     """
     loop = loop or get_running_loop()
 
+    if loop is None:
+        raise RuntimeError(
+            "async_to_sync: no event loop available. "
+            "Pass loop= explicitly or call from inside a running loop."
+        )
+
     if params is not None:
         def closure(args):
             return loop.run_until_complete(f(*args))

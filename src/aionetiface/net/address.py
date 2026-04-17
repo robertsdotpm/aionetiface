@@ -138,6 +138,8 @@ class Address():
             if ipr.af == IP6:
                 self.IP6 = ip
                 self.v6_ipr = ipr
+        except asyncio.CancelledError:
+            raise
         except Exception:
             # Resolve domain to IP.
             try:
@@ -151,6 +153,8 @@ class Address():
                 # Ensure some IPs returned.
                 if not len(results):
                     raise Exception("Using fallback DNS")
+            except asyncio.CancelledError:
+                raise
             except Exception:
                 # If that fails -- fallback to getaddrinfo.
                 results = await asyncio.wait_for(

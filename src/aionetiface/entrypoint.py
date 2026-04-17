@@ -18,7 +18,7 @@ else:
 from .install import *
 
 _cached_netifaces = None
-_cache_lock = asyncio.Lock()
+_cache_lock = None  # Lazily created inside the running event loop.
 
 """
 I've honestly never had success with using "async locks",
@@ -46,9 +46,14 @@ async def aionetiface_setup_netifaces():
     global ENABLE_UDP
     global ENABLE_STUN
     global _cached_netifaces
+    global _cache_lock
     if _cached_netifaces is not None:
         return _cached_netifaces
-    
+
+    # Create the lock lazily so it is always bound to the running event loop.
+    if _cache_lock is None:
+        _cache_lock = asyncio.Lock()
+
     async with _cache_lock:
         # Double check inside lock
         if _cached_netifaces is not None:

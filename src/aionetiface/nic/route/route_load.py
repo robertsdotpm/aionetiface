@@ -15,6 +15,10 @@ use STUN to lookup what WAN address ends up being reported after using
 that particular address for a bind() call.
 """
 async def lookup_wan_ip_for_nic_ip(src_ip, min_agree, stun_clients, timeout):
+    if not stun_clients:
+        log("lookup_wan_ip_for_nic_ip: no STUN clients available, cannot resolve WAN IP.")
+        return None
+
     try:
         tasks = []
         interface = stun_clients[0].interface

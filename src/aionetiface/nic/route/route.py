@@ -163,6 +163,8 @@ class Route(Bind):
         return ipr_norm(self.ext_ips[0])
     
     def link_local(self):
+        if not self.link_locals:
+            raise ValueError("Route has no link-local addresses.")
         return ipr_norm(self.link_locals[0])
 
     # Test if a given IPRange is in the nic_ips list.

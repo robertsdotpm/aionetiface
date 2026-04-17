@@ -49,8 +49,6 @@ class ObjCollection():
         if len(servers) < n:
             servers += [None] * (n - len(servers))
 
-        print(servers)
-        
         # Construct fresh list of objects.
         objs = [self.obj_factory(kv["factory"], dest=servers[i]) for i in range(0, n)]
 
@@ -95,7 +93,6 @@ async def workspace_one():
         if kv["mode"] == RFC5389:
             name = "STUN(see_ip)"
         
-        print(kv)
         servers = get_infra(kv["af"], kv["proto"], name, no=n)
 
         return [(s[0]["ip"], s[0]["port"]) for s in servers]

@@ -106,8 +106,12 @@ async def stun_reply_to_ret_dic(reply):
         return None
     
     if hasattr(reply, "pipe"):
-        ltup = reply.pipe.sock.getsockname()[0:2]
-        ret["lip"], ret["lport"] = ltup
+        try:
+            ltup = reply.pipe.sock.getsockname()[0:2]
+            ret["lip"], ret["lport"] = ltup
+        except OSError:
+            # Socket was closed before we could read the local address.
+            return None
     else:
         return None
     
