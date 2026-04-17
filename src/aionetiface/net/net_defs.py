@@ -6,16 +6,15 @@ from io import BytesIO
 from ..errors import *
 from ..utility.cmd_tools import *
 
-"""
-You're supposed to have unique [src ip, src port, dest ip, dest port] 'tuples' for every end point but you can easily bypass this with UDP. But if you end up with multiple 'sockets' bound to the same endpoint then the OS is not going to route packets correctly. It might make sense to detect this somehow if debug mode is on and show a warning if such actions are detected.
-
-There is also the case where you open a second socket with
-the same endpoint and fail to track the state of the first
-(and properly close it) which will cause messages to be
-routed to the first socket and / or second. It will be
-very hard to detect. Sockets need to be properly cleaned
-up to avoid this error state.
-"""
+# Every network endpoint is uniquely identified by the 4-tuple
+# (src_ip, src_port, dest_ip, dest_port).  UDP sockets allow sharing
+# endpoints, but if two sockets bind to the same tuple the OS routing
+# becomes unpredictable.  Enable debug-mode warnings if that ever happens.
+#
+# A related hazard: opening a second socket on the same endpoint without
+# properly closing the first causes messages to be delivered to whichever
+# socket the OS chooses.  This is very hard to detect at runtime, so
+# always close sockets explicitly.
 
 # Address class has determined host input is a domain.
 HOST_TYPE_DOMAIN = 0

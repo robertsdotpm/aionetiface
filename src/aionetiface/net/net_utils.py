@@ -11,10 +11,16 @@ from ..errors import *
 from ..utility.cmd_tools import *
 from .net_defs import *
 
-af_to_v = lambda af: 4 if af == IP4 else 6
-v_to_af = lambda v: IP4 if v == 4 else IP6
-af_to_cidr = max_cidr = lambda af: 32 if af == IP4 else 128
-i_to_af = lambda x: IP4 if x == 2 else IP6
+af_to_v  = lambda af: 4 if af == IP4 else 6
+v_to_af  = lambda v: IP4 if v == 4 else IP6
+i_to_af  = lambda x: IP4 if x == 2 else IP6
+
+def max_cidr(af):
+    """Return the maximum CIDR prefix length for the given address family."""
+    return 32 if af == IP4 else 128
+
+# Alias so callers can use either name.
+af_to_cidr = max_cidr
 
 def sock_has_data(sock):
     try:
@@ -121,7 +127,7 @@ def ip_strip_cidr(ip):
     return ip
 
 def ip_norm(ip):
-    # Stip interface scope id.
+    # Strip interface scope id.
     ip = ip_strip_if(ip)
 
     # Strip CIDR.
@@ -160,25 +166,16 @@ def is_socket_closed(sock):
         return False
     return False
 
-"""
-If trying to reach a destination that uses a private address
-and its a machine in the LA, then binding() a local socket
-to the wrong interface address means being unable to reach
-that destination host. The machines routing table knows
-what interface to use to reach such an address and most
-of the addressing info is supported in aionetiface (subnet info
-currently hasn't been added.) So for now -- this is a hack.
-
-It means try to connect to that address and let the machine
-decide on the right interface to use. Then the socket
-bind IP is looked up and the interface that matches that
-address is loaded directly for use with the software.
-It's a work-around until I properly add in subnet fields.
-
-This code will be used to make the p2p connect code more
-robust -- so that it works to hosts in the LAN and to
-services on interfaces on the same machine.
-"""
+# Hack: determine which local interface is on the path to a private destination.
+#
+# When connecting to a private address in the LAN, binding to the wrong
+# local interface IP means the kernel can't route the packet.  The proper fix
+# is to include full subnet information in routing, but until then we use a
+# zero-timeout connect() to let the OS pick the right source interface, then
+# read back the bound address.
+#
+# This makes p2p connections to LAN hosts and to services on the same machine
+# more robust.
 def determine_if_path(af, dest):
     # Setup socket for connection.
     src_ip = None

@@ -1,13 +1,13 @@
 """
-if ~/aionetiface/logs exists -- write logs
-otherwise do nothing
+Write log messages to per-thread log files under ~/aionetiface/logs.
+
+If that directory does not exist, all log calls are silently ignored.
 """
 
 import os
 import sys
-import traceback
-import os
 import threading
+import traceback
 from .fstr import *
 from ..install import get_aionetiface_install_root
 

@@ -82,7 +82,7 @@ class ParseHTTPResponse(HTTPResponse):
         te = "Transfer-Encoding"
         if te in self.hdrs:
             if self.hdrs[te] == "chunked":
-                raise Exception("chunked encodign not supported!")
+                raise Exception("chunked encoding not supported!")
 
     def out(self):
         return self.read(self.resp_len)
@@ -100,12 +100,11 @@ def get_hdr(name, hdrs):
     # Not found.
     return (-1, None)
 
-"""
-Break up a URL into it's host, port, file path,
-and resolve it's domain as an address for use with
-networking code that works to make the HTTP request.
-"""
 async def url_res(route, url, timeout=3):
+    """
+    Break up a URL into its host, port, and file path, and resolve the
+    domain for use with networking code that makes the HTTP request.
+    """
     # Split URL into host and port.
     port = 80
     url_parts = urllib.parse.urlparse(url)
@@ -138,8 +137,6 @@ def Payload(f, url={}, body=b""):
         return await f(path=path, hdrs=hdrs, url=url, body=body)
 
     return wrapper
-
-# urllib.parse.urlencode(params)
 
 # Returns pipe, ParseHTTPResponse
 async def do_web_req(addr, http_buf, do_close, route, conf=NET_CONF):
@@ -205,7 +202,6 @@ async def do_web_req(addr, http_buf, do_close, route, conf=NET_CONF):
 
     # Parse HTTP response.
     if out is not None:
-        #log(out)
         out = ParseHTTPResponse(headers)
 
     if content:
@@ -213,17 +209,17 @@ async def do_web_req(addr, http_buf, do_close, route, conf=NET_CONF):
         
     return p, out
 
-"""
-i = await Interface()
-addr = await Address("www.example.com", 80, i.route())
-curl = WebCurl(addr, do_close=0)
-resp = await curl.vars(url_param, body_payload).get("/")
-resp.pipe # http con if open
-resp.out # http reply
-resp.info # parsed http reply
-"""
-
 class WebCurl():
+    """
+    Minimal async HTTP client.
+
+    Usage:
+        curl = WebCurl(addr, route, do_close=0)
+        resp = await curl.vars(url_params, body_payload).get("/")
+        resp.pipe   # open TCP connection, if do_close=0
+        resp.out    # raw response body bytes
+        resp.info   # parsed ParseHTTPResponse object
+    """
     def __init__(self, addr, route, throttle=0, do_close=1, hdrs=[]):
         self.addr = addr
         self.route = route
@@ -235,7 +231,7 @@ class WebCurl():
         self.throttle = throttle
         self.do_close = do_close
 
-    # Figure out less brainlet way to do this.
+    # Returns a deep copy of this client for use in concurrent requests.
     def copy(self):
         route = copy.deepcopy(self.route)
         client = WebCurl(self.addr, route)
@@ -291,7 +287,6 @@ class WebCurl():
             payload=client.body,
             headers=hdrs
         )
-
 
         # Save request for debugging.
         client.req_buf = req_buf

@@ -1,20 +1,9 @@
 """
-support xor mapped addr
-add the message integrity field
+Utility functions for building, sending, and parsing STUN messages.
 
-
-3489 -- needed for my nat test stuff
-- not needed for my TCP code
-i think that maybe the change requests and such have been remvoed based on recent rfcs
-
-'RESPONSE-ADDRESS, CHANGED-ADDRESS, CHANGE-REQUEST, SOURCE-ADDRESS'
-
-CHANGE-REQUEST attribute and on the address and port the
-Binding Request was received on, and are summarized in Table 1.
-
-TOdO: return bytearray().join([
-create a pointer function for memory views.
-?
+Supports RFC 3489 (used for NAT type detection) and RFC 5389/8489.
+The main entry point is get_stun_reply, which sends a STUN binding request
+and returns the parsed reply with address fields attached.
 """
 
 from ...utility.utils import *
@@ -55,13 +44,6 @@ def stun_proto(buf, af):
     while not msg.eof():
         attr_code, _, attr_data = msg.read_attr()
         attr_name = buf_in_class(STUNAttrs, bytes(attr_code))
-        """
-        print(attr_name)
-        print(bytes(attr_code))
-        print(bytes(attr_data))
-        print()
-        """
-
         stun_proc_attrs(af, attr_code, attr_data, msg)
         
 
@@ -134,12 +116,10 @@ async def stun_reply_to_ret_dic(reply):
 
 def validate_stun_reply(reply, mode):
     if reply is None:
-        #log(f'{to_h(reply.txn_id)}: reply none')
         return None
-    
+
     # Pipe needs to exist to check change addrs.
     if not hasattr(reply, "pipe"):
-        #log(f'{to_h(reply.txn_id)}: no pipe')
         return None
     
     # Reply addr is stup of the server.
@@ -167,15 +147,11 @@ def validate_stun_reply(reply, mode):
             return None
 
     return reply
-    # stup - reply addr
-    # ltup .reply.pipe.sock.getsockname()
-    # ctup -- change tup
-    # rtup -- remove tup
     
 
-async def test_stun_utils():
+async def run_stun_utils():
     m = STUNMsg()
     buf = m.encode()
 
 if __name__ == "__main__":
-    async_test(test_stun_utils)
+    async_test(run_stun_utils)

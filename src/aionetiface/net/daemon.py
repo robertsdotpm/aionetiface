@@ -22,12 +22,14 @@ DAEMON_CONF = dict_child({
     "reuse_addr": True
 }, NET_CONF)
 
-"""
-For TCP-servers this code attempts a positive connection with a
-a desired server endpoint to listen on. Obviously such code
-doesn't apply to UDP which is connectionless.
-"""
 async def is_serv_listening(proto, listen_route):
+    """
+    Return True if there is already a server listening on listen_route.
+
+    For TCP, a quick connection attempt is made to the listen address.
+    For UDP the check is skipped (returns False) because UDP is connectionless
+    and a bound socket does not imply an active listener.
+    """
     # UDP is connectionless.
     # A Pipe socket doesn't mean its open.
     if proto == UDP:
@@ -56,14 +58,17 @@ async def is_serv_listening(proto, listen_route):
     except Exception:
         return False
 
-"""
-Used to detect if daemons have uncleanly exited in which case
-the listen socket is being used and allowing it to be used again
-even with "tricks" would lead to unexpected results (usually data loss)
-as packets end up being routed to the zombie server process over the
-socket started for the new server.
-"""
 def get_serv_lock(af, proto, serv_port, serv_ip, install_path):
+    """
+    Return a filesystem-based inter-process lock for the given server endpoint.
+
+    The lock file is keyed on (af, proto, port, ip) so that two processes
+    trying to start the same server will conflict.  If a daemon exited
+    uncleanly the lock file may be stale; the caller should treat a failed
+    acquire as a zombie-process condition.
+
+    Returns None if the lock library is unavailable.
+    """
     # Make install dir if needed.
     try:
         pathlib.Path(install_path).mkdir(parents=True, exist_ok=True)
@@ -99,11 +104,13 @@ def get_serv_lock(af, proto, serv_port, serv_ip, install_path):
     except Exception:
         return None
 
-"""
-A coroutine func receives a server (pipe) for every server
-being listened on in a daemon class.
-"""
 async def for_server_in_daemon(daemon, func):
+    """
+    Call func(server) concurrently for every server pipe registered in daemon.
+
+    Errors from individual calls are collected rather than propagated so that
+    one failing server does not prevent the others from being visited.
+    """
     tasks = []
     for af in VALID_AFS:
         for proto in [TCP, UDP]:
@@ -148,23 +155,19 @@ class Daemon():
     def up_cb(self, msg, client_tup, pipe):
         pass
 
-    """
-    Can be used to manually add a pipe to listen on for this daemon.
-    Used by some of the convienence functions like
-    listen_all and listen_local.
-    """
     async def add_listener(self, proto, route):
+        """
+        Attach a server listening pipe to this daemon.
+
+        The route must already be resolved (bound address known).
+        Used internally by listen_all and listen_loopback.
+        """
         # Ensure route is bound.
         assert(route.resolved)
 
-        """
-        In socket programming bind can be passed a port value of 0
-        meaning "let the OS choose" or specify a value manually.
-        When you specify manually you're not guaranteed to get
-        a free, non-conflicting port and need to detect error
-        states where the port is already used (maybe by previous
-        runs of this very code that were killed badly.)
-        """
+        # bind() accepts port=0 to let the OS choose, or a specific port.
+        # A specific port may conflict with a previous run that didn't exit
+        # cleanly, so we detect that before trying to bind.
         bind_port = route.bind_port
 
         # Check if server is already listening.
@@ -199,27 +202,19 @@ class Daemon():
 
         assert(pipe is not None)
 
-        """
-        When servers are closed the OS can put the socket in TIME_WAIT
-        which prevents rebinding to the same port for several minutes.
-        This raises errors if you restart the same process with the
-        same listen ports and generally makes testing a nightmare.
-        This is a hack to allow TIME_WAIT sockets to be used.
-        """
+        # TIME_WAIT: after a server closes, the OS holds the port for
+        # several minutes.  Restarting with the same ports would normally
+        # fail with EADDRINUSE.  avoid_time_wait() sets SO_LINGER=0 to
+        # skip that wait, which is acceptable in a test/dev environment.
         avoid_time_wait(pipe)
 
         # Only one instance of this service allowed.
         if bind_port:
             pipe.proc_lock = lock
 
-        """
-        A zero bind port means the OS will choose a port. So the
-        assigned port is looked up to record the quad-tuple
-        (AF, proto, port, IP) for the service bellow.
-        In such a case no proc_lock file is created since
-        additional invocations of the same code (with a zero port)
-        are guaranteed to get non-conflicting ports.
-        """
+        # A zero bind port means the OS picked the port.  Read it back
+        # so we can store the pipe under the correct quad-tuple.
+        # No proc_lock is created because OS-chosen ports never conflict.
         if not bind_port:
             _, port = pipe.sock.getsockname()
 
@@ -228,12 +223,14 @@ class Daemon():
         self.servers[route.af][proto][port][ip] = pipe
         return (port, pipe)
 
-    """
-    There's a special IPv6 sock option to listen on
-    all address types but its not guaranteed.
-    Hence I use two sockets based on supported stack.
-    """
     async def listen_all(self, proto, port, nic):
+        """
+        Listen on all addresses supported by nic.
+
+        Creates one socket per supported address family.  An IPv6 dual-stack
+        option exists but is not guaranteed across platforms, so two sockets
+        are used instead.
+        """
         outs = []
         for af in nic.supported():
             route = nic.route(af)
@@ -246,12 +243,13 @@ class Daemon():
 
         return strip_none(outs)
 
-    """
-    Localhost here is translated to the right address
-    depending on the AF supported by the NIC.
-    The bind_magic function takes care of this.
-    """
     async def listen_loopback(self, proto, port, nic):
+        """
+        Listen on the loopback address for each address family supported by nic.
+
+        "localhost" is translated to the correct AF-specific address by
+        the bind_magic helper.
+        """
         outs = []
         for af in nic.supported():
             route = nic.route(af)
@@ -264,13 +262,17 @@ class Daemon():
 
         return strip_none(outs)
 
-    """
-    Really no way to do this with IPv4 without adding
-    something like a basic firewall. But IPv6 has the
-    link-local addresses and UNL. Perhaps a basic
-    firewall could be a future feature.
-    """
     async def listen_local(self, proto, port, nic, limit=1):
+        """
+        Listen on LAN-accessible addresses only.
+
+        For IPv4 this means the private NIC address.  For IPv6 this means
+        link-local addresses.  A limit on the number of binds per AF can
+        be applied (default 1).
+
+        Note: IPv4 LAN restriction without a firewall is inherently imperfect;
+        a future enhancement could add basic firewall rules.
+        """
         outs = []
         for af in nic.supported():
             total = 0
@@ -332,13 +334,14 @@ class Daemon():
 
         return strip_none(outs)
 
-    """
-    msg_cb functions are run whenever a pipe / listener receives
-    a message -- its protocol is described at the top.
-    This func adds a new msg_cb to the list of msg_cbs for
-    every listener / pipe registered in this daemon.
-    """
     def add_msg_cb(self, msg_cb):
+        """
+        Register msg_cb on every server pipe managed by this daemon.
+
+        Returns the scheduled task so callers that need the handler to be
+        registered before the first message arrives can await it.
+        Callers that don't require that ordering can ignore the return value.
+        """
         async def func(server):
             server.add_msg_cb(msg_cb)
 

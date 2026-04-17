@@ -46,8 +46,10 @@ def parse_node_addr(addr):
         return None
 
     # Parsed dict.
-    schema = [is_no, is_no, is_b, is_b, is_no,  is_no, is_no, is_no]
-    translate = [to_n, to_n, to_b, to_b, to_n, to_n, to_n, to_n]
+    # Validators and converters for each of the 8 fields per interface entry.
+    # Fields: netiface_index, if_index, ext_ip, nic_ip, port, nat_type, delta_type, delta_val
+    schema    = [is_number, is_number, is_bytes, is_bytes, is_number, is_number, is_number, is_number]
+    translate = [to_n,      to_n,      to_b,     to_b,     to_n,      to_n,      to_n,      to_n     ]
     out = {
         IP4: {},
         IP6: {},
@@ -118,12 +120,12 @@ def parse_node_addr(addr):
     return out
 
 def node_addr_extract_exts(p2p_addr):
+    """Return a flat list of all external and NIC IPRange objects in a p2p address."""
     exts = []
     for af in VALID_AFS:
-        for info in p2p_addr[af]:
+        for info in p2p_addr[af].values():
             exts.append(info["ext"])
             exts.append(info["nic"])
-
     return exts
 
 def is_node_addr_us(addr_bytes, if_list):
@@ -133,7 +135,7 @@ def is_node_addr_us(addr_bytes, if_list):
     # Check all address families.
     for af in VALID_AFS:
         # Check all interface details for AF.
-        for info in addr[af]:
+        for info in addr[af].values():
             # Compare the external address.
             ipr = info["ext"]
 
@@ -154,23 +156,19 @@ def is_node_addr_us(addr_bytes, if_list):
     # Nothing found that matches.
     return False
 
-"""
-
-        can be up to N interfaces
-[ IP4 nics
-    [
-        interface_offset,
-        ext ip,
-        nic ip,
-        port,
-        nat_type,
-        delta_type,
-        delta_val
-    ]
-    ,... more interfaces for AF family
-],[IP6 nics ...],pub_key_hex
-"""
 def make_node_addr(pub_key_hex, machine_id, interface_list, port, ip=None, nat=None, if_index=None):
+    """
+    Encode node address information into a compact byte string.
+
+    Wire format (fields separated by '^'):
+        [IP4 interfaces] ^ [IP6 interfaces] ^ pub_key_hex ^ machine_id
+
+    Each interface entry has the shape:
+        [netiface_index, if_index, ext_ip, nic_ip, port, nat_type, delta_type, delta_val]
+
+    Multiple interface entries within an AF are joined by '|'.
+    An AF with no routes is encoded as the single byte b'0'.
+    """
     ensure_resolved(interface_list)
 
     # Make the program crash early on invalid addr inputs.

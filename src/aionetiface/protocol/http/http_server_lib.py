@@ -60,10 +60,6 @@ def get_params(field_names, url_path):
     return params
 
 
-#out = get_params(["sub", "msg_p", "addr_p"], "/sub/con_name/msg_p/test")
-#print(out)
-#exit(0) 
-
 def api_closure(url_path):
     # Fields list names a p result and is in a fixed order.
     # Get names matches named values and is in a variable order.
@@ -218,9 +214,8 @@ async def rest_service(msg, client_tup, pipe, api_closure=api_closure):
     req.api = api_closure(url_path)
     return req
 
-"""
-d[required or optional] = url
-"""
+# Routes a URL path to named and unnamed parameters based on scheme definitions.
+# Each scheme entry is [name] or [name, default] or [name, default, regex].
 def api_route_closure(url_path):
     # Fields list names a p result and is in a fixed order.
     # Get names matches named values and is in a variable order.
@@ -363,7 +358,8 @@ class RESTD(Daemon):
         req = await rest_service(msg, client_tup, pipe, api_route_closure)
 
         # Receive any HTTP payload data.
-        body = b""; payload_len = 0
+        body = b""
+        payload_len = 0
         if "Content-Length" in req.hdrs:
             # Content len must not exceed msg len.
             payload_len = to_n(req.hdrs["Content-Length"])
@@ -397,7 +393,7 @@ class RESTD(Daemon):
                 best_matching_api = api
                 positional_no = len(positional)
 
-                # HTTP request info for API methoiid.
+                # HTTP request info for API method.
                 v = {
                     "req": req,
                     "name": named,
@@ -432,7 +428,3 @@ class RESTD(Daemon):
                     # Send it back to the client.
                     await pipe.send(buf, client_tup)
                     break
-                
-
-
-

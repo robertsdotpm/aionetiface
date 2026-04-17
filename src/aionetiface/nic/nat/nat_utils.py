@@ -50,41 +50,31 @@ def valid_mappings_len(mappings):
     return 1
 
 
-"""
-Determine any numerical patterns in port mapping allocations.
-
-Symmetric NATs use a new mapping for each destination + port.
-By default this means you can't predict mappings. However,
-it may still be possible if the NAT uses a predictable value
-between mappings -- hence this is checked for.
-
-The code here also distinguishes between 'dependent' and
-'independent' delta types. Independent delta means NAT
-mappings increase by n no matter what the source port
-might be. It may be useful to differentiate this from a
-delta type that is dependent on local ports because it's
-more likely to have collisions seeing as how any outgoing
-connection will increase the mapping counter.
-
-Therefore -- this NAT type is poorly suited to concurrent
-TCP hole punching and worth making the distinction for
-even though the port prediction code for both is identical.
-
-Note: Some delta type detections dependent on comparing the
-value of the previous result. If concurrency is enabled
-they results will be 'out of order' or unpredictable and
-lead to invalid results. Concurrency is thus disabled.
-This code is very badly written but it's at least tested.
-"""
 async def delta_test(stun_clients, test_no=8, threshold=5, concurrency=True):
     """
-    - When getting a list of ports to use for tests
-    calculate the port to start at.
-    - If another start port has been used in other tests
-    make sure not to choose a starting port that conflicts
-    with a port in another tests range.
-    - port_dist = distance between successive ports
-    from start_port to test_no, incremented by port_dist.
+    Probe the NAT to determine what kind of port delta behaviour it exhibits.
+
+    Symmetric NATs allocate a new mapping for each (destination, port) pair.
+    This function tries to detect whether those mappings follow a predictable
+    pattern, which is needed for TCP hole-punching.
+
+    Delta types detected:
+      EQUAL_DELTA     - external port equals local source port (no NAT offset).
+      PRESERV_DELTA   - distance between successive mapped ports mirrors local
+                        distance (port-preserving NAT).
+      INDEPENDENT_DELTA - mapped ports increment by a fixed delta regardless of
+                          local source port (easy to predict).
+      DEPENDENT_DELTA - mapped ports increment by the same delta as local ports
+                        (harder to exploit but still predictable).
+      RANDOM_DELTA    - no detectable pattern; prediction is not possible.
+
+    Note: detection of DEPENDENT_DELTA requires sequential (non-concurrent)
+    probing because concurrent results arrive out of order and produce false
+    negatives.  Pass concurrency=False to ensure correct results for that case.
+
+    Port test planning:
+      - start_port is chosen randomly to avoid conflicts with other test ranges.
+      - Ports run from start_port to start_port + (test_no * port_dist) - 1.
     """
     assert(len(stun_clients) >= test_no)
     def get_start_port(port_dist, range_info=[]):
@@ -145,12 +135,8 @@ async def delta_test(stun_clients, test_no=8, threshold=5, concurrency=True):
                     route = iface.route(stun_client.af)
                     await route.bind(port=src_port)
 
-                """
-                Todo: manually chosen source ports
-                aren't guaranteed to succeed due to
-                conflicts and you're not checking for
-                failure.
-                """
+                # TODO: manually chosen source ports may conflict with
+                # ports already in use.  Consider checking for failure here.
 
                 ret = await stun_client.get_mapping(
                     pipe=route
@@ -250,12 +236,10 @@ async def delta_test(stun_clients, test_no=8, threshold=5, concurrency=True):
             if result is not None:
                 results.append(result)
 
-    """
-    Check for:
-        equal delta: src_port == mapped_port
-        preserving delta NATs: dist(src_a, src_b) == dist(map_a, map_b)
-        delta n (independent): dist(map_a, map_b) == delta n
-    """ 
+    # Check for:
+    #   equal delta:       src_port == mapped_port
+    #   preserving delta:  dist(src_a, src_b) == dist(map_a, map_b)
+    #   independent delta: dist(map_a, map_b) == constant delta n
     delta_no = {}
     dist_no = {}
     preserv_dist = {}
@@ -288,11 +272,8 @@ async def delta_test(stun_clients, test_no=8, threshold=5, concurrency=True):
         if no >= threshold:
             return delta_info( INDEPENDENT_DELTA, port_dist )
 
-    """
-    Check for:
-        dependent delta check = also requires delta increase in src port
-        delta n (dependent): dist(map_a, map_b) == local src++
-    """
+    # Check for dependent delta: requires that the local source port also
+    # increments by the same delta (dist(map_a, map_b) == dist(local_a, local_b)).
     delta_no = {}
     dist_no = {}
     preserv_dist = {}
@@ -320,16 +301,20 @@ async def delta_test(stun_clients, test_no=8, threshold=5, concurrency=True):
     # Return delta value.
     return delta_info( RANDOM_DELTA, 0 )
 
-"""
-A NAT may only allocate mappings from within a fixed range.
-Starlink's default router is an example of this.
-It has an allocation range of like 35000 - MAX_PORT.
-It probably chose to do this for security reasons.
-E.g. most known services use low range ports. If it only
-uses higher range ports for mappings it won't show up
-for port scanners as much.
-""" 
 def nats_intersect(our_nat, their_nat, test_no):
+    """
+    Return the port range both NATs can agree on for test probes.
+
+    Some NATs (e.g. Starlink's default router) only allocate mappings from
+    a fixed sub-range of ports (e.g. 35000–65535), possibly to reduce
+    visibility on port scans.  When planning hole-punch tests we need a
+    range that both sides can reach.
+
+    If an intersection exists and is at least test_no ports wide, it is
+    returned.  Otherwise our_nat's full range is used as a fallback.
+    Port ranges below 1024 are always shifted up to 2000 to avoid requiring
+    root/admin privileges.
+    """
     # Calculate intersection range.
     is_intersect = range_intersects(our_nat["range"], their_nat["range"])
     if is_intersect:
@@ -357,14 +342,15 @@ def nats_intersect(our_nat, their_nat, test_no):
         
     return use_range
 
-"""
-The code in this function is mostly error checking for
-'restricted port NATs.' It checks that its possible
-to predict mappings based on the NAT types in play.
-"""
 def nats_can_predict(our_nat, their_nat):
-    ###############################################################
-    # Increase test no if its a restricted port NAT.
+    """
+    Validate that mapping prediction is possible given the two NAT profiles.
+
+    Returns the port that should be used as a reply port for STUN probes
+    (1 = use STUN port 3478, 0 = use an arbitrary port).
+    Raises if the NAT combination makes prediction provably impossible.
+    """
+    # Handle restricted port NATs (RESTRICT_PORT_NAT).
     our_strict = our_nat["type"] == RESTRICT_PORT_NAT
     other_strict = their_nat["type"] == RESTRICT_PORT_NAT
     if our_strict and other_strict:
@@ -396,13 +382,10 @@ def nats_can_predict(our_nat, their_nat):
             if strict_rand_delta and not in_range(STUN_PORT, unrestrict["range"]):
                 raise Exception("Can't support reply port 3478 for strict NAT.")
 
-            # Use STUN port when we generate the fake 'their_mappings.'
-            """
-            OS' usually require admin or root to listen to the first 1024 ports.
-            It is quite convenient that STUN listens on port 3478 or some
-            clients behind certain NATs would need to be run as root to
-            match the reply port of its peer.
-            """
+            # Use STUN port (3478) when generating probe mappings.
+            # STUN's port is above 1024, so no root/admin is required — which
+            # is lucky, because restricted-port NATs need us to match the
+            # exact port the peer expects to receive replies on.
             if strict_rand_delta:
                 use_stun_port = 1
 

@@ -1,13 +1,12 @@
-"""
-Seg faults are possible here with invalid cidrs or netmasks.
-todo: Need to write better checks here.
-"""
+# TODO: Seg faults are possible with invalid CIDRs or netmasks.
+# TODO: Need to write better input validation here.
 
 import ipaddress
 import copy
 from functools import total_ordering
 from .net_utils import *
 
+# Sentinel CIDR value meaning "use the full address width" (i.e. a single host).
 CIDR_WAN = 1000
 
 class IPRangeIter():
@@ -23,7 +22,7 @@ class IPRangeIter():
         if self.host_p >= self.ipr.host_no:
             raise StopIteration
 
-        if self.reverse == False:
+        if not self.reverse:
             ipa_ip = self.ipr[self.host_p]
         else:
             ipa_ip = self.ipr[(len(self.ipr) - 1) - self.host_p]
@@ -45,31 +44,30 @@ class IPRange():
         if af:
             cidr = af_to_cidr(af)
 
-        # Prefer netmask over cidr.
-        if netmask != None and cidr != None:
+        # Prefer netmask over cidr when both are supplied.
+        if netmask is not None and cidr is not None:
             cidr = None
 
         # Sanity check.
         assert(netmask is not None or cidr is not None)
         assert(ip != netmask)
 
-        # Norm net mask -- remove /n, %iface, and/or explode.
+        # Normalise netmask: remove /n, %iface, and/or explode compressed IPv6.
         if isinstance(netmask, str):
             self.netmask = ip_norm(netmask)
+        elif netmask is None:
+            self.netmask = None
         else:
-            if netmask is None:
-                self.netmask = None
-            else:
-                self.netmask = netmask
-                if netmask == 128 or netmask == 32:
-                    log("Netmask looks like a CIDR.")
+            self.netmask = netmask
+            if netmask in (32, 128):
+                log("Netmask value looks like a CIDR prefix length — did you mean cidr= instead?")
 
-        # Is this IP4 or IP6 -- check for ambiguity.
+        # Determine address family (IPv4 vs IPv6) and check for ambiguity.
         self.af = None
         if isinstance(ip, int):
             if ip < (2 ** 31):
-                if netmask == None:
-                    raise Exception("Ambiguous ip int AF.")
+                if netmask is None:
+                    raise Exception("Cannot determine address family: integer IP is ambiguous without a netmask.")
                 else:
                     ipa_netmask = ipaddress.ip_address(netmask)
                     self.af = v_to_af(ipa_netmask.version)
@@ -120,24 +118,16 @@ class IPRange():
         # IP is network portion + host portion.
         self.i_ip = int(self.ipa_ip)
     
-        # This portion blanks out the host segment to zero
-        # so that calculations to the number with offsets are correct.
+        # Blank out the host segment of i_ip so that offset calculations
+        # work against the network portion only.  i_host holds the original
+        # host portion (max value the host bits can represent), and i_ip
+        # ends up containing only the network portion.
         if host_bit_len:
-            # If a range is specified and host bits are set.
-            # Get rid of them.
-            self.i_host = get_bits(self.i_ip, l=host_bit_len)
-
-            """
-            Returns the max number that the host portion can be.
-            and the i_ip ends up as the network portion only
-            with no host bits set.
-            """
-
+            self.i_host = get_bits(self.i_ip, length=host_bit_len)
             self.i_ip -= self.i_host
             self.host_no = 1
         else:
-            # If CIDR was set to the length of the IP
-            # then there will be no 'host bits'.
+            # CIDR equals the full address width — no host bits exist.
             self.i_host = 0
             self.host_no = 1
             self.i_nw = self.i_ip
@@ -232,37 +222,23 @@ class IPRange():
 
     def get_value(self, i):
         """
-        Using modulus here means that if ever the left-hand host no
-        expression is negative then it will wrap back around the
-        number of hosts in the subnet.
-        
-        This means that negative indexes will work to index
-        the subnet. It also provides a safe-guard that its
-        impossible to exceed the number of hosts in the subnet
-        when indexing it. The extra +1 is added to the host_no
-        because we want to be able to include the host_number
-        itself in the range.
+        Return the IP address at offset i within this subnet.
 
-        The or 1 part is added because when i_nw and i_host are
-        set from an IP that's a range: it will have a blank host
-        portion. Valid hosts need to start counting from 1. Hence
-        we set it to 1 if its 0; otherwise use the existing value.
+        Modulus arithmetic is used so that:
+        - Negative indexes wrap backwards through the host range.
+        - Indexes beyond host_no wrap around (subnet is treated as circular).
+        - Host addresses start at 1, not 0, so the offset is shifted by +1
+          for non-negative indexes (the or-1 guard handles the edge case where
+          the subnet has a blank host portion that would otherwise yield 0).
         """
-
-        # Single WAN IP. One host. Do nothing.
+        # A full-width CIDR means this is a single host — index always returns it.
         if self.cidr == max_cidr(self.af):
             return self.ip_f(self.i_nw)
-        else:
-            # Code to wrap around a subnet.
-            if i < 0:
-                # Use negative indexing to wrap around host_no.
-                offset = i
-            else:
-                # Start counting at 1.
-                offset = i + 1
 
-        # Add network with blank host section to host number.
-        # Start counting at zero if host isn't already set.
+        # Negative index: use as-is to wrap backwards.
+        # Non-negative index: shift by +1 so hosts start counting from 1.
+        offset = i if i < 0 else i + 1
+
         i_host = (offset % (self.host_no + 1)) or 1
         return self.ip_f(self.i_nw + i_host)
 
@@ -273,7 +249,7 @@ class IPRange():
         if isinstance(n, int):
             return self[n]
 
-        raise NotImplemented("Add not implemented for that type.")
+        raise NotImplementedError("IPRange.__add__ is not implemented for that type.")
 
     def __radd__(self, n):
         return self + n
@@ -285,7 +261,7 @@ class IPRange():
         if isinstance(n, int):
             return self[-n]
 
-        raise NotImplemented("Sub not implemented for that type.")
+        raise NotImplementedError("IPRange.__sub__ is not implemented for that type.")
 
     def __rsub__(self, n):
         return self - n
@@ -299,7 +275,7 @@ class IPRange():
         elif isinstance(other, IPA_TYPES):
             return IPRange(other, cidr=CIDR_WAN)
         else:
-            raise NotImplemented("Compare not implemented for type.")
+            raise NotImplementedError("IPRange comparison is not implemented for that type.")
 
     def __eq__(self, other):
         other = self._convert_other(other)
@@ -426,34 +402,4 @@ if __name__ == "__main__": # pragma: no cover
     x = IPRange("fe80::9acb:c90e:7bf6:a093%enp3s0", "ffff:ffff:ffff:ffff::/64")
     assert(x.cidr == 64)
 
-
-    exit(0)
-
-
-    x = IPRange("192.168.0.0", "255.255.255.0")
-    y = IPRange("192.169.0.20", "255.255.255.0")
-    print(x == y)
-    print(x + 100)
-    exit(0)
-
-
-    print(repr(x))
-
-    print("x[0")
-    print(x[600])
-
-    exit(0)
-    print(x.i_ip)
-    print(x.i_host)
-    print(x.i_nw)
-
-
-    """
-    for ipa in x:
-        print(ipa)
-    """
-
-    #print(x[1: 2: 3]).indices()
-
-    a = x[0:2]
-    print(a)
+    print("Self-tests passed.")

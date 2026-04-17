@@ -2,7 +2,6 @@ from struct import pack
 import hmac
 import socket
 import hashlib
-import socket
 from ...utility.utils import *
 from ...net.net_utils import *
 
@@ -190,16 +189,6 @@ class STUNAddrTup:
         # Decode moved to XOR across whole buffer so use that.
         if dec_buf != buf:
             return dec_buf
-        else:
-            # Decode moved to encode IP and port segments manually.
-            # Amend fields.
-            if dec_port != dec_port:
-                return bytearray().join([
-                    family,
-                    dec_port,
-                    dec_ip
-                ])
-
         return buf
     
     def pack(self, ip, port, af):
@@ -319,7 +308,6 @@ class STUNMsg:
         if self.mode != RFC3489:
             msg_type = b_and(b_or(self.msg_type, self.msg_code), b"\x3F\xFF")
         else:
-            #print("rfc34553")
             msg_type = self.msg_type
 
         return bytes().join([
@@ -350,13 +338,6 @@ class STUNMsg:
                     return msg[20 + self.msg_len:]
                 else:
                     raise Exception("Invalid length for STUN msg.")
-
-    """
-    def encode(cls, msg_type: bytes, msg: memoryview) -> memoryview:
-        inst = cls(msg_type=msg_type, msg=msg, msg_len=len(msg))
-        return inst.encode()
-    """
-    
 
     def unpack(msg, mode=RFC3489):
         inst = STUNMsg(mode=mode)

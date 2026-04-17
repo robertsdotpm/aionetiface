@@ -323,7 +323,7 @@ async def get_n_stun_clients(af, n, interface, mode, proto=UDP, limit=5, conf=NE
         )
     )
 
-async def test_stun_client():
+async def run_stun_client():
     """
     Xport ^ txid = port
     """
@@ -365,7 +365,7 @@ async def test_stun_client():
     await r.pipe.close()
 
 
-async def test_con_stun_client():
+async def run_con_stun_client():
     from .interface import Interface
     af = IP4; proto = UDP;
     i = await Interface()

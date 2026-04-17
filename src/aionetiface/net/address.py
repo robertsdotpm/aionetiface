@@ -196,20 +196,3 @@ async def resolv_dest(af, dest, nic):
     if isinstance(dest, Address):
         return dest.select_ip(af).tup
 
-async def workstation():
-    host = "google.com"
-    addr = AddressRewrite(host, 80)
-
-    
-    await addr.res()
-
-
-    #await addr.fallback_res_domain(host)
-
-    print(addr.IP4)
-    print(addr.IP6)
-    print(addr)
-
-#async_test(workstation)
-
-

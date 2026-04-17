@@ -120,14 +120,14 @@ class Interface():
     def is_default_patch(self, af, gws=None):
         return True
 
-    """
-    Using a default list of gateways like this has a small
-    performance advantage but the cost is if the interfaces list
-    changes at run time like a wifi network disconnecting then
-    the is_default function may give the incorrect result. There
-    should be a way to detect loss of internet connection though.
-    """
     def is_default(self, af, gws=None):
+        """
+        Return True if this interface is the default route for address family af.
+
+        Accepting a gateway list (gws) avoids a repeated system call, at the
+        cost of stale results if the routing table changes (e.g. wifi disconnect)
+        while the list is held.
+        """
         return is_nic_default(self, af, gws)
     
     def supported(self, skip_resolve=0):
@@ -194,29 +194,12 @@ class Interface():
                         seen.add(nic_ipr)
                         yield nic_ipr
 
-if __name__ == "__main__": # pragma: no cover
-    async def test_interface():
+if __name__ == "__main__":  # pragma: no cover
+    async def demo_interface():
         nic = Interface("default")
         r = nic.route()
         d = await Address("google.com", 80, nic)
+        print(d)
 
-
-        #out = await cmd("route print")
-        return
-        out = await nt_route_print("Realtek Gaming 2.5GbE Family Controller")
-        print(out)
-        return
-
-        i = Interface(AF_ANY)   
-        await i.start()
-        #af = i.stack if i.stack != DUEL_STACK else IP4
-        #b = Bind(i, af)
-
-        return
-        if1 = await Interface("enp3s0").start()
-        if2 = await Interface("wlp2s0").start()
-        ifs = Interfaces([if1, if2])
-        print(ifs.by_af)
-
-    async_test(test_interface)
+    async_test(demo_interface)
 

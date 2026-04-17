@@ -147,46 +147,19 @@ class Route(Bind):
         await route.bind(port=port, ips=ips)
         return route
 
-    # A little bit nicer than accessing fields directly
-    # every time just to bind to a route.
     def nic(self):
         """
-        Try to select a link local (if one exists) for IPv6.
-        The IPv6 proto requires at least one link local
-        for core protocols like router advertisements and
-        such to work properly. Assuming that IPv6 support is
-        enabled on a host. If not this will raise an Exception.
-        """
+        Return the normalised string of the first NIC (local) IP for this route.
 
+        For IPv6 routes it would be preferable to return a link-local address
+        when one exists (link-locals are required for core protocols like router
+        advertisements).  That selection is not currently implemented; the first
+        NIC IP is returned regardless of type.
         """
-        if self.af == IP6:
-            for ipr in self.nic_ips:
-                if ipr.is_private:
-                    return ipr_norm(ipr)
-
-            raise Exception("> Route.nic() with af=6 found no link-locals.")
-        """
-
         return ipr_norm(self.nic_ips[0])
 
     def ext(self):
-        """
-        # Patch for unroutable IPv6 used as LAN IPs.
-        # This is only visable to the bind() caller.
-        if self.af == IP6:
-            print("here")
-            for stack_f in inspect.stack():
-                f_name = stack_f[3]
-                if f_name == "bind":
-                    if self.ext_ips[0] not in self.nic_ips:
-                        print("bbb")
-                        for nic_ipr in self.nic_ips:
-                            print("ccc")
-                            print(str(nic_ipr[0]))
-                            if "fe80" != ip_norm(nic_ipr[0])[:4]:
-                                return ip_norm(nic_ipr[0])
-        """
-
+        """Return the normalised string of the first external (WAN) IP for this route."""
         return ipr_norm(self.ext_ips[0])
     
     def link_local(self):
@@ -226,7 +199,6 @@ class Route(Bind):
             other = to_s(other)
 
         if isinstance(other, (str, int)):
-            ipa = ipaddress.ip_address(other)
             ipr = IPRange(other, cidr=CIDR_WAN)
             return ipr
 
@@ -235,7 +207,7 @@ class Route(Bind):
             ipr = IPRange(other, cidr=CIDR_WAN)
             return ipr
 
-        raise NotImplemented("Cannot convert other to IPRange in route.")
+        raise NotImplementedError("Route._convert_other: unsupported type for comparison.")
 
     def bad_len(self, other):
         if not len(self) or not len(other):
@@ -338,7 +310,7 @@ class Route(Bind):
 
         # Otherwise get a list of routes, not matching the ones provided.
         if not isinstance(other, list):
-            raise NotImplemented("Route != ? not implemented")
+            raise NotImplementedError("Route.__ne__ not implemented for that type.")
         else:
             return self.alt(limit=len(other), exclude_wans=other)
 
@@ -390,7 +362,6 @@ class Route(Bind):
         nic_ips = [copy.deepcopy(nic_ip) for nic_ip in self.nic_ips]
         ext_ips = [copy.deepcopy(ext_ips) for ext_ips in self.ext_ips]
 
-        # Probably does nothing. YOLO.
         route = Route(self.af, nic_ips, ext_ips, self.interface)
         route.set_offsets(self.route_offset, self.host_offset)
         if self.route_pool is not None:
