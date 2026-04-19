@@ -8,6 +8,7 @@ import inspect
 import ipaddress
 import itertools
 import logging
+import math
 import multiprocessing
 import os
 import platform
@@ -129,6 +130,20 @@ b_sha3_256 = lambda x: hashlib.sha3_256(to_b(x)).digest()
 
 # Deterministic hash: converts x to a string, hashes it, returns int.
 dhash = lambda x: b_to_i(hashlib.sha256(to_b(fstr("{0}", (x,)))).digest())
+
+def rendezvous_score(*tokens: bytes) -> float:
+    """Highest-random-weight score for a server in rendezvous hashing.
+
+    Hash all tokens concatenated with SHA-256 and map to an exponentially
+    distributed score via -log(U).  Higher score = preferred server.
+    Call once per (key, server) pair; rank servers by score descending.
+
+    All tokens must be bytes — callers are responsible for converting ints,
+    strings, etc. before calling (e.g. bytes([af]), to_b(host), ...).
+    """
+    digest = hashlib.sha256(b"".join(tokens)).digest()
+    u = (int.from_bytes(digest, "big") + 1) / (2 ** 256)
+    return -math.log(u)
 
 # Port helpers.
 valid_port = lambda p: p >= 1 and p <= MAX_PORT

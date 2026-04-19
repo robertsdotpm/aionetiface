@@ -25,46 +25,30 @@ from ..net.address import *
 from ..vendor.ntp_client import NTPClient
 from ..settings import *
 from ..nic.interface import *
+from ..servers import get_infra
 
 NTP_RETRY = 2
 NTP_TIMEOUT = 2
 
 async def get_ntp(af, interface, server=None, retry=NTP_RETRY):
-    # Get a random NTP server that supports this AF.
-    server = server
     if server is None:
-        candidates = [s for s in NTP_SERVERS if s.get(af)]
-        if not candidates:
+        groups = get_infra(af, UDP, "NTP", no=1)
+        if not groups:
             raise Exception("Can't find compatible NTP server.")
-        server = random.choice(candidates)
+        server = groups[0][0]
 
-    # Sanity check to see server was set.
-    if server is None:
-        raise Exception("Can't find compatible NTP server.")
-
-    # Resolve af if its not set.
-    if not server[af]:
-        server[af] = await Address(server["host"], 123).select_ip(af).ip
-
-    # The NTP client uses UDP so retry on failure.
-    dest = (server[af], int(server["port"]),)
+    dest = (server["ip"], server["port"])
     try:
         for _ in range(retry):
             client = NTPClient(af, interface)
-            response = await client.request(
-                dest,
-                version=3
-            )
-            if response is None:
-                continue
-
-            ntp = response.tx_time
-            return ntp
+            response = await client.request(dest, version=3)
+            if response is not None:
+                return response.tx_time
     except asyncio.CancelledError:
         raise
-    except Exception as e:
+    except Exception:
         log_exception()
-        return None
+    return None
 
 async def get_ntp_from_dest(af, nic, dest, retry=NTP_RETRY):
     # The NTP client uses UDP so retry on failure.
@@ -86,19 +70,6 @@ async def get_ntp_from_dest(af, nic, dest, retry=NTP_RETRY):
         log_exception()
         return None
 
-async def _probe_ntp_server(af, interface, serv):
-    """
-    Try a single NTP server for a given AF.  Returns the tx_time on success,
-    None on any failure (no exception escapes except CancelledError).
-    """
-    try:
-        addr = await Address(serv["host"], 123, interface).res()
-        tup = addr.select_ip(af).tup
-        return await get_ntp_from_dest(af=af, nic=interface, dest=tup)
-    except asyncio.CancelledError:
-        raise
-    except Exception:
-        return None
 
 class SysClock:
     def __init__(self, interface, ntp=0):
@@ -116,16 +87,13 @@ class SysClock:
         if self.ntp:
             return self
 
-        # Build a flat list of (af, server) probe pairs, filtering each
-        # server to only the AFs it actually supports.  This avoids wasting
-        # DNS round-trips on servers whose AF entry is None.
+        # Build a flat list of (af, dest) probe pairs from infra, up to 6 per AF.
         probes = []
         for af in self.interface.supported():
-            af_servers = [s for s in NTP_SERVERS if s.get(af)]
-            random.shuffle(af_servers)
-            # Keep up to 6 candidates per AF so we have spares if some fail.
-            for serv in af_servers[:6]:
-                probes.append((af, serv))
+            groups = get_infra(af, UDP, "NTP", no=6)
+            for group in groups:
+                s = group[0]
+                probes.append((af, (s["ip"], s["port"])))
 
         if not probes:
             log("SysClock: no NTP servers available for supported AFs; using system clock.")
@@ -135,7 +103,7 @@ class SysClock:
         # Fire all probes concurrently so slow or dead servers don't block
         # the fast ones.  First non-None result wins.
         results = await asyncio.gather(
-            *[_probe_ntp_server(af, self.interface, serv) for af, serv in probes],
+            *[get_ntp_from_dest(af, self.interface, dest) for af, dest in probes],
             return_exceptions=True
         )
 
@@ -190,13 +158,6 @@ async def test_clock_skew(): # pragma: no cover
 
 
     return
-    f = []
-    for i in range(len(NTP_SERVERS)):
-        out = await get_ntp(interface, server=NTP_SERVERS[i][0])
-        if out is None:
-            f.append(i)
-
-    print(f)
 
 if __name__ == "__main__":
     #sys_clock = SysClock()

@@ -6,7 +6,7 @@ if __name__ != '__main__':
     os.environ["PYTHONIOENCODING"] = "utf-8"
 
     from .errors import *
-    from .utility.utils import log, what_exception, log_exception, async_test
+    from .utility.utils import log, what_exception, log_exception, async_test, rendezvous_score
     from .utility.cmd_tools import *
     from .vendor.ecies import *
     from .utility.signing import *

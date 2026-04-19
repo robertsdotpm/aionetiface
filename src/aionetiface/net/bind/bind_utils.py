@@ -4,6 +4,8 @@ from ..ip_range import IPR
 
 def ip6_patch_bind_ip(bind_ip, nic_id):
     # Add interface descriptor if it's link local.
+    if nic_id is None:
+        return bind_ip
     if to_s(bind_ip[0:2]).lower() in ["fe", "fd"]:
         # Interface specified by no on windows.
         if platform.system() == "Windows":
