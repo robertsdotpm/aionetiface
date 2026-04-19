@@ -36,7 +36,8 @@ async def lookup_wan_ip_for_nic_ip(src_ip, min_agree, stun_clients, timeout):
                 stun_client.get_wan_ip(
                     # Will be upgraded to a pipe.
                     pipe=local_addr
-                )
+                ),
+                logging=False
             )
             tasks.append(task)
 
@@ -64,7 +65,9 @@ async def lookup_wan_ip_for_nic_ip(src_ip, min_agree, stun_clients, timeout):
 
         return (src_ip, Route(af, [nic_ipr], [ext_ipr], interface))
     except Exception:
-        log_exception()
+        # Disable logging -- mostly replies from down servers missed.
+        #log_exception()
+        pass
 
 """
 Network interface cards have a list of addresses to bind on them. 
@@ -210,6 +213,12 @@ async def discover_nic_wan_ips(af, min_agree, enable_default, interface, stun_cl
     else:
         # Deterministic order = consistent for servers.
         routes = sort_routes(routes)
+
+    # For IPv4: when no routes were resolved despite having private IPs (e.g.
+    # no internet access so STUN failed), preserve the private IPs in
+    # link_locals so topology.py can use them as a local-address fallback.
+    if af == IP4 and not routes and priv_iprs:
+        link_locals = priv_iprs
 
     # Set link locals in route list.
     [r.set_link_locals(link_locals) for r in routes]

@@ -344,7 +344,7 @@ class PipeEvents(BaseACKProto):
 
     # UDP packets.
     def datagram_received(self, data, client_tup):
-        log(fstr("Base proto recv udp = {0} {1}", (client_tup, data,)))
+        #log(fstr("Base proto recv udp = {0} {1}", (client_tup, data,)))
         if self.transport is None:
             log(fstr("Skipping process data cause transport none 1."))
             return
@@ -354,7 +354,7 @@ class PipeEvents(BaseACKProto):
     # Single TCP connection.
     def data_received(self, data):
         try:
-            log(fstr("Base proto recv tcp = {0}", (data,)))
+            #log(fstr("Base proto recv tcp = {0}", (data,)))
             if self.transport is None:
                 log(fstr("Skipping process data cause transport none 2."))
                 return
@@ -421,20 +421,8 @@ class PipeEvents(BaseACKProto):
             await close_all_clients(self.tcp_clients, timeout=1.0)
             await asyncio.sleep(0)
 
-        # Cancel the tcp_server serve_forever task before nulling it.
-        if self.tcp_server_task is not None and not self.tcp_server_task.done():
-            self.tcp_server_task.cancel()
-            try:
-                await self.tcp_server_task
-            except asyncio.CancelledError:
-                pass
-
-        # Cancel any in-flight send/recv tasks.
-        live = [t for t in self.tasks if not t.done()]
-        for t in live:
-            t.cancel()
-        if live:
-            await asyncio.gather(*live, return_exceptions=True)
+        await cancel_task(self.tcp_server_task)
+        await cancel_tasks(self.tasks)
 
         # No longer running.
         self.transport = None

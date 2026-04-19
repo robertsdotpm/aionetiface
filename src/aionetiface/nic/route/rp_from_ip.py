@@ -41,11 +41,16 @@ def v6_route_pool_from_ips(ipr_list, nic):
     # Sort by public / private.
     pub_iprs, priv_iprs = sort_iprs(ipr_list)
 
-    # If no link-locals are defined use pre-existing.
+    # If no explicit link-locals were requested, inherit from the NIC.
+    # Prefer RoutePool-level link_locals (always populated during loading),
+    # falling back to the first route's link_locals when the pool is non-empty.
     if not priv_iprs:
-        priv_iprs = nic.rp[IP6][0].link_locals
+        if nic.rp[IP6].link_locals:
+            priv_iprs = nic.rp[IP6].link_locals
+        elif nic.rp[IP6].wan_hosts:
+            priv_iprs = nic.rp[IP6][0].link_locals
 
-    # Build route pool.
+    # Build route pool from existing global IPv6 routes.
     routes = []
     for route in nic.rp[IP6]:
         # If public exts are specified limit to only those routes.
@@ -59,6 +64,13 @@ def v6_route_pool_from_ips(ipr_list, nic):
             ext_ips = route.ext_ips
 
         routes.append(Route(IP6, ext_ips, ext_ips, nic))
+
+    # When the caller specified link-locals but the NIC has no global IPv6
+    # routes, create a link-local-only route so the address can be encoded.
+    # ext_check=0 is required because link-locals are not globally routable.
+    if priv_iprs and not routes and not pub_iprs:
+        ll_ipr = priv_iprs[0]
+        routes.append(Route(IP6, [ll_ipr], [ll_ipr], nic, ext_check=0))
 
     # Set link-local list.
     for route in routes:
@@ -129,6 +141,7 @@ def sort_ips_by_nic(ip_list, nic_list):
     for ip in ip_list:
         ipr = IPR(ip)
         for nic in nic_list:
+            # Search via route iteration (nic_ips, ext_ips, route-level link_locals).
             for route in nic.rp[ipr.af]:
                 hey_stack = (
                     route.nic_ips,
@@ -139,6 +152,14 @@ def sort_ips_by_nic(ip_list, nic_list):
                 for hey in hey_stack:
                     if ipr in hey:
                         by_nic[nic.id].add(str(ipr))
+
+            # Also check RoutePool-level link_locals directly.
+            # These are populated during load_interface for every link-local on
+            # the NIC, even when there are no global IPv6 routes to attach them
+            # to (so the route iteration above yields nothing).
+            for ll in nic.rp[ipr.af].link_locals:
+                if ipr == ll:
+                    by_nic[nic.id].add(str(ipr))
 
     # Convert back to list.
     by_nic_list = {}

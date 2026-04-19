@@ -46,8 +46,6 @@ def stun_proto(buf, af):
         attr_name = buf_in_class(STUNAttrs, bytes(attr_code))
         stun_proc_attrs(af, attr_code, attr_data, msg)
         
-
-        
     return msg, buf
 
 # Handles making a STUN request to a server.

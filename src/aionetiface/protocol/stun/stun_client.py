@@ -308,14 +308,7 @@ async def get_n_stun_clients(af, n, interface, mode, proto=UDP, limit=5, conf=NE
                         break
                 # No result yet — loop and launch the next candidate in parallel.
         finally:
-            # Cancel any still-running attempts.
-            for t in tasks:
-                if not t.done():
-                    t.cancel()
-                    try:
-                        await t
-                    except (asyncio.CancelledError, Exception):
-                        pass
+            await cancel_tasks(tasks)
 
         # If no candidate won during the staggered loop, check whether any
         # of the already-launched tasks finished successfully.

@@ -157,7 +157,8 @@ async def delta_test(stun_clients, test_no=8, threshold=5, concurrency=True):
                     asyncio.wait_for(
                         result_wrapper(src_port),
                         2
-                    )
+                    ),
+                    logging=False
                 )
             )
 

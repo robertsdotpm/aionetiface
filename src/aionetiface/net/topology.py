@@ -181,14 +181,7 @@ def make_node_addr(pub_key_hex, machine_id, interface_list, port, ip=None, nat=N
     for af in [IP4, IP6]:
         af_bufs = []
         for i, interface in enumerate(interface_list):
-            # AF type is not supported.
-            if not len(interface.rp[af].routes):
-                continue
-
-            r = interface.route(af)
-            if r is None:
-                continue
-
+            # Resolve NAT fields (needed for both the normal and link-local path).
             if nat:
                 nat_type = nat["type"]
                 delta_type = nat["delta"]["type"]
@@ -198,25 +191,50 @@ def make_node_addr(pub_key_hex, machine_id, interface_list, port, ip=None, nat=N
                 delta_type = interface.nat["delta"]["type"]
                 delta_value = interface.nat["delta"]["value"]
 
-            if af == IP4:
-                int_ip = ip or to_b(r.nic())
-            if af == IP6:
-                int_ip = to_b(r.ext())
-                if len(r.link_locals):
-                    int_ip = to_b(str(r.link_locals[0]))
-                if ip is not None:
-                    int_ip = to_b(ip)
+            # Normal path: global routes exist for this AF.
+            if len(interface.rp[af].routes):
+                r = interface.route(af)
+                if r is None:
+                    continue
 
-            af_bufs.append(b"[%d,%d,%b,%b,%d,%d,%d,%d]" % (
-                interface.netiface_index,
-                if_index or i,
-                ip or to_b(r.ext()),
-                int_ip,
-                port,
-                nat_type,
-                delta_type,
-                delta_value
-            ))
+                if af == IP4:
+                    int_ip = ip or to_b(r.nic())
+                if af == IP6:
+                    int_ip = to_b(r.ext())
+                    if len(r.link_locals):
+                        int_ip = to_b(str(r.link_locals[0]))
+                    if ip is not None:
+                        int_ip = to_b(ip)
+
+                af_bufs.append(b"[%d,%d,%b,%b,%d,%d,%d,%d]" % (
+                    interface.netiface_index,
+                    if_index or i,
+                    ip or to_b(r.ext()),
+                    int_ip,
+                    port,
+                    nat_type,
+                    delta_type,
+                    delta_value
+                ))
+                continue
+
+            # Local-only fallback: no global routes but a local address exists.
+            # For IPv6 this is a link-local (fe80::); for IPv4 it is a private
+            # LAN IP stored here when STUN could not resolve a WAN address.
+            # Encode the local address as both ext and nic so peers on the
+            # same link/LAN can still reach this node.
+            if interface.rp[af].link_locals:
+                local_b = to_b(str(interface.rp[af].link_locals[0]))
+                af_bufs.append(b"[%d,%d,%b,%b,%d,%d,%d,%d]" % (
+                    interface.netiface_index,
+                    if_index or i,
+                    local_b,
+                    local_b,
+                    port,
+                    nat_type,
+                    delta_type,
+                    delta_value
+                ))
 
         if len(af_bufs):
             af_bufs = b'|'.join(af_bufs)

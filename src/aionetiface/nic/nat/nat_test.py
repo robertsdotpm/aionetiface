@@ -121,7 +121,8 @@ async def nat_test_workers(pipe, q, test_index, test_coro, servers, test_no):
 
                     # Test-specific code.
                     test_coro
-                )
+                ),
+                logging=False
             )
 
         workers.append(worker(server_no))

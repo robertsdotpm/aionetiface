@@ -541,7 +541,7 @@ async def threshold_gather(tasks, result_filter, threshold):
 
     return None
 
-async def async_wrap_errors(coro, timeout=None):
+async def async_wrap_errors(coro, timeout=None, logging=True):
     """
     Await coro, optionally bounded by timeout seconds.
 
@@ -556,8 +556,9 @@ async def async_wrap_errors(coro, timeout=None):
     except asyncio.CancelledError:
         raise
     except Exception:
-        log("async_wrap_errors: exception caught")
-        log_exception()
+        if logging:
+            log("async_wrap_errors: exception caught")
+            log_exception()
 
 def sync_wrap_errors(f, args=[]):
     """
@@ -616,10 +617,21 @@ async def async_retry(gen, count, timeout=4):
 
     raise asyncio.TimeoutError("async_retry: retry limit reached")
 
-def cancel_tasks(tasks):
-    """Cancel all tasks in the list."""
-    for task in tasks:
-        task.cancel()
+async def cancel_task(task):
+    if task is None or task.done():
+        return
+    task.cancel()
+    try:
+        await task
+    except (asyncio.CancelledError, Exception):
+        pass
+
+async def cancel_tasks(tasks):
+    live = [t for t in tasks if not t.done()]
+    for t in live:
+        t.cancel()
+    if live:
+        await asyncio.gather(*live, return_exceptions=True)
 
 def rm_done_tasks(tasks):
     """Return a new list containing only tasks that have not yet completed."""
