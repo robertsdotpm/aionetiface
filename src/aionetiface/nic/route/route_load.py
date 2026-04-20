@@ -19,55 +19,68 @@ async def lookup_wan_ip_for_nic_ip(src_ip, min_agree, stun_clients, timeout):
         log("lookup_wan_ip_for_nic_ip: no STUN clients available, cannot resolve WAN IP.")
         return None
 
-    try:
-        tasks = []
-        interface = stun_clients[0].interface
-        af = stun_clients[0].af
-        for stun_client in stun_clients:
-            local_addr = await Bind(
-                stun_client.interface,
-                af=stun_client.af,
-                port=0,
-                ips=src_ip
-            ).res()
+    interface = stun_clients[0].interface
+    af = stun_clients[0].af
+    delay = 0.5
+    retries = 2
+    for attempt in range(retries + 1):
+        try:
+            tasks = []
+            for stun_client in stun_clients:
+                try:
+                    local_addr = await asyncio.wait_for(
+                        Bind(
+                            stun_client.interface,
+                            af=stun_client.af,
+                            port=0,
+                            ips=src_ip
+                        ).res(),
+                        timeout=2.0
+                    )
+                except asyncio.TimeoutError:
+                    log(fstr("Bind timed out for {0}, skipping client.", (src_ip,)))
+                    continue
+                if local_addr is None:
+                    continue
 
-            # Get external IP and compare to bind IP.
-            task = async_wrap_errors(
-                stun_client.get_wan_ip(
-                    # Will be upgraded to a pipe.
-                    pipe=local_addr
-                ),
-                logging=False
+                task = async_wrap_errors(
+                    stun_client.get_wan_ip(pipe=local_addr),
+                    logging=False
+                )
+                tasks.append(task)
+
+            if not tasks:
+                return None
+
+            wan_ip = await concurrent_first_agree_or_best(
+                min_agree,
+                tasks,
+                timeout,
+                wait_all=False
             )
-            tasks.append(task)
 
-        wan_ip = await concurrent_first_agree_or_best(
-            min_agree,
-            tasks,
-            timeout,
-            wait_all=True
-        )
+            if wan_ip is not None:
+                cidr = af_to_cidr(af)
+                ext_ipr = IPRange(wan_ip, cidr=cidr)
+                nic_ipr = IPRange(src_ip, cidr=cidr)
+                if nic_ipr.is_private or src_ip != wan_ip:
+                    nic_ipr.is_private = True
+                    nic_ipr.is_public = False
+                else:
+                    nic_ipr.is_private = False
+                    nic_ipr.is_public = True
+                return (src_ip, Route(af, [nic_ipr], [ext_ipr], interface))
 
-        if wan_ip is None:
-            return None
-        
-        # Convert default details to a Route object.
-        cidr = af_to_cidr(af)
-        ext_ipr = IPRange(wan_ip, cidr=cidr)
-        nic_ipr = IPRange(src_ip, cidr=cidr)
-        if nic_ipr.is_private or src_ip != wan_ip:
-            nic_ipr.is_private = True
-            nic_ipr.is_public = False
-        else:
-            nic_ipr.is_private = False
-            nic_ipr.is_public = True
+        except Exception:
+            log_exception()
 
+        if attempt < retries:
+            log(fstr("WAN IP lookup for {0} failed (attempt {1}/{2}), retrying in {3}s.",
+                    (src_ip, attempt + 1, retries, delay)))
+            await asyncio.sleep(delay)
+            delay *= 2
 
-        return (src_ip, Route(af, [nic_ipr], [ext_ipr], interface))
-    except Exception:
-        # Disable logging -- mostly replies from down servers missed.
-        #log_exception()
-        pass
+    return None
 
 """
 Network interface cards have a list of addresses to bind on them. 

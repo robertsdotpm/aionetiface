@@ -1,3 +1,4 @@
+import asyncio
 from ..errors import *
 from ..settings import *
 from .route.route_pool import *
@@ -10,6 +11,8 @@ from ..protocol.stun.stun_client import *
 from ..entrypoint import *
 from ..servers import INFRA
 from ..updater import *
+
+_infra_lock = asyncio.Lock()
 
 # Load mac, nic_no, and process name.
 def load_if_info(nic):
@@ -77,11 +80,12 @@ async def load_interface(nic, netifaces, min_agree, max_agree, timeout):
     # Uses time.time which may not be accurate.
     update_req, infra_buf, infra = await update_server_list(nic.__class__("default"))
     if update_req:
-        INFRA_BUF = infra_buf
+        async with _infra_lock:
+            INFRA_BUF = infra_buf
 
-        # Merge entries that need to preserve order.
-        reconcile_infra(INFRA, infra)
-        INFRA = infra
+            # Merge entries that need to preserve order.
+            reconcile_infra(INFRA, infra)
+            INFRA = infra
 
     stack = nic.stack
     log(fstr("Starting resolve with stack type = {0}", (stack,)))
