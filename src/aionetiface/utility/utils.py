@@ -632,55 +632,10 @@ async def async_retry(gen, count, timeout=4):
 
     raise asyncio.TimeoutError("async_retry: retry limit reached")
 
-async def cancel_task(task):
-    if task is None or task.done():
-        return
-    task.cancel()
-    try:
-        await task
-    except (asyncio.CancelledError, Exception):
-        pass
-
-async def cancel_tasks(tasks):
-    live = [t for t in tasks if not t.done()]
-    for t in live:
-        t.cancel()
-    if live:
-        await asyncio.gather(*live, return_exceptions=True)
-
-def rm_done_tasks(tasks):
-    """Return a new list containing only tasks that have not yet completed."""
-    return [task for task in tasks if not task.done()]
-
-async def gather_or_cancel(tasks, timeout):
-    """
-    Wait for all tasks to complete within timeout seconds.
-
-    If the timeout expires, cancel all tasks and wait for the cancellations
-    to propagate before returning.
-    """
-    group = asyncio.gather(*tasks, return_exceptions=True)
-    try:
-        await asyncio.wait_for(group, timeout)
-    except asyncio.TimeoutError:
-        for task in tasks:
-            task.cancel()
-
-        cancelled = asyncio.gather(*tasks, return_exceptions=True)
-        try:
-            await cancelled
-        except Exception:
-            pass
-        await asyncio.sleep(0)
-    except asyncio.CancelledError:
-        return []
-    except Exception:
-        log_exception()
-        return []
-
-def handle_exceptions(loop, context):
-    """No-op exception handler for asyncio event loops. Silences stray errors."""
-    pass
+from .cleanup import (
+    cancel_task, cancel_tasks, rm_done_tasks,
+    gather_or_cancel, handle_exceptions,
+)
 
 # Will be used in sample code to avoid boilerplate.
 def async_test(coro, loop=None):

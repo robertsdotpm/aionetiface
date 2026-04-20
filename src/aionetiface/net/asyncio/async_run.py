@@ -1,6 +1,7 @@
 import asyncio
 import threading
 from asyncio import events, coroutines, tasks
+from ...utility.cleanup import cancel_all_tasks
 
 def patch_asyncio_backports(loop_cls=None):
     from concurrent.futures import ThreadPoolExecutor
@@ -27,46 +28,6 @@ def patch_asyncio_backports(loop_cls=None):
             if executor is not None:
                 executor.shutdown(wait=True)
         loop_cls.shutdown_default_executor = _shutdown_default_executor
-
-import asyncio
-
-def _cancel_all_tasks(loop):
-    # Try to get all tasks in a version- and implementation-safe way
-    try:
-        # Python 3.7+
-        to_cancel = asyncio.all_tasks(loop)
-    except AttributeError:
-        # Python 3.4–3.6: Task.all_tasks() may be on either asyncio.Task or _asyncio.Task
-        Task = getattr(asyncio, "Task", None)
-        if Task is None or not hasattr(Task, "all_tasks"):
-            # fall back to the pure-Python module if C version is missing the method
-            import types
-            for name, mod in list(asyncio.__dict__.items()):
-                if isinstance(mod, types.ModuleType) and hasattr(mod, "Task"):
-                    Task = mod.Task
-                    break
-        to_cancel = Task.all_tasks(loop) if Task else set()
-
-    if not to_cancel:
-        return
-
-    for task in to_cancel:
-        task.cancel()
-
-    loop.run_until_complete(asyncio.gather(*to_cancel, return_exceptions=True))
-    for task in to_cancel:
-        if task.cancelled():
-            continue
-        try:
-            exc = task.exception()
-        except asyncio.CancelledError:
-            continue
-        if exc is not None:
-            loop.call_exception_handler({
-                'message': 'unhandled exception during asyncio.run() shutdown',
-                'exception': exc,
-                'task': task,
-            })
 
 def async_run(main, *, debug=False):
     """Execute the coroutine and return the result.
@@ -98,7 +59,7 @@ def async_run(main, *, debug=False):
         return loop.run_until_complete(main)
     finally:
         try:
-            _cancel_all_tasks(loop)
+            cancel_all_tasks(loop)
             if hasattr(loop, "shutdown_asyncgens"):
                 loop.run_until_complete(loop.shutdown_asyncgens())
 

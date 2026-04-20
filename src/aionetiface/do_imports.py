@@ -36,5 +36,6 @@ if __name__ != '__main__':
     from .utility.obj_collection import *
     from .install import *
     from .utility.test_init import *
+    from .utility.cleanup import *
 
 
