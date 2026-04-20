@@ -161,7 +161,8 @@ async def load_interface(nic, netifaces, min_agree, max_agree, timeout):
 
     # Update stack type based on routable.
     nic.stack = get_interface_stack(nic.rp)
-    assert(nic.stack in VALID_STACKS)
+    if nic.stack not in VALID_STACKS:
+        raise InterfaceNotFound
     nic.resolved = True
 
     # Set MAC address of Interface.
