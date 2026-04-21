@@ -116,19 +116,33 @@ async def netiface_addr_to_ipr(af, nic_id, info):
             (af, nic_id, info["addr"], info["netmask"],)
         )
     )
-    nic_ipr = IPRange(info["addr"], cidr=max_cidr(af))
+    # Build the IPRange from the OS netmask.
+    # Two distinct cases:
+    #
+    #   i_host == 0 → block assignment: the network address itself was assigned
+    #                 to the interface (e.g. 203.0.113.0/27).  The IPRange
+    #                 correctly represents the whole block; ipr[0] returns the
+    #                 first usable host for STUN/bind.
+    #
+    #   i_host != 0 → host assignment: one specific IP within a subnet
+    #                 (e.g. 192.168.1.100/24).  We collapse to a single-host
+    #                 /max range so that ipr[0] reliably returns the actual
+    #                 assigned address; subnet preserves the subnet prefix
+    #                 for grouping and serialisation.
+    #
+    # Fall back to a single-host /max range on any parse error (tun/ppp
+    # interfaces sometimes return unusual netmask strings).
+    try:
+        probe = IPRange(info["addr"], netmask=info["netmask"])
+    except Exception:
+        probe = None
 
-    """
-    Some operating systems incorrectly list the netmask for
-    single IPs. This is a patch that discards the netmask if
-    a host portion is detected. Ranges should have all zeros
-    for the host portion.
-    """
-    if nic_ipr.i_host:
-        nic_ipr = IPRange(
-            info["addr"],
-            cidr=max_cidr(af),
-        )
+    if probe is not None and probe.i_host == 0:
+        nic_ipr = probe
+        nic_ipr.subnet = probe.host_limit
+    else:
+        nic_ipr = IPRange(info["addr"], host_limit=af_bitlen(af))
+        nic_ipr.subnet = probe.host_limit if probe is not None else af_bitlen(af)
 
     """
     If a range is detected test that the range is valid by
@@ -136,28 +150,30 @@ async def netiface_addr_to_ipr(af, nic_id, info):
     """
     if not nic_ipr.i_host:
         invalid_subnet = False
-        for host_index in [0, -1]:
-            ip_obj = nic_ipr[host_index]
-            bind_ip = str(ip_obj)
-            bind_tup = await binder_async(
-                af,
-                bind_ip,
-                nic_id=nic_id
-            )
+        try:
+            for host_index in [0, -1]:
+                ip_obj = nic_ipr[host_index]
+                bind_ip = str(ip_obj)
+                bind_tup = await binder_async(
+                    af,
+                    bind_ip,
+                    nic_id=nic_id
+                )
 
-            s = socket.socket(af, TCP)
-            try:
-                s.bind(bind_tup)
-            except Exception:
-                log_exception()
-                log(fstr("af = {0}, bind_ip = {1}", (af, bind_ip,)))
-                log(fstr("{0}", (bind_tup,)))
-                log(fstr("{0}", (s,)))
-                log(">get routes invalid subnet for {}".format(str(nic_ipr)))
-            finally:
-                s.close()
-                #print("this s = ", s)
-                break
+                s = socket.socket(af, TCP)
+                try:
+                    s.bind(bind_tup)
+                except Exception:
+                    log_exception()
+                    log(fstr("af = {0}, bind_ip = {1}", (af, bind_ip,)))
+                    log(fstr("{0}", (bind_tup,)))
+                    log(fstr("{0}", (s,)))
+                    log(">get routes invalid subnet for {}".format(str(nic_ipr)))
+                finally:
+                    s.close()
+                    break
+        except Exception:
+            pass
 
         # Don't add this address to any route.
         if invalid_subnet:

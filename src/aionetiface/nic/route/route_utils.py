@@ -63,8 +63,8 @@ async def get_nic_iprs(af, interface, netifaces):
 
             tasks.append(task)
 
-    results = await asyncio.gather(*tasks)
-    return [r for r in results if r is not None]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    return [r for r in results if r is not None and not isinstance(r, Exception)]
 
 def sort_routes(routes):
     # Deterministically order routes list.

@@ -102,11 +102,11 @@ Foreach($iface in $ifs){
         $v6gw = "null"
     }
 
-    # Build a list of IPs.
+    # Build a list of IPs with prefix lengths (e.g. "192.168.1.5/24").
     $ips = @()
     $addrs = Get-NetIPAddress -InterfaceIndex $iface.ifIndex
     Foreach($addr in $addrs){
-        $ips += $addr.IPAddress
+        $ips += $addr.IPAddress + "/" + $addr.PrefixLength
     }
 
     # Save them as new property values.
@@ -157,7 +157,7 @@ async def load_ifs_from_ps1():
             if_defaults_by_index[if_index].append(af)
 
     # Extract interface details.
-    p = r"InterfaceDescription *: *([^\r\n]+?) *[\r\n]+ifIndex *: *([0-9]+?) *[\r\n]+InterfaceGuid *: *([^\r\n]+?) *[\r\n]+MacAddress *: *([^\r\n]+?) *[\r\n]+v4GW *: *([^\r\n]+?) *[\r\n]+v6GW *: *([^ ]+?)[\s]+((?:[0-9a-f.:%]+ *[\r\n]*)+)"
+    p = r"InterfaceDescription *: *([^\r\n]+?) *[\r\n]+ifIndex *: *([0-9]+?) *[\r\n]+InterfaceGuid *: *([^\r\n]+?) *[\r\n]+MacAddress *: *([^\r\n]+?) *[\r\n]+v4GW *: *([^\r\n]+?) *[\r\n]+v6GW *: *([^ ]+?)[\s]+((?:[0-9a-f.:%/]+ *[\r\n]*)+)"
     re_results = re.findall(p, out)
 
     # Index the results into a dict.
@@ -189,18 +189,28 @@ async def load_ifs_from_ps1():
             addr_s = r[6].replace(' ', '')
             addr_list = addr_s.splitlines(False)
             for addr in addr_list:
-                # Skip blank IPs.
+                # Skip blank entries.
                 if addr == '':
                     continue
 
-                # Convert to netifaces format.
+                # Extract prefix length from "ip/prefix" format added by the PS1 script.
+                prefix_len = None
+                if '/' in addr:
+                    raw_ip, raw_prefix = addr.rsplit('/', 1)
+                    try:
+                        prefix_len = int(raw_prefix)
+                    except ValueError:
+                        pass
+                    addr = raw_ip
+
                 addr = ip_strip_cidr(ip_strip_if(addr))
                 ipr = IPRange(addr)
+                host_limit = prefix_len if prefix_len is not None else af_bitlen(ipr.af)
                 addr_info[ipr.af].append({
                     "addr": addr,
                     "af": ipr.af,
-                    "cidr": ipr.cidr,
-                    "netmask": ipr.netmask
+                    "host_limit": host_limit,
+                    "netmask": cidr_to_netmask(host_limit, ipr.af)
                 })
 
             # Save addresses.
@@ -261,8 +271,8 @@ async def get_addr_info_by_if_index(if_index):
         )
 
         for addr_info in addr_infos:
-            ip_val, af_family, cidr = addr_info
-            cidr = int(cidr)
+            ip_val, af_family, host_limit = addr_info
+            host_limit = int(host_limit)
             if af_family == "IPv4":
                 af = IP4
             if af_family == "IPv6":
@@ -271,7 +281,8 @@ async def get_addr_info_by_if_index(if_index):
             addr[af].append({
                 "addr": ip_val,
                 "af": af,
-                "cidr": cidr
+                "host_limit": host_limit,
+                "netmask": cidr_to_netmask(host_limit, af)
             })
     except Exception:
         log_exception()
@@ -581,7 +592,7 @@ class Netifaces():
                 addr = {
                     "addr": addr_info["addr"],
                     "netmask": cidr_to_netmask(
-                        addr_info["cidr"],
+                        addr_info["host_limit"],
                         af
                     )
                 }

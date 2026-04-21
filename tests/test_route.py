@@ -43,7 +43,7 @@ class TestRoute(unittest.IsolatedAsyncioTestCase):
         r = i.route(af)
         info = {
             "addr": str(r.nic_ips[0]),
-            "netmask": cidr_to_netmask(r.nic_ips[0].cidr, af)
+            "netmask": cidr_to_netmask(r.nic_ips[0].host_limit, af)
         }
 
         ipr = await netiface_addr_to_ipr(af, i.id, info)
@@ -139,8 +139,8 @@ class TestRoute(unittest.IsolatedAsyncioTestCase):
     async def test_route_pool(self):
         # 511 hosts overall
         af = IP4
-        ipr_a = IPRange("8.8.8.0", cidr=24) # 255 hosts
-        ipr_b = IPRange("7.7.7.0", cidr=24) # 255 hosts
+        ipr_a = IPRange("8.8.8.0", host_limit=24) # 255 hosts
+        ipr_b = IPRange("7.7.7.0", host_limit=24) # 255 hosts
         ipr_c = IPRange("9.9.9.9") # 1 host
         
         # Setup route pool

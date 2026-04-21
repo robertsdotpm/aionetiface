@@ -323,28 +323,28 @@ def win_con_name_lookup():
     root_key.Close()
     return infos
 
-def get_cidr_from_route_infos(needle_ip, route_infos):
+def get_host_limit_from_route_infos(needle_ip, route_infos):
     netmask = None
-    cidr = 128
+    host_limit = 0
     for route_info in route_infos:
         prefix_ip, prefix_cidr = route_info["prefix"].split("/")
         prefix_cidr = int(prefix_cidr)
         if not prefix_cidr:
             continue
 
-        prefix_ipr = IPRange(prefix_ip, cidr=prefix_cidr)
+        prefix_ipr = IPRange(prefix_ip, host_limit=prefix_cidr)
         masked_needle_net = toggle_host_bits(
             prefix_ipr.netmask,
             needle_ip
         )
-        masked_needle_ipr = IPRange(masked_needle_net, cidr=prefix_cidr)
+        masked_needle_ipr = IPRange(masked_needle_net, host_limit=prefix_cidr)
 
         if prefix_ipr == masked_needle_ipr:
-            if prefix_cidr <= cidr:
-                cidr = prefix_cidr
+            if prefix_cidr >= host_limit:
+                host_limit = prefix_cidr
                 netmask = prefix_ipr.netmask
 
-    return [cidr, netmask]
+    return [host_limit, netmask]
 
 async def if_infos_from_netsh():
     con_table = win_con_name_lookup()
@@ -361,7 +361,7 @@ async def if_infos_from_netsh():
                 continue
 
             for found_addr in out["addrs"][af][if_index]:
-                cidr, netmask = get_cidr_from_route_infos(
+                host_limit, netmask = get_host_limit_from_route_infos(
                     found_addr["addr"],
                     out["routes"][af][if_index]
                 )
@@ -369,7 +369,7 @@ async def if_infos_from_netsh():
                 addr = {
                     "addr": found_addr["addr"],
                     "af": af,
-                    "cidr": cidr,
+                    "host_limit": host_limit,
                     "netmask": netmask
                 }
                 addr_info[af].append(addr)

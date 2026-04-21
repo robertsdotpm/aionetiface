@@ -1,4 +1,6 @@
 import asyncio
+import copy
+import random
 from ...net.ip_range import *
 from ..netifaces.netiface_extra import *
 from ...net.address import *
@@ -61,9 +63,9 @@ async def lookup_wan_ip_for_nic_ip(src_ip, min_agree, stun_clients, timeout):
             )
 
             if wan_ip is not None:
-                cidr = af_to_cidr(af)
-                ext_ipr = IPRange(wan_ip, cidr=cidr)
-                nic_ipr = IPRange(src_ip, cidr=cidr)
+                host_limit = af_bitlen(af)
+                ext_ipr = IPRange(wan_ip, host_limit=host_limit)
+                nic_ipr = IPRange(src_ip, host_limit=host_limit)
                 if nic_ipr.is_private or src_ip != wan_ip:
                     nic_ipr.is_private = True
                     nic_ipr.is_public = False
@@ -81,47 +83,59 @@ async def lookup_wan_ip_for_nic_ip(src_ip, min_agree, stun_clients, timeout):
 
     return None
 
-def group_ips_by_shared_prefix(iprs, max_bits):
+STUN_BATCH_SIZE = 4
+
+async def run_stun_tasks_batched(tasks):
     """
-    Group IP ranges into buckets by shared leading bits (pure XOR, no CIDR).
-    Sort by integer value. For each candidate IP, compute shared leading bits
-    against every existing bucket member and take the minimum — this is the
-    weakest link in the group. The first pair establishes the bucket prefix;
-    subsequent IPs must meet or exceed that minimum across all members.
+    Run STUN tasks in small batches with jitter between batches to avoid
+    flooding the router with a UDP burst.
     """
-    if not iprs:
-        return []
+    results = []
+    for i in range(0, len(tasks), STUN_BATCH_SIZE):
+        batch = tasks[i:i + STUN_BATCH_SIZE]
+        batch_results = await asyncio.gather(*batch)
+        results.extend(batch_results)
+        if i + STUN_BATCH_SIZE < len(tasks):
+            await asyncio.sleep(random.uniform(0.05, 0.3))
+    return results
 
-    def shared_bits(a, b):
-        xor = a ^ b
-        return (max_bits - xor.bit_length()) if xor else max_bits
 
-    sorted_iprs = sorted(iprs, key=lambda ipr: int(ipr[0]))
-    buckets = [[sorted_iprs[0]]]
-    prefixes = [None]  # established min-shared-bits per bucket; None = not yet set
+def group_pub_iprs_by_subnet(pub_iprs, max_bits):
+    """
+    Group public IPRange objects by their OS network prefix (subnet).
+    Returns (group_heads, individual_iprs):
+      - group_heads: {head_src_ip: [rest_iprs]} for IPs sharing a subnet
+      - individual_iprs: list of IPRanges that must be queried individually
+                         (IPv6 /128, or any IP whose subnet is unknown)
+    """
+    net_groups = {}
+    individual_iprs = []
 
-    for ipr in sorted_iprs[1:]:
-        ip_int = int(ipr[0])
-        bucket = buckets[-1]
-        p = prefixes[-1]
+    for ipr in pub_iprs:
+        nc = getattr(ipr, 'subnet', None)
+        if nc is None:
+            nc = max_bits
 
-        min_shared = min(shared_bits(ip_int, int(m[0])) for m in bucket)
+        # IPv6 /128 (or any max-prefix IP) always gets its own STUN query.
+        if nc == max_bits:
+            individual_iprs.append(ipr)
+            continue
 
-        if p is None:
-            if min_shared > 0:
-                prefixes[-1] = min_shared
-                bucket.append(ipr)
-            else:
-                buckets.append([ipr])
-                prefixes.append(None)
-        elif min_shared >= p:
-            prefixes[-1] = min(p, min_shared)
-            bucket.append(ipr)
-        else:
-            buckets.append([ipr])
-            prefixes.append(None)
+        ip_int = int(ipr)
+        host_bits = max_bits - nc
+        network_int = (ip_int >> host_bits) << host_bits
+        key = (network_int, nc)
+        if key not in net_groups:
+            net_groups[key] = []
+        net_groups[key].append(ipr)
 
-    return buckets
+    group_heads = {}
+    for group in net_groups.values():
+        head_ipr = group[0]
+        src_ip = ip_norm(str(head_ipr[0]))
+        group_heads[src_ip] = group[1:]
+
+    return group_heads, individual_iprs
 
 """
 Network interface cards have a list of addresses to bind on them.
@@ -162,14 +176,32 @@ async def discover_nic_wan_ips(af, min_agree, enable_default, interface, stun_cl
         else:
             pub_iprs.append(nic_ipr)
 
-    # Group public IPs by shared leading bits (pure integer XOR, no CIDR).
-    # One STUN query per group; the rest derive their route from the head's result.
+    # Determine the OS-preferred source address before grouping so we can
+    # promote it to group head (it's the most reliable address for STUN).
+    host_limit = af_bitlen(af)
+    af_default_nic_ip = ""
+    if enable_default:
+        dest = "8.8.8.8" if af == IP4 else "2001:4860:4860::8888"
+        af_default_nic_ip = ip_norm(determine_if_path(af, dest))
+
+    # If af_default_nic_ip is in pub_iprs, move it to the front so that
+    # group_pub_iprs_by_subnet picks it as the head of its subnet group.
+    # Deprecated temporary addresses are unreliable for STUN; using the
+    # OS-preferred address avoids silent STUN failures for the whole group.
+    if af_default_nic_ip:
+        for i, ipr in enumerate(pub_iprs):
+            if ip_norm(str(ipr[0])) == af_default_nic_ip:
+                pub_iprs = [ipr] + pub_iprs[:i] + pub_iprs[i+1:]
+                break
+
+    # Group public IPs by OS network prefix (subnet).
+    # One STUN query per subnet group; individual IPs (IPv6 /128 or unknown
+    # prefix) each get their own query. Rest of a group derive their route
+    # from the head's result after resolution.
     max_bits = 128 if af == IP6 else 32
-    pub_group_heads = {}
-    for group in group_ips_by_shared_prefix(pub_iprs, max_bits):
-        head_ipr = group[0]
-        src_ip = ip_norm(str(head_ipr[0]))
-        pub_group_heads[src_ip] = group[1:]
+    pub_group_heads, individual_iprs = group_pub_iprs_by_subnet(pub_iprs, max_bits)
+
+    for src_ip in pub_group_heads:
         tasks.append(
             async_wrap_errors(
                 lookup_wan_ip_for_nic_ip(
@@ -181,12 +213,24 @@ async def discover_nic_wan_ips(af, min_agree, enable_default, interface, stun_cl
             )
         )
 
-    # Append task for get default route.
-    cidr = af_to_cidr(af)
-    af_default_nic_ip = ""
-    if enable_default:
-        dest = "8.8.8.8" if af == IP4 else "2001:4860:4860::8888"
-        af_default_nic_ip = determine_if_path(af, dest)
+    for ipr in individual_iprs:
+        src_ip = ip_norm(str(ipr[0]))
+        pub_group_heads[src_ip] = []
+        tasks.append(
+            async_wrap_errors(
+                lookup_wan_ip_for_nic_ip(
+                    src_ip,
+                    min_agree,
+                    stun_clients,
+                    timeout
+                )
+            )
+        )
+
+    # Add a default-route task only when af_default_nic_ip is not already
+    # being queried as a pub group head (avoids a duplicate STUN request).
+    af_default_is_pub_head = af_default_nic_ip in pub_group_heads
+    if enable_default and not af_default_is_pub_head:
         tasks.append(
             async_wrap_errors(
                 lookup_wan_ip_for_nic_ip(
@@ -222,8 +266,8 @@ async def discover_nic_wan_ips(af, min_agree, enable_default, interface, stun_cl
             )
         )
 
-    # Resolve interface addresses CFAB.
-    results = await asyncio.gather(*tasks)
+    # Resolve interface addresses in batches with jitter to avoid UDP bursts.
+    results = await run_stun_tasks_batched(tasks)
     results = [r for r in results if r is not None]
 
     # Derive routes for non-head IPs in each network group from the head's result.
@@ -232,8 +276,17 @@ async def discover_nic_wan_ips(af, min_agree, enable_default, interface, stun_cl
             continue
         head_route = get_route_by_src(head_src, results)
         if head_route is not None:
+            # For direct routing (no NAT) the head's ext_ip equals its nic_ip.
+            # Each address in the group is its own distinct external IP, so
+            # assign each derived route its own ext_ip rather than copying the head's.
+            head_is_direct = (int(head_route.nic_ips[0]) == int(head_route.ext_ips[0]))
             for extra_ipr in rest_iprs:
-                extra_route = Route(af, [extra_ipr], copy.deepcopy(head_route.ext_ips), interface)
+                if head_is_direct:
+                    ext_ipr = IPRange(ip_norm(str(extra_ipr[0])), host_limit=af_bitlen(af))
+                    ext_iprs = [ext_ipr]
+                else:
+                    ext_iprs = copy.deepcopy(head_route.ext_ips)
+                extra_route = Route(af, [extra_ipr], ext_iprs, interface)
                 results.append((ip_norm(str(extra_ipr[0])), extra_route))
 
     # Only the default NIC will have
@@ -249,7 +302,7 @@ async def discover_nic_wan_ips(af, min_agree, enable_default, interface, stun_cl
         is not in the NIC IPs for this interface then
         don't enable the use of the default route.
         """
-        af_default_nic_ipr = IPRange(af_default_nic_ip, cidr=cidr)
+        af_default_nic_ipr = IPRange(af_default_nic_ip, host_limit=host_limit)
         if af_default_nic_ipr not in nic_iprs:
             default_route = None
             log(fstr("Route error {0} disabling default route.", (af,)))
@@ -260,7 +313,11 @@ async def discover_nic_wan_ips(af, min_agree, enable_default, interface, stun_cl
     priv_route = get_route_by_src(priv_src, results)
 
     # Exclude priv_route and default.
-    exclude = [priv_src, af_default_nic_ip]
+    # When af_default_nic_ip is a pub group head its route is already a primary
+    # route (not just a fallback), so leave it in the results.
+    exclude = [priv_src]
+    if not af_default_is_pub_head:
+        exclude.append(af_default_nic_ip)
     routes = exclude_routes_by_src(exclude, results)
 
     # Add a single route for all private IPs (if exists)

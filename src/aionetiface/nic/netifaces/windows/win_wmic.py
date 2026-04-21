@@ -31,7 +31,7 @@ def parse_wmic_addrs(addrs):
             
             # Both just placeholders / incorrect.
             # TODO: get real values in the future.
-            "cidr": ipr.cidr,
+            "host_limit": ipr.host_limit,
             "netmask": ipr.netmask,
         })
         

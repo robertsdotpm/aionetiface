@@ -139,8 +139,8 @@ def validate_stun_reply(reply, mode):
     # The follow tups should all have pub IPs.
     for req_attr in extra_attrs:
         tup_ip, tup_port = getattr(reply, req_attr)[:2]
-        cidr = af_to_cidr(reply.af)
-        ipr = IPRange(tup_ip, cidr=cidr)
+        host_limit = af_bitlen(reply.af)
+        ipr = IPRange(tup_ip, host_limit=host_limit)
         if ipr.is_private:
             log(fstr('{0} {1}: {2} priv', (req_attr, to_h(reply.txn_id), tup_ip,)))
             return None

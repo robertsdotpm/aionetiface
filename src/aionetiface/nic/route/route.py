@@ -201,12 +201,12 @@ class Route(Bind):
             other = to_s(other)
 
         if isinstance(other, (str, int)):
-            ipr = IPRange(other, cidr=CIDR_WAN)
+            ipr = IPRange(other, host_limit=BITLEN_FULL)
             return ipr
 
         if isinstance(other, IPA_TYPES):
             af = v_to_af(other.version)
-            ipr = IPRange(other, cidr=CIDR_WAN)
+            ipr = IPRange(other, host_limit=BITLEN_FULL)
             return ipr
 
         raise NotImplementedError("Route._convert_other: unsupported type for comparison.")

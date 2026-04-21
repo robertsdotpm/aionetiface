@@ -37,11 +37,11 @@ class TestInterface(unittest.IsolatedAsyncioTestCase):
 
         # Now ensure there's a fallback route.
         af = i.supported()[0]
-        cidr = af_to_cidr(af)
+        host_limit = af_bitlen(af)
         route = i.route(af)
 
         # The fallbacks nic ip should be on the any addr.
-        nic_ipr = IPRange(ANY_ADDR_LOOKUP[af], cidr=cidr)
+        nic_ipr = IPRange(ANY_ADDR_LOOKUP[af], host_limit=host_limit)
         assert(route.nic_ips[0] == nic_ipr)
 
         # While its ext IP should be public.

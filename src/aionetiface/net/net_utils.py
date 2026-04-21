@@ -15,12 +15,9 @@ af_to_v  = lambda af: 4 if af == IP4 else 6
 v_to_af  = lambda v: IP4 if v == 4 else IP6
 i_to_af  = lambda x: IP4 if x == 2 else IP6
 
-def max_cidr(af):
-    """Return the maximum CIDR prefix length for the given address family."""
+def af_bitlen(af):
+    """Return the bit width of the address family (32 for IPv4, 128 for IPv6)."""
     return 32 if af == IP4 else 128
-
-# Alias so callers can use either name.
-af_to_cidr = max_cidr
 
 def sock_has_data(sock):
     try:
@@ -50,17 +47,17 @@ def ip_str_to_int(ip_str):
         return to_i(hex_str)
 
 def netmask_to_cidr(netmask):
-    # Already a cidr.
+    # Already a host_limit.
     if "/" in netmask:
         return int(netmask.replace("/", ""))
 
     as_int = ip_str_to_int(netmask) 
     return bin(as_int).count("1")
 
-def cidr_to_netmask(cidr, af):
+def cidr_to_netmask(host_limit, af):
     end = 32 if af == AF_INET else 128
-    buf = "1" * cidr
-    buf += "0" * (end - cidr)
+    buf = "1" * host_limit
+    buf += "0" * (end - host_limit)
     n = int(buf, 2)
     if af == AF_INET:
         return (str(ipaddress.IPv4Address(n)))
@@ -70,12 +67,12 @@ def cidr_to_netmask(cidr, af):
 def toggle_host_bits(netmask, ip_str, toggle=0):
     ip_obj = ipaddress.ip_address(ip_str)
     if "/" in netmask:
-        cidr = int(netmask.split("/")[-1])
+        host_limit = int(netmask.split("/")[-1])
     else:
-        cidr = netmask_to_cidr(netmask)
+        host_limit = netmask_to_cidr(netmask)
     as_int = ip_str_to_int(ip_str)
     as_bin = bin(as_int)[2:]
-    net_part = as_bin[:cidr]
+    net_part = as_bin[:host_limit]
     if not toggle:
         host_part = "0" * (len(as_bin) - len(net_part))
     else:
