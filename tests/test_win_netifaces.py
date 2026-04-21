@@ -129,7 +129,7 @@ if platform.system() == "Windows":
                 # Should find at least one default gateway.
                 gws = win_set_gateways(out)
                 self.assertTrue(gws["default"] != {})
-            except:
+            except (OSError, RuntimeError, KeyError):
                 log("test win ifaces failed using powershell code. Possible failure.")
                 log_exception()
 

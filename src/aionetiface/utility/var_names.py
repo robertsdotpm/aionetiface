@@ -1,4 +1,9 @@
-from ..nic.nat.nat_utils import *
+from ..nic.nat.nat_defs import (
+    OPEN_INTERNET, SYMMETRIC_UDP_FIREWALL, FULL_CONE, RESTRICT_NAT,
+    RESTRICT_PORT_NAT, SYMMETRIC_NAT, BLOCKED_NAT,
+    NA_DELTA, EQUAL_DELTA, PRESERV_DELTA, INDEPENDENT_DELTA,
+    DEPENDENT_DELTA, RANDOM_DELTA,
+)
 
 TXT = {
     "nat": {

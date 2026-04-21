@@ -1,13 +1,19 @@
 import asyncio
 import socket
 import platform
-from ...utility.utils import *
-from ..net_utils import *
-from .bind_utils import *
+from typing import Any, List, Optional, Tuple
+from ...utility.utils import fstr
+from ...net.net_defs import (
+    VALID_AFS, IP4, IP6, IP_APPEND, IP_BIND_TUP, IP_PRIVATE,
+    VALID_LOCALHOST, LOCALHOST_LOOKUP, V4_VALID_ANY, V6_VALID_ANY, V6_VALID_LOCALHOST,
+)
+from ..net_utils import ip_strip_if
+from .bind_utils import match_bind_rule
+
 
 # --- Reusable Logic Functions ---
 
-def get_bind_magic_table(af):
+def get_bind_magic_table(af: int) -> List[Any]:
     """
     Generates the table of edge-cases for bind() across platforms and AFs.
     """
@@ -37,7 +43,7 @@ def get_bind_magic_table(af):
         ["Windows", IP6, IP_BIND_TUP, IP_PRIVATE, None, [3, "nic_id"]],
     ]
 
-def resolve_bind_ip(ip, af, nic_id, plat, bind_magic):
+def resolve_bind_ip(ip: str, af: int, nic_id: Any, plat: str, bind_magic: List[Any]) -> str:
     """
     Processes IP_APPEND rules to normalize the IP string before lookup.
     """
@@ -64,7 +70,7 @@ def resolve_bind_ip(ip, af, nic_id, plat, bind_magic):
     
     return ip
 
-def resolve_bind_tuple(initial_tup, ip, af, nic_id, plat, bind_magic):
+def resolve_bind_tuple(initial_tup: Tuple[Any, ...], ip: str, af: int, nic_id: Any, plat: str, bind_magic: List[Any]) -> Tuple[Any, ...]:
     """
     Processes IP_BIND_TUP rules to modify the tuple (e.g. Scope IDs) after lookup.
     """
@@ -108,7 +114,7 @@ def resolve_bind_tuple(initial_tup, ip, af, nic_id, plat, bind_magic):
 
 # --- Main Functions ---
 
-async def binder_async(af, ip="", port=0, nic_id=None, plat=platform.system()):
+async def binder_async(af: int, ip: str = "", port: int = 0, nic_id: Optional[Any] = None, plat: str = platform.system()) -> Optional[Tuple[Any, ...]]:
     """
     Async version of the binder.
     """
@@ -133,7 +139,7 @@ async def binder_async(af, ip="", port=0, nic_id=None, plat=platform.system()):
     return resolve_bind_tuple(initial_tup, ip, af, nic_id, plat, bind_magic)
 
 
-def binder_sync(af, ip="", port=0, nic_id=None, plat=platform.system()):
+def binder_sync(af: int, ip: str = "", port: int = 0, nic_id: Optional[Any] = None, plat: str = platform.system()) -> Optional[Tuple[Any, ...]]:
     """
     Synchronous version of the binder.
     """

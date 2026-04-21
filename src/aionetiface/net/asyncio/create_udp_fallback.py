@@ -6,9 +6,11 @@ a fallback implementation using low-level socket operations.
 
 import asyncio
 import socket
+from typing import Any, List, Optional
+
 
 class PolledDatagramTransport:
-    def __init__(self, loop, sock, protocol):
+    def __init__(self, loop: Any, sock: Any, protocol: Any) -> None:
         self.loop = loop
         self.sock = sock
         self.protocol = protocol
@@ -17,7 +19,7 @@ class PolledDatagramTransport:
         self.sock.setblocking(False)
         protocol.connection_made(self)
 
-    def poll(self):
+    def poll(self) -> None:
         if self.closing:
             return
 
@@ -30,7 +32,7 @@ class PolledDatagramTransport:
         except OSError as e:
             self.protocol.error_received(e)
 
-    def sendto(self, data, addr=None):
+    def sendto(self, data: bytes, addr: Optional[Any] = None) -> None:
         if self.closing:
             return
 
@@ -44,37 +46,37 @@ class PolledDatagramTransport:
         except OSError as e:
             self.protocol.error_received(e)
 
-    def close(self):
+    def close(self) -> None:
         if self.closing:
             return
         self.closing = True
         self.sock.close()
         self.protocol.connection_lost(None)
 
-    def is_closing(self):
+    def is_closing(self) -> bool:
         return self.closing
 
-    def get_extra_info(self, name, default=None):
+    def get_extra_info(self, name: str, default: Optional[Any] = None) -> Any:
         if name == "socket":
             return self.sock
         return default
 
 class UdpPoller:
-    def __init__(self, loop):
+    def __init__(self, loop: Any) -> None:
         self.loop = loop
-        self.sockets = []
+        self.sockets: List[Any] = []
         self.interval = 0.01  # 10ms polling interval
         self.task = loop.create_task(self.poll_loop())
 
-    def register(self, transport):
+    def register(self, transport: Any) -> None:
         self.sockets.append(transport)
 
-    def close(self):
+    def close(self) -> None:
         """Schedule cancellation of the polling task (non-blocking)."""
         if self.task and not self.task.done():
             self.task.cancel()
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         """Async close — cancels the polling task and waits for it to exit."""
         self.close()
         if self.task is not None:
@@ -84,7 +86,7 @@ class UdpPoller:
                 pass
             self.task = None
 
-    async def poll_loop(self):
+    async def poll_loop(self) -> None:
         while True:
             # Remove closed transports to avoid accumulation.
             self.sockets = [t for t in self.sockets if not t.is_closing()]

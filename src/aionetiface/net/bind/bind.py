@@ -1,13 +1,16 @@
-from ...utility.utils import *
-from ..net_utils import *
-from .bind_rules import *
+import copy
+from typing import Any, List, Optional, Tuple
+from ...net.net_defs import IP6, LOOPBACK_BIND, NIC_BIND
+from .bind_rules import binder_async
+from .bind_utils import bind_closure
+
 
 """
 Mostly this class will not be used directly by users.
 It's code is also shitty for res. Routes have superseeded this.
 """
 class Bind():
-    def __init__(self, interface, af, port=0, ips=None, leave_none=0):
+    def __init__(self, interface: Optional[Any], af: int, port: int = 0, ips: Optional[Any] = None, leave_none: int = 0) -> None:
         #if IS_DEBUG:
         #assert("Interface" in str(type(interface)))
         self.__name__ = "Bind"
@@ -22,16 +25,16 @@ class Bind():
         if not hasattr(self, "bind"):
             self.bind = bind_closure(self, binder_async)
 
-    def __await__(self):
+    def __await__(self) -> Any:
         return self.bind().__await__()
 
-    async def res(self):
+    async def res(self) -> "Bind":
         return await self.bind()
 
-    async def start(self):
+    async def start(self) -> None:
         await self.res()
 
-    def bind_tup(self, port=None, flag=NIC_BIND):
+    def bind_tup(self, port: Optional[int] = None, flag: int = NIC_BIND) -> Tuple[Any, ...]:
         # Handle loopback support.
         if flag == LOOPBACK_BIND:
             if self.af == IP6:
@@ -58,6 +61,6 @@ class Bind():
         #log("> binding to tup = {}".format(tup))
         return tup
 
-    def supported(self):
+    def supported(self) -> List[int]:
         return [self.af]
     

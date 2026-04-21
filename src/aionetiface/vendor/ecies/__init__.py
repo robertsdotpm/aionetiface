@@ -1,3 +1,4 @@
+from typing import Any
 from ecdsa import SECP256k1, ECDH, SigningKey
 
 from .config import ECIES_CONFIG
@@ -9,7 +10,7 @@ from .utils import (
 __all__ = ["encrypt", "decrypt", "ECIES_CONFIG"]
 
 # Bytes: receiver_pk, Bytes: msg
-def encrypt(receiver_pk, msg):
+def encrypt(receiver_pk: bytes, msg: bytes) -> bytes:
     # Generate unique per message key.
     ephemeral_keys = ECDH(curve=SECP256k1)
     ephemeral_keys.generate_private_key()
@@ -31,7 +32,7 @@ def encrypt(receiver_pk, msg):
     return ephemeral_pk + encrypted
 
 # SigningKey: receiver_sk, bytes: msg
-def decrypt(receiver_sk, msg):
+def decrypt(receiver_sk: Any, msg: bytes) -> bytes:
     # Generate unique per message key.
     ephemeral_keys = ECDH(curve=SECP256k1)
     ephemeral_keys.load_private_key(receiver_sk)

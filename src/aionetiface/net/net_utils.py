@@ -7,19 +7,21 @@ import random
 import copy
 import ssl
 from io import BytesIO
-from ..errors import *
-from ..utility.cmd_tools import *
+from typing import Any, Optional, Tuple, Union
+import re
+from ..utility.utils import ip_f, log, log_exception, to_h, to_i, to_s
 from .net_defs import *
+
 
 af_to_v  = lambda af: 4 if af == IP4 else 6
 v_to_af  = lambda v: IP4 if v == 4 else IP6
 i_to_af  = lambda x: IP4 if x == 2 else IP6
 
-def af_bitlen(af):
+def af_bitlen(af: int) -> int:
     """Return the bit width of the address family (32 for IPv4, 128 for IPv6)."""
     return 32 if af == IP4 else 128
 
-def sock_has_data(sock):
+def sock_has_data(sock: Any) -> bool:
     try:
         ready = sock.recv(1, socket.MSG_PEEK)
         if ready:
@@ -29,12 +31,12 @@ def sock_has_data(sock):
     
     return False
 
-def af_from_ip_s(ip_s):
+def af_from_ip_s(ip_s: Union[str, bytes]) -> int:
     ip_s = to_s(ip_s)
     ip_obj = ip_f(ip_s)
     return v_to_af(ip_obj.version)
 
-def ip_str_to_int(ip_str):
+def ip_str_to_int(ip_str: str) -> int:
     ip_obj = ipaddress.ip_address(ip_str)
     if ip_obj.version == 4:
         pack_ip = socket.inet_aton(ip_str)
@@ -46,7 +48,7 @@ def ip_str_to_int(ip_str):
         ))
         return to_i(hex_str)
 
-def netmask_to_cidr(netmask):
+def netmask_to_cidr(netmask: str) -> int:
     # Already a host_limit.
     if "/" in netmask:
         return int(netmask.replace("/", ""))
@@ -54,7 +56,7 @@ def netmask_to_cidr(netmask):
     as_int = ip_str_to_int(netmask) 
     return bin(as_int).count("1")
 
-def cidr_to_netmask(host_limit, af):
+def cidr_to_netmask(host_limit: int, af: int) -> str:
     end = 32 if af == AF_INET else 128
     buf = "1" * host_limit
     buf += "0" * (end - host_limit)
@@ -64,7 +66,7 @@ def cidr_to_netmask(host_limit, af):
     else:
         return str(ipaddress.IPv6Address(n).exploded)
 
-def toggle_host_bits(netmask, ip_str, toggle=0):
+def toggle_host_bits(netmask: str, ip_str: str, toggle: int = 0) -> str:
     ip_obj = ipaddress.ip_address(ip_str)
     if "/" in netmask:
         host_limit = int(netmask.split("/")[-1])
@@ -85,7 +87,7 @@ def toggle_host_bits(netmask, ip_str, toggle=0):
     else:
         return str(ipaddress.IPv6Address(n_result).exploded)
 
-def get_broadcast_ip(netmask, gw_ip):
+def get_broadcast_ip(netmask: str, gw_ip: str) -> str:
     return toggle_host_bits(netmask, gw_ip, toggle=1)
 
 """
@@ -101,14 +103,14 @@ Or if you compare the same compressed IPv6 to
 its uncompressed form (textually) then it
 will give a false negative.
 """
-def ipv6_norm(ip_val):
+def ipv6_norm(ip_val: Union[str, bytes, int]) -> str:
     ip_obj = ipaddress.ip_address(ip_val)
     if ip_obj.version == 6:
         return str(ip_obj.exploded)
 
     return str(ip_obj)
 
-def ip_strip_if(ip):
+def ip_strip_if(ip: Union[str, bytes]) -> Union[str, bytes]:
     if isinstance(ip, str):
         if "%" in ip:
             parts = ip.split("%")
@@ -116,14 +118,14 @@ def ip_strip_if(ip):
     
     return ip
 
-def ip_strip_cidr(ip):
+def ip_strip_cidr(ip: Union[str, bytes]) -> Union[str, bytes]:
     if isinstance(ip, str):
         if "/" in ip:
             ip = ip.split("/")[0]
 
     return ip
 
-def ip_norm(ip):
+def ip_norm(ip: Union[str, bytes]) -> str:
     # Strip interface scope id.
     ip = ip_strip_if(ip)
 
@@ -136,19 +138,19 @@ def ip_norm(ip):
 
     return ip
 
-def mac_norm(mac):
+def mac_norm(mac: str) -> str:
     parts = re.split("[:.-]", mac)
     parts = [ part.zfill(2).lower() for part in parts ]
     return "".join(parts)
 
-def client_tup_norm(client_tup):
+def client_tup_norm(client_tup: Optional[Tuple[Any, ...]]) -> Optional[Tuple[str, int]]:
     if client_tup is None:
         return None
     
     ip = ip_norm(client_tup[0])
     return (ip, client_tup[1])
     
-def is_socket_closed(sock):
+def is_socket_closed(sock: Any) -> bool:
     try:
         # this will try to read bytes without blocking and also without removing them from buffer (peek only)
         data = sock.recv(16, socket.MSG_DONTWAIT | socket.MSG_PEEK)
@@ -173,7 +175,7 @@ def is_socket_closed(sock):
 #
 # This makes p2p connections to LAN hosts and to services on the same machine
 # more robust.
-def determine_if_path(af, dest):
+def determine_if_path(af: int, dest: str) -> Optional[str]:
     # Setup socket for connection.
     src_ip = None
     with socket.socket(af, UDP) as s:
@@ -189,7 +191,7 @@ def determine_if_path(af, dest):
 
     return src_ip
 
-def avoid_time_wait(pipe):
+def avoid_time_wait(pipe: Any) -> None:
     try:
         sock = pipe.sock
         linger = struct.pack('ii', 1, 0)
@@ -203,7 +205,7 @@ def avoid_time_wait(pipe):
         log_exception()
 
 # Not used presently but may be useful in future.
-async def safe_sock_connect(loop, sock, dest):
+async def safe_sock_connect(loop: Any, sock: Any, dest: Tuple[str, int]) -> bool:
     try:
         await loop.sock_connect(sock, dest)
         return True

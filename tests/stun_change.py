@@ -1,10 +1,11 @@
 import asyncio
+from typing import Any
 from aionetiface import *
 
 """
 Demonstrates that change attribute replies through STUN RFC 5389 aren't supported.
 """
-async def main():
+async def main() -> None:
     nic = await Interface()
 
     # Google STUN server

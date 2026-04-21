@@ -1,14 +1,19 @@
 import asyncio
 import copy
 import random
-from ...net.ip_range import *
-from ..netifaces.netiface_extra import *
-from ...net.address import *
-from .route_pool import *
-from ...utility.pattern_factory import *
-from ...settings import *
-from .route_utils import *
-from ...net.bind.bind import *
+from typing import Any, Dict, List, Optional, Tuple
+from ...utility.utils import async_wrap_errors, fstr, log, log_exception
+from ...utility.pattern_factory import concurrent_first_agree_or_best
+from ...net.net_defs import IP4, IP6
+from ...net.ip_range import IPRange
+from ...net.net_utils import determine_if_path, ip_norm
+from ...net.bind.bind import Bind
+from .route import Route
+from .route_pool import RoutePool
+from .route_utils import (
+    get_nic_iprs, sort_routes, get_route_by_src, exclude_routes_by_src,
+)
+
 
 """
 Loads external IP associated with a nic IP.
@@ -16,7 +21,7 @@ Give a single address for a NIC (may appear public or private) --
 use STUN to lookup what WAN address ends up being reported after using
 that particular address for a bind() call.
 """
-async def lookup_wan_ip_for_nic_ip(src_ip, min_agree, stun_clients, timeout):
+async def lookup_wan_ip_for_nic_ip(src_ip: str, min_agree: int, stun_clients: List[Any], timeout: float) -> Optional[Tuple[str, Any]]:
     if not stun_clients:
         log("lookup_wan_ip_for_nic_ip: no STUN clients available, cannot resolve WAN IP.")
         return None
@@ -85,7 +90,7 @@ async def lookup_wan_ip_for_nic_ip(src_ip, min_agree, stun_clients, timeout):
 
 STUN_BATCH_SIZE = 4
 
-async def run_stun_tasks_batched(tasks):
+async def run_stun_tasks_batched(tasks: List[Any]) -> List[Any]:
     """
     Run STUN tasks in small batches with jitter between batches to avoid
     flooding the router with a UDP burst.
@@ -100,7 +105,7 @@ async def run_stun_tasks_batched(tasks):
     return results
 
 
-def group_pub_iprs_by_subnet(pub_iprs, max_bits):
+def group_pub_iprs_by_subnet(pub_iprs: List[Any], max_bits: int) -> Tuple[Dict[str, List[Any]], List[Any]]:
     """
     Group public IPRange objects by their OS network prefix (subnet).
     Returns (group_heads, individual_iprs):
@@ -157,7 +162,7 @@ or any of that junk. In that case -- the software still checks if these are
 valid addresses because a machine is free to set whatever addresses they like
 for their interface but it doesn't mean that the addresses are valid.
 """
-async def discover_nic_wan_ips(af, min_agree, enable_default, interface, stun_clients, netifaces, timeout):
+async def discover_nic_wan_ips(af: int, min_agree: int, enable_default: bool, interface: Any, stun_clients: List[Any], netifaces: Any, timeout: float) -> List[Any]:
     # Get a list of tasks to resolve NIC addresses.
     tasks = []
     link_locals = []

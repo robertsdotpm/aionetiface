@@ -4,11 +4,13 @@ import sys
 if sys.platform == 'win32':
     import winreg
 
+from typing import Any, Dict, List, Optional
 from ....net.net_utils import *
 from ....utility.cmd_tools import *
 from ....net.ip_range import IPRange
 
-def parse_wmic_list(entry):
+
+def parse_wmic_list(entry: str) -> List[Any]:
     if not len(entry):
         return []
         
@@ -21,7 +23,7 @@ def parse_wmic_list(entry):
 
     return eval(entry)
     
-def parse_wmic_addrs(addrs):
+def parse_wmic_addrs(addrs: List[str]) -> Dict[Any, List[Dict[str, Any]]]:
     addr_info = {IP4: [], IP6: []}
     for addr in addrs:
         ipr = IPRange(addr)
@@ -39,7 +41,7 @@ def parse_wmic_addrs(addrs):
 
 class WMICParse():
     @staticmethod
-    def show_main(af, msg):
+    def show_main(af: Any, msg: str) -> List[Any]:
         p = r"({[^{}]+})?\s{2,}([^{}\r\n]+?) {2,}([0-9]+)\s+"
         p += r"({[^{}]+})\s+([^\s]+)\s+({[^{}]+})"
         out = re.findall(p, msg)
@@ -75,7 +77,7 @@ class WMICParse():
         return [af, "main", results]
         
     @staticmethod
-    def show_con_names(af, msg):
+    def show_con_names(af: Any, msg: str) -> List[Any]:
         p = r"\s{0}([0-9]+)\s+([^\r\n]+?) {2,}\s*"
         out = re.findall(p, msg)
         results = {}
@@ -93,7 +95,7 @@ class WMICParse():
     # Also has ipv6 results.
     # if_index: ... if_name, mac
     @staticmethod
-    def show_routes(af, msg):
+    def show_routes(af: Any, msg: str) -> List[Any]:
         p = r"([0-9]+)\s*[.]{2,}([0-9a-fA-F ]+)[ .]+([^\r\n]+)[\r\n]"
         out = re.findall(p, msg)
         results = {"default": {IP4: None, IP6: None}}
@@ -127,7 +129,7 @@ class WMICParse():
 
         return [af, "routes", results]
         
-async def do_wmic_cmds():
+async def do_wmic_cmds() -> List[Any]:
     parser = WMICParse()
     cmd_vectors = [
         [
@@ -167,7 +169,7 @@ async def do_wmic_cmds():
     # Run commands concurrently or not.
     return await safe_gather(*tasks)
     
-async def if_infos_from_wmic():
+async def if_infos_from_wmic() -> List[Dict[str, Any]]:
     # Get NIC info from different WMIC cmds.
     results = await do_wmic_cmds()
         
@@ -214,7 +216,7 @@ async def if_infos_from_wmic():
     return ret
         
 
-async def workspace():
+async def workspace() -> None:
 
     results = await if_infos_from_wmic()
     print(results)

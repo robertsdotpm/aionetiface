@@ -1,7 +1,8 @@
+from typing import Any
 from aionetiface import *
 
 class TestDaemon(unittest.IsolatedAsyncioTestCase):
-    async def test_daemon(self):
+    async def test_daemon(self) -> None:
         loop = asyncio.get_event_loop()
         print(loop)
 
@@ -38,7 +39,7 @@ class TestDaemon(unittest.IsolatedAsyncioTestCase):
             """
             try:
                 route = await interface.route(af)
-            except:
+            except (ValueError, AttributeError):
                 continue
             addrs = [route.nic(), loopbacks[af], "*"]
 

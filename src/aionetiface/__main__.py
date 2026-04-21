@@ -9,6 +9,7 @@ import types
 import warnings
 import multiprocessing
 import platform
+from typing import Any
 from asyncio import futures
 
 vmaj, vmin, _ = platform.python_version_tuple()
@@ -22,14 +23,14 @@ from .do_imports import *
 
 class AsyncIOInteractiveConsole(code.InteractiveConsole):
 
-    def __init__(self, locals, loop):
+    def __init__(self, locals: Any, loop: Any) -> None:
         super().__init__(locals)
         self.compile.compiler.flags |= ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
 
         self.loop = loop
 
 
-    def runcode(self, code):
+    def runcode(self, code: Any) -> None:
         future = concurrent.futures.Future()
 
         def callback():
@@ -77,7 +78,7 @@ class AsyncIOInteractiveConsole(code.InteractiveConsole):
 
 class REPLThread(threading.Thread):
 
-    def run(self):
+    def run(self) -> None:
         try:
             loop_policy = str(asyncio.get_event_loop_policy())
             if "elector" in loop_policy:

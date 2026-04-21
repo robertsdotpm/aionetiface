@@ -4,16 +4,19 @@ import sys
 if sys.platform == 'win32':
     import winreg
 
+from typing import Any, Dict, List, Optional, Tuple
 from ....net.net_utils import *
 from ....utility.cmd_tools import *
+from ....utility.utils import fstr
 from ....net.ip_range import IPRange
+
 
 class NetshParse():
     # netsh interface ipv4 show interfaces
     # netsh interface ipv6 show interfaces
     # if_index: 
     @staticmethod
-    def show_interfaces(af, msg):
+    def show_interfaces(af: int, msg: str) -> List[Any]:
         p = r"([0-9]+)\s+([0-9]+)\s+([0-9]+)\s+([a-z0-9]+)\s+([^\r\n]+)"
         out = re.findall(p, msg)
         results = {}
@@ -34,7 +37,7 @@ class NetshParse():
     # netsh interface ipv6 show addresses
     # if_index: ...
     @staticmethod
-    def show_addresses(af, msg):
+    def show_addresses(af: int, msg: str) -> List[Any]:
         msg = re.sub(r"%[0-9]+", "", msg)
 
         # Regex patterns that can match address information.
@@ -77,7 +80,7 @@ class NetshParse():
     # netsh interface ipv6 show route
     # Routes also show subnet for interface addresses.
     @staticmethod
-    def show_route(af, msg):
+    def show_route(af: int, msg: str) -> List[Any]:
         p = r"([a-zA-Z0-9]+)\s+([a-zA-Z0-9]+)\s+([0-9]+)\s+([a-zA-Z0-9.:%\/]+)\s+([0-9]+)\s+([^\r\n]+)"
         out = re.findall(p, msg)
         results = {}
@@ -100,7 +103,7 @@ class NetshParse():
     # Also has ipv6 results.
     # if_index: ... if_name, mac
     @staticmethod
-    def show_mac(af, msg):
+    def show_mac(af: int, msg: str) -> List[Any]:
         p = r"([0-9]+)\s*[.]{2,}([0-9a-fA-F ]+)[ .]+([^\r\n]+)[\r\n]"
         out = re.findall(p, msg)
         results = {"default": {IP4: None, IP6: None}}
@@ -137,7 +140,7 @@ class NetshParse():
     # ipconfig /all
     # mac: {ip4: ..., IP6: ...}
     @staticmethod
-    def show_gws(af, msg):
+    def show_gws(af: int, msg: str) -> List[Any]:
         p = r"[pP]hysical[ ]+[aA]ddress[^:]+:([^\r\n]+)[\r\n][\s\S]+?[dD]efault[ ]+[gG]ateway[^:]+:((?:\s*[a-fA-F0-9:.%]+[\r\n]?)(?:\s*[a-fA-F0-9:.%]+[\r\n])?)"
         sections = msg.split("\r\n\r\n")
 
@@ -168,7 +171,7 @@ class NetshParse():
 
         return [af, "gws", results]
 
-async def do_netsh_cmds():
+async def do_netsh_cmds() -> Dict[str, Any]:
     parser = NetshParse()
     cmd_vectors = [
         [
@@ -250,7 +253,7 @@ its description. Examples of the net name are 'local area network.'
 Examples of an interface name 'Intel ... ethernet v10'.
 
 """
-def win_con_name_lookup():
+def win_con_name_lookup() -> Dict[str, Any]:
     root_key = winreg.OpenKey(
         winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\ControlSet001\Control\Network",
         0,
@@ -323,7 +326,7 @@ def win_con_name_lookup():
     root_key.Close()
     return infos
 
-def get_host_limit_from_route_infos(needle_ip, route_infos):
+def get_host_limit_from_route_infos(needle_ip: str, route_infos: List[Dict[str, Any]]) -> List[Any]:
     netmask = None
     host_limit = 0
     for route_info in route_infos:
@@ -349,7 +352,7 @@ def get_host_limit_from_route_infos(needle_ip, route_infos):
 
     return [host_limit, netmask]
 
-async def if_infos_from_netsh():
+async def if_infos_from_netsh() -> List[Dict[str, Any]]:
     con_table = win_con_name_lookup()
     out = await do_netsh_cmds()
 

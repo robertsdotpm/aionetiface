@@ -3,10 +3,12 @@ import sys
 import asyncio
 import multiprocessing
 import signal as signal_mod
+from typing import Any, List, Optional, Set
 from .utils import log, log_exception
 
 
-async def cancel_task(task):
+
+async def cancel_task(task: Optional[Any]) -> None:
     if task is None or task.done():
         return
     task.cancel()
@@ -16,7 +18,7 @@ async def cancel_task(task):
         pass
 
 
-async def cancel_tasks(tasks):
+async def cancel_tasks(tasks: List[Any]) -> None:
     live = [t for t in tasks if not t.done()]
     for t in live:
         t.cancel()
@@ -24,11 +26,11 @@ async def cancel_tasks(tasks):
         await asyncio.gather(*live, return_exceptions=True)
 
 
-def rm_done_tasks(tasks):
+def rm_done_tasks(tasks: List[Any]) -> List[Any]:
     return [task for task in tasks if not task.done()]
 
 
-async def gather_or_cancel(tasks, timeout):
+async def gather_or_cancel(tasks: List[Any], timeout: float) -> Optional[List[Any]]:
     """Wait for all tasks within timeout; cancel all if the timeout expires."""
     group = asyncio.gather(*tasks, return_exceptions=True)
     try:
@@ -46,12 +48,12 @@ async def gather_or_cancel(tasks, timeout):
         return []
 
 
-def handle_exceptions(loop, context):
+def handle_exceptions(loop: Any, context: Any) -> None:
     """No-op asyncio exception handler — silences stray teardown errors."""
     pass
 
 
-def cancel_all_tasks(loop):
+def cancel_all_tasks(loop: Any) -> None:
     """Cancel every pending task on loop and wait for cancellations to drain."""
     try:
         to_cancel = asyncio.all_tasks(loop)
@@ -88,7 +90,7 @@ def cancel_all_tasks(loop):
             })
 
 
-async def shutdown_executor_with_timeout(executor, timeout=3):
+async def shutdown_executor_with_timeout(executor: Any, timeout: int = 3) -> None:
     """Shut down a concurrent.futures.Executor with a timeout."""
     loop = asyncio.get_running_loop()
     shutdown_future = loop.run_in_executor(None, executor.shutdown, True)
@@ -98,7 +100,7 @@ async def shutdown_executor_with_timeout(executor, timeout=3):
         log("Warning: executor shutdown timed out")
 
 
-async def shutdown_proc_pool(proc_pool):
+async def shutdown_proc_pool(proc_pool: Any) -> None:
     """Shut down a ProcessPoolExecutor, escalating to SIGKILL if needed."""
     log("trying to shut down pp executor waiting.")
 

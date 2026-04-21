@@ -11,18 +11,29 @@ why your networking code isn't working.
 TODO: Better zombie process detection.
 """
 
-from ..utility.utils import *
-from .address import *
-from .net_utils import *
-from ..nic.interface import *
-from .pipe.pipe import *
-from ..install import *
+import asyncio
+import copy
+import os
+import pathlib
+import re
+from typing import Any, Dict, List, Optional, Tuple
+from ..utility.utils import (
+    async_test, async_wrap_errors, bind_str, dict_child, fstr,
+    log, log_exception, strip_none,
+)
+from .net_defs import IP4, IP6, TCP, UDP, VALID_AFS, VALID_ANY_ADDR, NET_CONF
+from .net_utils import avoid_time_wait, ip_norm
+from .ip_range import ipr_norm
+from .pipe.pipe import Pipe
+from ..nic.interface import Interface
+from ..install import get_aionetiface_install_root
+
 
 DAEMON_CONF = dict_child({
     "reuse_addr": True
 }, NET_CONF)
 
-async def is_serv_listening(proto, listen_route):
+async def is_serv_listening(proto: int, listen_route: Any) -> bool:
     """
     Return True if there is already a server listening on listen_route.
 
@@ -58,7 +69,7 @@ async def is_serv_listening(proto, listen_route):
     except (OSError, ConnectionError, asyncio.TimeoutError):
         return False
 
-def get_serv_lock(af, proto, serv_port, serv_ip, install_path):
+def get_serv_lock(af: int, proto: int, serv_port: int, serv_ip: Any, install_path: str) -> Any:
     """
     Return a filesystem-based inter-process lock for the given server endpoint.
 
@@ -104,7 +115,7 @@ def get_serv_lock(af, proto, serv_port, serv_ip, install_path):
     except (ImportError, OSError):
         return None
 
-async def for_server_in_daemon(daemon, func):
+async def for_server_in_daemon(daemon: "Daemon", func: Any) -> None:
     """
     Call func(server) concurrently for every server pipe registered in daemon.
 
@@ -126,7 +137,7 @@ async def for_server_in_daemon(daemon, func):
     await asyncio.gather(*tasks, return_exceptions=True)
 
 class Daemon():
-    def __init__(self, conf=DAEMON_CONF):
+    def __init__(self, conf: Any = DAEMON_CONF) -> None:
         # Special net conf for daemon servers.
         self.conf = conf
 
@@ -144,7 +155,7 @@ class Daemon():
         }
 
     # On message received (placeholder.)
-    async def msg_cb(self, msg, client_tup, pipe):
+    async def msg_cb(self, msg: Any, client_tup: Any, pipe: Any) -> None:
         print("Specify your own msg_cb in a child class.")
         print(fstr("{0} {1}", (msg, client_tup,)))
         await pipe.send(msg, client_tup)
@@ -152,10 +163,10 @@ class Daemon():
     # On connection success (placeholder.)
     # Ran when a connection is first created for a client.
     # Just like connection_made in protocol classes.
-    def up_cb(self, msg, client_tup, pipe):
+    def up_cb(self, msg: Any, client_tup: Any, pipe: Any) -> None:
         pass
 
-    async def add_listener(self, proto, route):
+    async def add_listener(self, proto: int, route: Any) -> Any:
         """
         Attach a server listening pipe to this daemon.
 
@@ -193,12 +204,9 @@ class Daemon():
                 raise Exception(error)
         
         # Start a new server listening.
-        try:
-            pipe = await Pipe(proto, None, route, conf=self.conf).connect(
-                self.msg_cb, self.up_cb
-            )
-        except Exception:
-            raise
+        pipe = await Pipe(proto, None, route, conf=self.conf).connect(
+            self.msg_cb, self.up_cb
+        )
 
         assert(pipe is not None)
 
@@ -227,7 +235,7 @@ class Daemon():
         self.servers[route.af][proto][port][ip] = pipe
         return (port, pipe)
 
-    async def listen_all(self, proto, port, nic):
+    async def listen_all(self, proto: int, port: int, nic: Any) -> list:
         """
         Listen on all addresses supported by nic.
 
@@ -247,7 +255,7 @@ class Daemon():
 
         return strip_none(outs)
 
-    async def listen_loopback(self, proto, port, nic):
+    async def listen_loopback(self, proto: int, port: int, nic: Any) -> list:
         """
         Listen on the loopback address for each address family supported by nic.
 
@@ -266,7 +274,7 @@ class Daemon():
 
         return strip_none(outs)
 
-    async def listen_local(self, proto, port, nic, limit=1):
+    async def listen_local(self, proto: int, port: int, nic: Any, limit: Any = 1) -> list:
         """
         Listen on LAN-accessible addresses only.
 
@@ -338,7 +346,7 @@ class Daemon():
 
         return strip_none(outs)
 
-    def add_msg_cb(self, msg_cb):
+    def add_msg_cb(self, msg_cb: Any) -> Any:
         """
         Register msg_cb on every server pipe managed by this daemon.
 
@@ -359,7 +367,7 @@ class Daemon():
             for_server_in_daemon(self, func)
         )
 
-    async def close(self):
+    async def close(self) -> None:
         async def func(server):
             try:
                 await server.close()
@@ -368,14 +376,14 @@ class Daemon():
 
         await for_server_in_daemon(self, func)
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "Daemon":
         return self
 
-    async def __aexit__(self, *_):
+    async def __aexit__(self, *_: Any) -> bool:
         await self.close()
         return False
 
-async def daemon_rewrite_workspace():
+async def daemon_rewrite_workspace() -> None:
     nic = await Interface("wlx00c0cab5760d")
     async with Daemon() as serv:
         await serv.listen_local(TCP, 1337, nic)

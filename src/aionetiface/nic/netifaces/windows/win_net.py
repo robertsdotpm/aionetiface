@@ -3,12 +3,14 @@ import re
 import sys
 if sys.platform == 'win32':
     import winreg
+from typing import Any, Dict, List, Optional
 from ....utility.utils import *
 from ....utility.cmd_tools import *
 from ....net.net_utils import *
 
 
-async def nt_ipv6_routes(no): # pragma: no cover
+
+async def nt_ipv6_routes(no: int) -> List[Any]: # pragma: no cover
     out = await cmd("route print")
     route_infos = re.findall(r"([0-9]+)\s+([0-9]+)\s+([^\s=]*)\s+([^\s=]*)[\r\n]+", out)
     ret = []
@@ -20,7 +22,7 @@ async def nt_ipv6_routes(no): # pragma: no cover
 
     return ret
 
-async def nt_ipv6_find_cidr(no, gw_ip): # pragma: no cover
+async def nt_ipv6_find_cidr(no: int, gw_ip: str) -> Optional[int]: # pragma: no cover
     route_infos = await nt_ipv6_routes(no)
     for route_info in route_infos:
         _, _, route_dest, route_gw = route_info
@@ -31,7 +33,7 @@ async def nt_ipv6_find_cidr(no, gw_ip): # pragma: no cover
 
     return None
 
-async def nt_ipconfig(desc=None, ipv4=None, ipv6=None): # pragma: no cover
+async def nt_ipconfig(desc: Optional[str] = None, ipv4: Optional[str] = None, ipv6: Optional[str] = None) -> Optional[Dict[str, Any]]: # pragma: no cover
     all_none = desc is None and ipv4 is None and ipv6 is None
     out = await cmd("ipconfig /all")
     out = out.split("\r\n\r\n")
@@ -117,7 +119,7 @@ of the route print command on Windows.
 Purpose is to extract the NIC no for
 use in IPv6 scope_ids and MAC addr.
 """
-async def nt_route_print(desc): # pragma: no cover
+async def nt_route_print(desc: Optional[str]) -> Optional[Dict[str, Any]]: # pragma: no cover
     out = await cmd('powershell "route print"')
     nic_infos = re.findall(r"([0-9]+)[.]+(?:([^.]*)\s)?[.]+([^\r\n]+)[\r\n]*", out)
     for nic_info in nic_infos:

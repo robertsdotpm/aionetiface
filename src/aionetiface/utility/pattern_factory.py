@@ -1,8 +1,10 @@
 import asyncio
 from collections import defaultdict
-from .utils import *
+from typing import Any, List, Optional
+from .utils import fstr, log
 
-async def concurrent_first_agree_or_best(min_agree, tasks, timeout, wait_all=False):
+
+async def concurrent_first_agree_or_best(min_agree: int, tasks: List[Any], timeout: float, wait_all: bool = False) -> Optional[Any]:
     results = defaultdict(int)
     log(fstr("Con first agree: min={0}. task_no={1}, timeout={2}, wait_all={3}",
             (min_agree, len(tasks), timeout, wait_all)
@@ -54,7 +56,7 @@ async def concurrent_first_agree_or_best(min_agree, tasks, timeout, wait_all=Fal
 
     return winner
 
-async def repeat_every(n, coro_func, *args, **kwargs):
+async def repeat_every(n: float, coro_func: Any, *args: Any, **kwargs: Any) -> None:
     while True:
         await coro_func(*args, **kwargs)
         await asyncio.sleep(n)

@@ -14,12 +14,14 @@ import errno
 from selectors import SelectSelector
 
 
+from typing import Any, List, Optional, Tuple
 from ...utility.utils import *
+
 
 # -----------------------------
 # Patched select for modern Python
 # -----------------------------
-def patched_select_modern(self, r, w, x, timeout=None):
+def patched_select_modern(self: Any, r: Any, w: Any, x: Any, timeout: Optional[float] = None) -> Tuple[List[Any], List[Any], List[Any]]:
     """
     Patched SelectSelector._select for modern Python (>=3.7).
     
@@ -45,7 +47,7 @@ def patched_select_modern(self, r, w, x, timeout=None):
 # -----------------------------
 # Patched select for old Python
 # -----------------------------
-def patched_select_old(self, r, w, _, timeout=None):
+def patched_select_old(self: Any, r: Any, w: Any, _: Any, timeout: Optional[float] = None) -> Tuple[List[Any], List[Any], List[Any]]:
     """
     Patched SelectSelector._select for older Python versions (<=3.5).
     
@@ -66,11 +68,11 @@ def patched_select_old(self, r, w, _, timeout=None):
     else:
         return r_list, w_list + x_list, []
 
-async def create_datagram_endpoint(loop, protocol_factory,
-                                   local_addr=None, remote_addr=None, *,
-                                   family=0, proto=0, flags=0,
-                                   reuse_port=None,
-                                   allow_broadcast=None, sock=None):
+async def create_datagram_endpoint(loop: Any, protocol_factory: Any,
+                                   local_addr: Optional[Any] = None, remote_addr: Optional[Any] = None, *,
+                                   family: int = 0, proto: int = 0, flags: int = 0,
+                                   reuse_port: Optional[bool] = None,
+                                   allow_broadcast: Optional[bool] = None, sock: Optional[Any] = None) -> Tuple[Any, Any]:
     """Create datagram connection."""
     if sock is not None:
         if sock.type == socket.SOCK_STREAM:
@@ -181,7 +183,7 @@ async def create_datagram_endpoint(loop, protocol_factory,
                 if sock is not None:
                     sock.close()
                 exceptions.append(exc)
-            except Exception:
+            except (OSError, RuntimeError, ValueError):
                 if sock is not None:
                     sock.close()
                 raise
@@ -206,17 +208,17 @@ async def create_datagram_endpoint(loop, protocol_factory,
         log(err_str)
     try:
         await waiter
-    except Exception:
+    except (OSError, asyncio.TimeoutError, asyncio.CancelledError):
         transport.close()
         raise
 
     return transport, protocol
 
-def _check_ssl_socket(sock):
+def _check_ssl_socket(sock: Any) -> None:
     if ssl is not None and isinstance(sock, ssl.SSLSocket):
         raise TypeError("Socket cannot be of type SSLSocket")
 
-def _ensure_fd_no_transport(loop, fd):
+def _ensure_fd_no_transport(loop: Any, fd: Any) -> None:
     fileno = fd
     if not isinstance(fileno, int):
         try:
@@ -231,7 +233,7 @@ def _ensure_fd_no_transport(loop, fd):
             fstr('{0}', (transport,))
         )
 
-def remove_writer(loop, fd):
+def remove_writer(loop: Any, fd: Any) -> None:
     """Remove a writer callback."""
     _ensure_fd_no_transport(loop, fd)
     return loop._remove_writer(fd)

@@ -23,11 +23,26 @@ the fastest possible determination of NAT behaviors while also
 building in safe-guards against packet-loss, inconsistent results, misconfigurations, and slow network conditions.
 """
 
+import asyncio
 import time
-from ...settings import *
-from ...net.ip_range import *
-from ...protocol.stun.stun_client import *
-from .nat_utils import *
+from typing import Any, Dict, List, Optional, Tuple
+from ...utility.utils import async_test, async_wrap_errors, fstr, ip_f, log, log_exception, timestamp
+from ...errors import ErrorCantLoadNATInfo
+from ...net.net_defs import IP4, IP6, UDP
+from ...net.ip_range import IPRange
+from ...protocol.stun.stun_defs import (
+    RFC3489, RFC5389, STUN_CHANGE_NONE, STUN_CHANGE_PORT, STUN_CHANGE_BOTH,
+)
+from ...protocol.stun.stun_client import STUNClient, get_stun_clients
+from ...protocol.stun.stun_utils import stun_reply_to_ret_dic
+from ...servers import get_infra
+from ...net.pipe.pipe import Pipe
+from .nat_defs import (
+    BLOCKED_NAT, FULL_CONE, OPEN_INTERNET, RANDOM_DELTA,
+    RESTRICT_NAT, RESTRICT_PORT_NAT, SYMMETRIC_NAT,
+)
+from .nat_utils import delta_test, nat_info
+
 
 # Constants for a NAT test.
 NAT_TEST_NO = 5
@@ -55,7 +70,7 @@ NAT_TEST_SCHEMA = [
     [STUN_CHANGE_PORT, 2, 2, 3, 3],
 ]
 
-async def nat_test_exec(dest_addr, reply_addr, payload, mode, pipe, q, test_coro):
+async def nat_test_exec(dest_addr: Tuple[str, int], reply_addr: Tuple[str, int], payload: int, mode: int, pipe: Any, q: List[Any], test_coro: Any) -> Optional[int]:
     stun_client = STUNClient(pipe.route.af, dest_addr, pipe.route.interface, mode=mode)
     if payload == STUN_CHANGE_NONE:
         reply = await stun_client.get_stun_reply(pipe)
@@ -77,7 +92,7 @@ async def nat_test_exec(dest_addr, reply_addr, payload, mode, pipe, q, test_coro
 
     return None
 
-async def nat_test_workers(pipe, q, test_index, test_coro, servers, test_no):
+async def nat_test_workers(pipe: Any, q: List[Any], test_index: int, test_coro: Any, servers: List[Any], test_no: int) -> List[Any]:
     # Make list of coroutines to do this NAT tests.
     workers = []
     for server_no in range(0, min(test_no, len(servers))):
@@ -136,7 +151,7 @@ different then it's considered non-symmetric. The software
 proceeds to determine the exact conditions for which mappings
 can be reused when using the same bind tuples.
 """
-def non_symmetric_check(q_list):
+def non_symmetric_check(q_list: List[List[Any]]) -> bool:
     # Test 1 and 3.
     q1 = q_list[0]
     q3 = q_list[2]
@@ -158,14 +173,14 @@ def non_symmetric_check(q_list):
 If there's no replies in any of the NAT test lists then
 assume that this means there's a firewall and return False.
 """
-def no_stun_resp_check(q_list):
+def no_stun_resp_check(q_list: List[List[Any]]) -> bool:
     for i in range(0, 4):
         if len(q_list[i]):
             return False
         
     return True
 
-async def fast_nat_test(pipe, test_no=NAT_TEST_NO, timeout=NAT_TEST_TIMEOUT):
+async def fast_nat_test(pipe: Any, test_no: int = NAT_TEST_NO, timeout: float = NAT_TEST_TIMEOUT) -> int:
     # Use a random portion of change servers for
     # the NAT test.
     serv_list = get_infra(pipe.route.af, UDP, "STUN(test_nat)", no=test_no)
@@ -239,7 +254,7 @@ async def fast_nat_test(pipe, test_no=NAT_TEST_NO, timeout=NAT_TEST_TIMEOUT):
         # Symmetric NAT or RESTRICT_PORT_NAT.
         return q_list[-1] 
     
-async def nic_load_nat(nic, nat_tests=5, delta_tests=12, servs=None, timeout=4):
+async def nic_load_nat(nic: Any, nat_tests: int = 5, delta_tests: int = 12, servs: Optional[Any] = None, timeout: int = 4) -> Tuple[int, Dict[str, Any]]:
     # IPv6 only has no NAT!
     if IP4 not in nic.supported():
         af = IP6
@@ -265,7 +280,7 @@ async def nic_load_nat(nic, nat_tests=5, delta_tests=12, servs=None, timeout=4):
     try:
         pipe = Pipe(UDP, None, route)
         await pipe.connect()
-    except Exception:
+    except (OSError, ConnectionError):
         raise ErrorCantLoadNATInfo("Unable to start pipe for load nat.")
     
     # Run delta test.
@@ -301,7 +316,7 @@ async def nic_load_nat(nic, nat_tests=5, delta_tests=12, servs=None, timeout=4):
     
     return nat_type, delta
 
-async def nat_test_main():
+async def nat_test_main() -> None:
     from .interface import Interface, aionetiface_setup_netifaces
 
     loop = asyncio.get_event_loop()

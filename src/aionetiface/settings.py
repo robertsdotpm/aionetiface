@@ -1,5 +1,11 @@
 import socket
 import copy
+
+__all__ = [
+    "IP4", "IP6", "UDP", "TCP", "ENABLE_STUN", "ENABLE_UDP",
+    "aionetiface_TEST_INFRASTRUCTURE", "PNP_SERVERS",
+]
+
 IP4 = socket.AF_INET
 IP6 = socket.AF_INET6
 UDP = socket.SOCK_DGRAM

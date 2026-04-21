@@ -1,3 +1,4 @@
+from typing import Any, List, Optional
 from .net_defs import *
 from .net_utils import *
 from .ip_range import *
@@ -5,7 +6,8 @@ from ..nic.nat.nat_defs import *
 from ..nic.nat.nat_utils import *
 from ..settings import *
 
-def validate_node_addr(addr):
+
+def validate_node_addr(addr: Any) -> Optional[Any]:
     for af in VALID_AFS:
         for if_offset in addr[af]:
             if_info = addr[af][if_offset]
@@ -34,7 +36,7 @@ def validate_node_addr(addr):
             
     return addr
 
-def parse_node_addr(addr):
+def parse_node_addr(addr: Any) -> Optional[Any]:
     # Already passed.
     if isinstance(addr, dict):
         return addr
@@ -119,7 +121,7 @@ def parse_node_addr(addr):
 
     return out
 
-def node_addr_extract_exts(p2p_addr):
+def node_addr_extract_exts(p2p_addr: Any) -> List[Any]:
     """Return a flat list of all external and NIC IPRange objects in a p2p address."""
     exts = []
     for af in VALID_AFS:
@@ -128,7 +130,7 @@ def node_addr_extract_exts(p2p_addr):
             exts.append(info["nic"])
     return exts
 
-def is_node_addr_us(addr_bytes, if_list):
+def is_node_addr_us(addr_bytes: Any, if_list: List[Any]) -> bool:
     # Parse address bytes to address.
     addr = parse_node_addr(addr_bytes)
 
@@ -156,7 +158,7 @@ def is_node_addr_us(addr_bytes, if_list):
     # Nothing found that matches.
     return False
 
-def make_node_addr(pub_key_hex, machine_id, interface_list, port, ip=None, nat=None, if_index=None):
+def make_node_addr(pub_key_hex: Any, machine_id: Any, interface_list: List[Any], port: int, ip: Any = None, nat: Any = None, if_index: Any = None) -> bytes:
     """
     Encode node address information into a compact byte string.
 
@@ -251,7 +253,7 @@ def make_node_addr(pub_key_hex, machine_id, interface_list, port, ip=None, nat=N
 
 if __name__ == "__main__": # pragma: no cover
     from aionetiface.nic.interface import Interface
-    async def test_p2p_addr():
+    async def test_p2p_addr() -> None:
         """
         x = Interface("default")
         if_list = [x, x]

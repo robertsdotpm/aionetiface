@@ -1,14 +1,15 @@
 import asyncio
 import copy
 from functools import cmp_to_key
-from ...net.ip_range import *
-from ..netifaces.netiface_extra import *
-from ...net.address import *
-from ...utility.pattern_factory import *
-from ...settings import *
-from ...net.bind.bind import *
+from typing import Any, Dict, List, Optional, Tuple
+from ...utility.utils import async_test
+from ...net.net_defs import IP4, IP6, VALID_AFS
+from ...net.ip_range import IPRange
+from ..netifaces.netiface_extra import af_to_netiface, netiface_addr_to_ipr
+from ...net.bind.bind import Bind
 from .route import Route
 from .route_pool import RoutePool
+
 
 """
 As there's only one STUN server in the preview release the
@@ -16,7 +17,7 @@ consensus code is not needed.
 """
 ROUTE_CONSENSUS = [1, 1]
 
-def rp_from_fixed(fixed, interface, af): # pragma: no cover
+def rp_from_fixed(fixed: List[Any], interface: Any, af: int) -> Any: # pragma: no cover
     """
     [
         [
@@ -47,7 +48,7 @@ def rp_from_fixed(fixed, interface, af): # pragma: no cover
 
     return RoutePool(routes)
 
-async def get_nic_iprs(af, interface, netifaces):
+async def get_nic_iprs(af: int, interface: Any, netifaces: Any) -> List[Any]:
     tasks = []
     netifaces_af = af_to_netiface(af)
     if_addresses = netifaces.ifaddresses(interface.name)
@@ -66,12 +67,12 @@ async def get_nic_iprs(af, interface, netifaces):
     results = await asyncio.gather(*tasks, return_exceptions=True)
     return [r for r in results if r is not None and not isinstance(r, Exception)]
 
-def sort_routes(routes):
+def sort_routes(routes: List[Any]) -> List[Any]:
     # Deterministically order routes list.
     cmp = lambda r1, r2: int(r1.ext_ips[0]) - int(r2.ext_ips[0])
     return sorted(routes, key=cmp_to_key(cmp))
 
-def get_route_by_src(src_ip, results):
+def get_route_by_src(src_ip: str, results: List[Tuple[str, Any]]) -> Optional[Any]:
     route = [y for x, y in results if x == src_ip]
     if len(route):
         route = route[0]
@@ -80,7 +81,7 @@ def get_route_by_src(src_ip, results):
 
     return route
 
-def exclude_routes_by_src(src_ips, results):
+def exclude_routes_by_src(src_ips: List[str], results: List[Tuple[str, Any]]) -> List[Any]:
     new_list = []
     for src_ip, route in results:
         found_src = False
@@ -94,7 +95,7 @@ def exclude_routes_by_src(src_ips, results):
     return new_list
 
 # Combine all routes from interface into RoutePool.
-def interfaces_to_rp(interface_list):
+def interfaces_to_rp(interface_list: List[Any]) -> Dict[int, Any]:
     rp = {}
     for af in VALID_AFS:
         route_lists = []
@@ -113,7 +114,7 @@ def interfaces_to_rp(interface_list):
 
 # Converts a Bind object to a Route.
 # Interface for bind object may be None if it's loopback.
-async def bind_to_route(bind_obj):
+async def bind_to_route(bind_obj: Any) -> Any:
     if not isinstance(bind_obj, Bind):
         raise Exception("Invalid obj type passed to bind_to_route.")
 
@@ -174,7 +175,7 @@ async def bind_to_route(bind_obj):
 if __name__ == "__main__": # pragma: no cover
     from .interface import Interface
 
-    async def test_get_routes(): # pragma: no cover
+    async def test_get_routes() -> None: # pragma: no cover
         internode_iface = Interface("enp3s0")
         starlink_iface = Interface("wlp2s0")
         iface_list = [internode_iface, starlink_iface]

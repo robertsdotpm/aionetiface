@@ -7,7 +7,7 @@ class TestSock(unittest.IsolatedAsyncioTestCase):
         s1.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             s1.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        except:
+        except OSError:
             pass
         s1.bind(('', 0))
         #s1.connect(("www.google.com", 80))
@@ -17,7 +17,7 @@ class TestSock(unittest.IsolatedAsyncioTestCase):
         s2.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             s2.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        except:
+        except OSError:
             pass
         s2.bind(('', port))
         #s2.connect(("www.google.com", 80))

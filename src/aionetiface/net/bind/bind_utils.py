@@ -1,8 +1,12 @@
-from ...utility.utils import *
-from ..net_utils import *
+import asyncio
+import platform
+from typing import Any, Optional, Tuple
+from ...utility.utils import ip_f, MAX_PORT, rand_rang, to_s
+from ...net.net_defs import IP4, IP6, IP_PRIVATE, TCP, VALID_ANY_ADDR
 from ..ip_range import IPR
 
-def ip6_patch_bind_ip(bind_ip, nic_id):
+
+def ip6_patch_bind_ip(bind_ip: str, nic_id: Any) -> str:
     # Add interface descriptor if it's link local.
     if nic_id is None:
         return bind_ip
@@ -22,7 +26,7 @@ def ip6_patch_bind_ip(bind_ip, nic_id):
 
     return bind_ip
 
-def patch_connect_ip(af, ip, nic_id, ipr=None):
+def patch_connect_ip(af: int, ip: str, nic_id: Any, ipr: Optional[Any] = None) -> str:
     """
     When a daemon is bound to the any address you can't just
     use that address to connect to as it's not a valid addr.
@@ -45,7 +49,7 @@ def patch_connect_ip(af, ip, nic_id, ipr=None):
 
     return ip
 
-async def get_high_port_socket(route, socket_factory, sock_type=TCP):
+async def get_high_port_socket(route: Any, socket_factory: Any, sock_type: int = TCP) -> Tuple[Any, int]:
     # Minimal config to pass socket factory.
     conf = {
         "broadcast": False,
@@ -80,7 +84,7 @@ which would only be the case if this method were used from a
 Bind object and not a Route object. So a lot of hacks here.
 But that's the API I wanted.
 """
-def bind_closure(self, binder):
+def bind_closure(self: Any, binder: Any) -> Any:
     async def bind(port=None, ips=None):
         if self.resolved:
             return
@@ -117,7 +121,7 @@ def bind_closure(self, binder):
 
 # Convert compact bind rule list to named access.
 class BindRule():
-    def __init__(self, bind_rule):
+    def __init__(self, bind_rule: Any) -> None:
         self.platform = bind_rule[0]
         self.af = bind_rule[1]
         self.type = bind_rule[2]
@@ -126,7 +130,7 @@ class BindRule():
         self.change = bind_rule[5]
 
 # Return a BindRule if it matches the requirements.
-def match_bind_rule(ip, af, plat, bind_rule, rule_type):
+def match_bind_rule(ip: str, af: int, plat: str, bind_rule: Any, rule_type: Any) -> Optional["BindRule"]:
     bind_rule = BindRule(bind_rule)
 
     # Skip rule types we're not processing.

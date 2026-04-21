@@ -18,18 +18,19 @@ Address hence it defaults to the default route.
 https://datatracker.ietf.org/doc/html/rfc5905#section-6
 """
 
+import asyncio
 import time
-
-from ..net.address import *
+from typing import Any, Optional, Tuple
 from ..vendor.ntp_client import NTPClient
-from ..settings import *
-from ..nic.interface import *
+from ..net.net_defs import UDP
+from .utils import log, log_exception, async_test
 from ..servers import get_infra
+
 
 NTP_RETRY = 2
 NTP_TIMEOUT = 2
 
-async def get_ntp(af, interface, server=None, retry=NTP_RETRY):
+async def get_ntp(af: int, interface: Any, server: Optional[Any] = None, retry: int = NTP_RETRY) -> Optional[float]:
     if server is None:
         groups = get_infra(af, UDP, "NTP", no=1)
         if not groups:
@@ -49,7 +50,7 @@ async def get_ntp(af, interface, server=None, retry=NTP_RETRY):
         log_exception()
     return None
 
-async def get_ntp_from_dest(af, nic, dest, retry=NTP_RETRY):
+async def get_ntp_from_dest(af: int, nic: Any, dest: Tuple[str, int], retry: int = NTP_RETRY) -> Optional[float]:
     # The NTP client uses UDP so retry on failure.
     try:
         for _ in range(retry):
@@ -71,7 +72,7 @@ async def get_ntp_from_dest(af, nic, dest, retry=NTP_RETRY):
 
 
 class SysClock:
-    def __init__(self, interface, ntp=0):
+    def __init__(self, interface: Any, ntp: float = 0) -> None:
         self.start_time = time.monotonic()
         self.interface = interface
         self.ntp = ntp
@@ -79,10 +80,10 @@ class SysClock:
         # Whether time() is backed by real NTP or fell back to system clock.
         self._ntp_loaded = bool(ntp)
 
-    def advance(self, n):
+    def advance(self, n: float) -> None:
         self.offset += n
 
-    async def start(self):
+    async def start(self) -> "SysClock":
         if self.ntp:
             return self
 
@@ -120,15 +121,15 @@ class SysClock:
         self._use_system_clock()
         return self
 
-    def _use_system_clock(self):
+    def _use_system_clock(self) -> None:
         """Seed self.ntp from the local system clock as a last resort."""
         self.ntp = time.time()
         self._ntp_loaded = False  # signal that this is not NTP-accurate
 
-    def __await__(self):
+    def __await__(self) -> Any:
         return self.start().__await__()
 
-    def time(self):
+    def time(self) -> float:
         """
         Return the best available timestamp.
 
@@ -144,7 +145,7 @@ class SysClock:
         elapsed = max(time.monotonic() - self.start_time, 0)
         return self.ntp + elapsed + self.offset
 
-async def test_clock_skew(): # pragma: no cover
+async def test_clock_skew() -> None: # pragma: no cover
     from p2pd.nic.interface import Interface
     interface = await Interface()
 

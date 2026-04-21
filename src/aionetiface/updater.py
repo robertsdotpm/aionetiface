@@ -1,15 +1,22 @@
+import asyncio
+import json
+import os
+import time
+from typing import Any, Dict, List, Optional, Tuple
 from .servers import INFRA, INFRA_BUF
 from .net.address import Address
 from .protocol.http.http_client_lib import WebCurl
-from .install import *
-from .utility.utils import *
-from .utility.error_logger import *
+from .install import get_aionetiface_install_root, copy_aionetiface_install_files_as_needed
+from .utility.utils import to_s, log_exception
+from .utility.error_logger import log
+
+__all__ = ["reconcile_lists", "reconcile_infra", "update_server_list"]
 
 """
 Some existing code relies on preserving offsets for server
 entries so this keeps existing servers in place.
 """
-def reconcile_lists(old_list, new_list):
+def reconcile_lists(old_list: List[Any], new_list: List[Any]) -> List[Any]:
     def get_id(x):
         return x[0]["id"]
 
@@ -47,7 +54,7 @@ def reconcile_lists(old_list, new_list):
 """
 TODO: just use a different address format for these.
 """
-def reconcile_infra(old_infra, new_infra):
+def reconcile_infra(old_infra: Dict[str, Any], new_infra: Dict[str, Any]) -> None:
     names = ("MQTT", "TURN",)
     for name in names:
         for af_str in ("IPv4", "IPv6"):
@@ -60,7 +67,7 @@ def reconcile_infra(old_infra, new_infra):
                 except (KeyError, TypeError):
                     log_exception()
 
-async def update_server_list(nic, sys_clock=time, init_infra_buf=INFRA_BUF, init_infra=INFRA):
+async def update_server_list(nic: Any, sys_clock: Any = time, init_infra_buf: Any = INFRA_BUF, init_infra: Any = INFRA) -> Tuple[bool, Any, Any]:
     copy_aionetiface_install_files_as_needed()
     install_root = get_aionetiface_install_root()
     servers_path = os.path.join(install_root, "servers.json")

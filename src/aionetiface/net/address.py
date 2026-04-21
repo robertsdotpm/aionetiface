@@ -1,7 +1,11 @@
-from ..utility.utils import *
-from .net_utils import *
-from .bind.bind_utils import *
-from .ip_range import *
+import asyncio
+from typing import Any, List, Optional, Tuple
+from ..utility.utils import strip_none, to_s
+from .net_defs import IP4, IP6, NET_CONF, VALID_AFS, VALID_LOOPBACKS
+from .net_utils import ip_norm
+from .ip_range import IPRange, ipr_norm
+from .bind.bind_utils import patch_connect_ip
+
 
 DNS_NAMESERVERS = {
     IP4: [
@@ -16,7 +20,7 @@ DNS_NAMESERVERS = {
     ]
 }
 
-async def async_res_domain_af(af, host):
+async def async_res_domain_af(af: int, host: str) -> Optional[Tuple[int, str]]:
     # Throw error if not installed.
     # So auto fallback to getaddrinfo.
     import aiodns
@@ -36,7 +40,7 @@ async def async_res_domain_af(af, host):
         ip = ip_norm(result.host)
         return (af, ip)
     
-async def async_res_domain(host, route=None):
+async def async_res_domain(host: str, route: Optional[Any] = None) -> List[Tuple[int, str]]:
     # Make a list of DNS res tasks.
     tasks = []
     for af in VALID_AFS:
@@ -52,7 +56,7 @@ async def async_res_domain(host, route=None):
         )
     )
 
-async def sock_res_domain(host, route=None):
+async def sock_res_domain(host: str, route: Optional[Any] = None) -> List[Tuple[int, str]]:
     # Current event loop.
     loop = asyncio.get_event_loop()
 
@@ -75,7 +79,7 @@ async def sock_res_domain(host, route=None):
     return results
 
 class DestTup():
-    def __init__(self, af, ip, port, ipr):
+    def __init__(self, af: int, ip: str, port: int, ipr: Any) -> None:
         if ipr is None:
             raise KeyError("AF not found for address")
         
@@ -89,11 +93,11 @@ class DestTup():
         self.is_loopback = ipr.is_loopback
         self.resolved = True
 
-    def supported(self):
+    def supported(self) -> List[int]:
         return [self.af]
 
 class Address():
-    def __init__(self, host, port, nic=None, conf=NET_CONF):
+    def __init__(self, host: Any, port: int, nic: Optional[Any] = None, conf: Any = NET_CONF) -> None:
         self.host = host
         self.port = port
         self.nic = nic
@@ -102,7 +106,7 @@ class Address():
         self.v6_ipr = self.v4_ipr = None
         self.resolved = False
     
-    async def res(self, route=None, host=None):
+    async def res(self, route: Optional[Any] = None, host: Optional[Any] = None) -> "Address":
         host = host or self.host
         try:
             # Ensure human-readable IPs aren't passed as binary.
@@ -174,10 +178,10 @@ class Address():
         self.resolved = True
         return self
 
-    def __await__(self):
+    def __await__(self) -> Any:
         return self.res().__await__()
 
-    def select_ip(self, af):
+    def select_ip(self, af: int) -> "DestTup":
         if af == IP4:
             ip, ipr = self.IP4, self.v4_ipr
         if af == IP6:
@@ -185,7 +189,7 @@ class Address():
 
         return DestTup(af, ip, self.port, ipr)
 
-async def resolv_dest(af, dest, nic):
+async def resolv_dest(af: int, dest: Any, nic: Any) -> Any:
     if isinstance(dest, DestTup):
         return dest.tup
     

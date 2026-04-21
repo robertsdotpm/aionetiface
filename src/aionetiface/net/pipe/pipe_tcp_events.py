@@ -1,5 +1,6 @@
 import asyncio
 import sys
+from typing import Any, Optional
 from ...utility.utils import *
 from ..net_utils import *
 from ..bind import *
@@ -7,6 +8,7 @@ from .pipe_events import *
 from ..address import *
 from ..asyncio.asyncio_patches import *
 from .pipe_defs import *
+
 
 PY_13_OR_LATER = sys.version_info >= (3, 13)
 
@@ -18,7 +20,7 @@ ready as opposed to having to poll ourself. Encapsulates
 a client connection to a TCP server in a BaseProto object.
 """
 class TCPClientProtocol(asyncio.StreamReaderProtocol):
-    def __init__(self, stream_reader, pipe_events, loop, conf=NET_CONF):
+    def __init__(self, stream_reader: Any, pipe_events: Any, loop: Any, conf: Any = NET_CONF) -> None:
         if PY_13_OR_LATER:
             super().__init__(stream_reader)
         else:
@@ -60,7 +62,7 @@ class TCPClientProtocol(asyncio.StreamReaderProtocol):
     StreamReaderProtocol has a bug in this function and doesn't
     properly return False. This is a patch.
     """
-    def eof_received(self):
+    def eof_received(self) -> bool:
         #self.transport.pause_reading()
         reader = self._stream_reader
         if reader is not None:
@@ -68,7 +70,7 @@ class TCPClientProtocol(asyncio.StreamReaderProtocol):
             
         return False
 
-    def connection_made(self, transport):
+    def connection_made(self, transport: Any) -> None:
         if PY_13_OR_LATER:
             # In 3.13 StreamWriter.__init__ dropped the loop parameter.
             writer = asyncio.StreamWriter(transport, self, self._stream_reader)
@@ -121,7 +123,7 @@ class TCPClientProtocol(asyncio.StreamReaderProtocol):
 
     # If close was called on a pipe on a server then clients will already be closed.
     # So this code will have no effect.
-    def connection_lost(self, exc):
+    def connection_lost(self, exc: Optional[Exception]) -> None:
         super().connection_lost(exc)
 
         # Cleanup client futures entry.
@@ -159,10 +161,10 @@ class TCPClientProtocol(asyncio.StreamReaderProtocol):
         # Remove this as an object to close and manage in the server.
         #super().connection_lost(exc)
 
-    def error_received(self, exp):
+    def error_received(self, exp: Exception) -> None:
         log_exception()
 
-    def data_received(self, data):
+    def data_received(self, data: bytes) -> None:
         log(fstr("Base proto recv tcp client = {0}", (data,)))
         # This just adds data to reader which we are handling ourselves.
         #super().connection_lost(exc)
@@ -175,7 +177,7 @@ class TCPClientProtocol(asyncio.StreamReaderProtocol):
         self.client_events.handle_data(data, self.remote_tup)
 
 # Returns a hacked TCP server object
-async def create_tcp_server(sock, pipe_events, *, loop=None, conf=NET_CONF, **kwds):
+async def create_tcp_server(sock: Any, pipe_events: Any, *, loop: Optional[Any] = None, conf: Any = NET_CONF, **kwds: Any) -> Any:
     # Main vars.
     loop = loop or asyncio.get_event_loop()
     def factory():

@@ -1,7 +1,9 @@
+from typing import Any, Optional
 from ..utility.utils import *
 from .net_utils import *
 
-async def socket_factory(route, dest_addr=None, sock_type=TCP, conf=NET_CONF):
+
+async def socket_factory(route: Any, dest_addr: Optional[Any] = None, sock_type: int = TCP, conf: Any = NET_CONF) -> Optional[Any]:
     # Check route is bound.
     if not route.resolved:
         raise Exception("You didn't bind the route!")

@@ -19,12 +19,14 @@ accepted inputs:
         - limit wan ips to only the defined set of wan ips
 """
 
-from ...net.net_defs import *
-from ...net.ip_range import *
+from typing import Any, Dict, List, Set
+from ...utility.utils import find_intersect
+from ...net.net_defs import IP4, IP6
+from ...net.ip_range import IPRange, IPR
 from .route import Route
 from .route_pool import RoutePool
 
-def sort_iprs(ipr_list):
+def sort_iprs(ipr_list: List[Any]) -> Any:
     # Sort by public / private.
     pub_iprs = []
     priv_iprs = []
@@ -37,7 +39,7 @@ def sort_iprs(ipr_list):
 
     return pub_iprs, priv_iprs
 
-def v6_route_pool_from_ips(ipr_list, nic):
+def v6_route_pool_from_ips(ipr_list: List[Any], nic: Any) -> List[Any]:
     # Sort by public / private.
     pub_iprs, priv_iprs = sort_iprs(ipr_list)
 
@@ -78,7 +80,7 @@ def v6_route_pool_from_ips(ipr_list, nic):
 
     return routes
 
-def v4_route_pool_from_ips(ipr_list, nic):
+def v4_route_pool_from_ips(ipr_list: List[Any], nic: Any) -> List[Any]:
     # Sort by public / private.
     pub_iprs, priv_iprs = sort_iprs(ipr_list)
 
@@ -101,7 +103,7 @@ def v4_route_pool_from_ips(ipr_list, nic):
 
     return routes
 
-def route_pool_from_ips(ip_list, nic):
+def route_pool_from_ips(ip_list: List[str], nic: Any) -> Dict[int, Any]:
     # Classify IPs by version.
     ipr_list = {IP4: [], IP6: []}
     for ip in ip_list:
@@ -133,7 +135,7 @@ def route_pool_from_ips(ip_list, nic):
 
     return rp
 
-def sort_ips_by_nic(ip_list, nic_list):
+def sort_ips_by_nic(ip_list: List[str], nic_list: List[Any]) -> Dict[Any, List[str]]:
     by_nic = {}
     for nic in nic_list:
         by_nic[nic.id] = set()

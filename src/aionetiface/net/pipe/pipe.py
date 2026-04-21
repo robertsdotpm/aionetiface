@@ -23,6 +23,7 @@ import asyncio
 import sys
 from asyncio import StreamWriter
 from ...utility.utils import *
+from typing import Any
 from ..net_utils import *
 from ..bind import *
 from .pipe_events import *
@@ -37,11 +38,12 @@ from .pipe_defs import *
 from ..asyncio.create_udp_fallback import *
 from ..asyncio.event_loop import CustomEventLoop
 
+
 class PipeError(Exception):
     pass
 
 class Pipe:
-    def __init__(self, proto, dest=None, route=None, sock=None, conf=NET_CONF):
+    def __init__(self, proto: int, dest: Any = None, route: Any = None, sock: Any = None, conf: Any = NET_CONF) -> None:
         self.set_nic_and_route(route)
         self.proto = proto
         self.sock = sock
@@ -55,7 +57,7 @@ class Pipe:
         self._opened = False
         self._closed = False
 
-    async def connect(self, msg_cb=None, up_cb=None):
+    async def connect(self, msg_cb: Any = None, up_cb: Any = None) -> "Pipe":
         """
         Opens the pipe, resolves route/dest, creates socket and PipeEvents.
         Safe to call multiple times.
@@ -72,26 +74,26 @@ class Pipe:
                 
             await self.setup_pipe_events(msg_cb, up_cb)
             self._opened = True
-        except Exception:
+        except (OSError, ConnectionError, asyncio.TimeoutError, RuntimeError, PipeError):
             # defensive cleanup
             self.cleanup_on_error()
             raise
 
         return self
     
-    async def close(self, force=False, keep_clients=False):
+    async def close(self, force: bool = False, keep_clients: bool = False) -> None:
         if self.pipe_events is not None:
             await self.pipe_events.close(
                 force=force, 
                 keep_clients=keep_clients
             )
 
-    async def accept(self):
+    async def accept(self) -> Any:
         if self.pipe_events is not None:
             return await self.pipe_events.make_awaitable()
 
     # Pretend to be a pipe_client.
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> Any:
         """
         Redirect attribute access to self.pipe_events if it exists.
         Called only if the attribute doesn't exist on self.
@@ -107,35 +109,35 @@ class Pipe:
     # -----------------------------
     # Async context manager support
     # -----------------------------
-    async def __aenter__(self):
+    async def __aenter__(self) -> "Pipe":
         # Simply return self; connect() must be awaited before using async with
         return self
 
-    async def __aexit__(self, exc_type, exc, tb):
+    async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
         await self.close()
 
     # -----------------------------
     # Wrapper to allow 'async with Pipe(...).session()'
     # -----------------------------
-    def session(self, msg_cb=None, up_cb=None):
+    def session(self, msg_cb: Any = None, up_cb: Any = None) -> Any:
         """
         Returns an awaitable object that opens the pipe and supports async with.
         """
         pipe = self
 
         class _PipeAwaitableContext:
-            def __init__(self):
+            def __init__(self) -> None:
                 self._pipe = pipe
 
-            def __await__(self):
+            def __await__(self) -> Any:
                 return pipe.connect(msg_cb, up_cb).__await__()
 
-            async def __aenter__(self):
+            async def __aenter__(self) -> "Pipe":
                 # Ensure pipe is fully opened
                 await pipe.connect(msg_cb, up_cb)
                 return pipe
 
-            async def __aexit__(self, exc_type, exc, tb):
+            async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
                 await pipe.close()
 
         return _PipeAwaitableContext()
@@ -143,7 +145,7 @@ class Pipe:
     # -----------------------------
     # Public helper methods
     # -----------------------------
-    async def get_loop(self):
+    async def get_loop(self) -> Any:
         if self.conf.get("loop") is not None:
             return self.conf["loop"]()
         # get_running_loop() is preferred in async contexts (Python 3.7+).
@@ -151,7 +153,7 @@ class Pipe:
             return asyncio.get_running_loop()
         return asyncio.get_event_loop()
     
-    def set_nic_and_route(self, unknown):
+    def set_nic_and_route(self, unknown: Any) -> None:
         self.route = None
         self.nic = None
         if unknown:
@@ -164,7 +166,7 @@ class Pipe:
             from ...nic.interface import Interface
             self.nic = Interface("default")
 
-    async def resolve_route_and_dest(self):
+    async def resolve_route_and_dest(self) -> None:
         self.route = await self.resolve_route(self.route)
 
         # By this point there's a route + nic.
@@ -172,7 +174,7 @@ class Pipe:
         
         self.dest = await self.resolve_dest(self.dest, self.conf)
 
-    async def resolve_route(self, route):
+    async def resolve_route(self, route: Any) -> Any:
         """
         Resolves the route to bind the socket.
         Covers the case where a network Interface is passed instead of a route.
@@ -189,7 +191,7 @@ class Pipe:
 
         return route
 
-    async def resolve_dest(self, dest, conf):
+    async def resolve_dest(self, dest: Any, conf: Any) -> Any:
         """
         Converts dest into an Address instance if necessary.
         Supports IP:port tuples, int IPs, bytes, IPRange, or Address instances.
@@ -228,7 +230,7 @@ class Pipe:
 
         raise Exception("No supported IPs for resolv dest")
 
-    async def create_or_use_socket(self):
+    async def create_or_use_socket(self) -> None:
         """
         Creates a socket if none was passed in, bound to route.
         Adds socket to global aionetiface_fds set.
@@ -254,7 +256,7 @@ class Pipe:
         # Resolve the port that the route ended up on.
         self.route.bind_port = self.sock.getsockname()[1]
 
-    async def tcp_client_connect_if_needed(self):
+    async def tcp_client_connect_if_needed(self) -> None:
         """
         Connects TCP socket to remote dest if this is a TCP client.
         Sets non-blocking mode.
@@ -274,7 +276,7 @@ class Pipe:
             except asyncio.TimeoutError:
                 raise PipeError("TCP connect timed out")
 
-    async def setup_pipe_events(self, msg_cb=None, up_cb=None):
+    async def setup_pipe_events(self, msg_cb: Any = None, up_cb: Any = None) -> None:
         """
         Sets up PipeEvents for the pipe.
         Configures UDP/TCP, RUDP ack handlers, SSL, subscriptions, callbacks.
@@ -452,7 +454,7 @@ class Pipe:
             if not msg_cb:
                 self.pipe_events.subscribe(SUB_ALL)
 
-    def cleanup_on_error(self):
+    def cleanup_on_error(self) -> None:
         """
         Closes socket if owned. Removes it from aionetiface_fds.
         Resets self.sock and self.owns_socket to prevent reuse.
@@ -474,7 +476,7 @@ class Pipe:
         self.owns_socket = False
         self._closed = True
 
-async def sock_to_pipe(sock, nic):
+async def sock_to_pipe(sock: Any, nic: Any) -> "Pipe":
     # Useful variables from the socket.
     af = sock.family
     bind_tup = sock.getsockname()

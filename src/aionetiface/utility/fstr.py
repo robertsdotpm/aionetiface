@@ -3,8 +3,11 @@
 from __future__ import print_function
 import inspect
 import re
+from typing import Any, Optional, Tuple
 
-def fstr(expr, params=()):
+__all__ = ["fstr", "fstr2"]
+
+def fstr(expr: str, params: Tuple[Any, ...] = ()) -> str:
     # Replace each {expression} with the variable value.
     def replacer(match):
         index = int(match.group(1))
@@ -31,7 +34,7 @@ class fstr2(object):
     """
     _regex = re.compile(r"\{([^{}]+)\}", re.S)
 
-    def __init__(self, s, regex=None):
+    def __init__(self, s: str, regex: Optional[Any] = None) -> None:
         """Init `F` with string `s`"""
         import warnings
         warnings.warn(
@@ -46,7 +49,7 @@ class fstr2(object):
         self.text = self._find_and_replace(s)
 
     @property
-    def original_caller(self):
+    def original_caller(self) -> Any:
         names = []
         frames = []
         frame = inspect.currentframe()
@@ -60,11 +63,11 @@ class fstr2(object):
                 break
         return frames[-2]
 
-    def _find_and_replace(self, s):
+    def _find_and_replace(self, s: str) -> str:
         """Evaluates and returns all occurrences of `regex` in `s`"""
         return re.sub(self._regex, self._clean_and_eval, s)
 
-    def _clean_and_eval(self, m):
+    def _clean_and_eval(self, m: Any) -> str:
         """Remove surrounding braces and whitespace from regex match `m`,
             evaluate, and return the result as a string.
 
@@ -80,9 +83,9 @@ class fstr2(object):
             except (TypeError, NameError, SyntaxError):
                 raise ValueError("Can't find replacement for { %s }, sorry." % replaced)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self.text)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self._string)
 

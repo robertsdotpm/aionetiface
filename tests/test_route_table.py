@@ -31,7 +31,7 @@ class TestRouteTable(unittest.IsolatedAsyncioTestCase):
                         r = await is_internet_if(i.name)
                         
                     one_worked = True
-                except Exception:
+                except (OSError, ValueError):
                     log_exception()
                     pass
 

@@ -1,6 +1,9 @@
-from ...net.net_utils import *
+import socket
+from typing import Any
+from ...net.net_defs import AF_LINK, INTERFACE_ETHERNET, IP4, IP6, VALID_AFS
 
-def load_if_info_fallback(nic):
+
+def load_if_info_fallback(nic: Any) -> None:
     # Just guess name.
     # Getting this wrong will only break IPv6 link-local binds.
     nic.id = nic.name = nic.name or "eth0"
@@ -27,13 +30,13 @@ def load_if_info_fallback(nic):
 
     # Same API as netifaces.
     class NetifaceShim():
-        def __init__(self, if_addrs):
+        def __init__(self, if_addrs: Any) -> None:
             self.if_addrs = if_addrs
 
-        def interfaces(self):
+        def interfaces(self) -> Any:
             return [self.name]
 
-        def ifaddresses(self, name):
+        def ifaddresses(self, name: str) -> Any:
             ret = {
                 # MAC address (blanket)
                 # 17 = netifaces.AF_LINK enum.

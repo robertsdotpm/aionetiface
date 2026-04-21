@@ -1,15 +1,17 @@
 import copy
-from ...net.ip_range import *
-from ..netifaces.netiface_extra import *
-from ...net.address import *
-from ...net.bind.bind import *
+from typing import Any, Dict, Iterator, List, Optional, Union
+from ...utility.utils import sorted_search
+from ...net.ip_range import IPRange
+from ...net.address import Address
+from ...net.bind.bind import Bind
 from .route import Route
+
 
 # Allows referencing a list of routes as if all WAN IPs
 # were at their own index regardless of if they're in ranges.
 # Will be very slow if there's a lot of hosts.
 class RoutePoolIter():
-    def __init__(self, rp, reverse=False):
+    def __init__(self, rp: "RoutePool", reverse: bool = False) -> None:
         self.rp = rp
         self.reverse = reverse
         self.host_p = 0
@@ -19,10 +21,10 @@ class RoutePoolIter():
         if self.reverse:
             self.route_offset = len(self.rp.routes) - 1
 
-    def __iter__(self):
+    def __iter__(self) -> "RoutePoolIter":
         return self
 
-    def __next__(self):
+    def __next__(self) -> Any:
         # Avoid overflow.
         if self.host_p >= self.rp.wan_hosts:
             raise StopIteration
@@ -54,7 +56,7 @@ class RoutePoolIter():
         return route
 
 class RoutePool():
-    def __init__(self, routes=None, link_locals=None):
+    def __init__(self, routes: Optional[List[Any]] = None, link_locals: Optional[List[Any]] = None) -> None:
         self.routes = routes or []
         self.link_locals = link_locals or []
 
@@ -90,7 +92,7 @@ class RoutePool():
         # Simulate 'removing' past elements.
         self.pop_pointer = 0
 
-    def to_dict(self):
+    def to_dict(self) -> List[Dict[str, Any]]:
         routes = []
         for route in self.routes:
             routes.append(route.to_dict())
@@ -98,7 +100,7 @@ class RoutePool():
         return routes
 
     @staticmethod
-    def from_dict(route_dicts):
+    def from_dict(route_dicts: List[Dict[str, Any]]) -> "RoutePool":
         routes = []
         for route_dict in route_dicts:
             routes.append(Route.from_dict(route_dict))
@@ -106,15 +108,15 @@ class RoutePool():
         return RoutePool(routes)
 
     # Pickle.
-    def __getstate__(self):
+    def __getstate__(self) -> List[Dict[str, Any]]:
         return self.to_dict()
 
     # Unpickle.
-    def __setstate__(self, state):
+    def __setstate__(self, state: List[Dict[str, Any]]) -> None:
         o = self.from_dict(state)
         self.__dict__ = o.__dict__
 
-    def locate(self, other):
+    def locate(self, other: Any) -> Optional[Any]:
         for route in self.routes:
             if route == other:
                 return route
@@ -122,7 +124,7 @@ class RoutePool():
         return None
 
     # Is a route in this route pool?
-    def __contains__(self, other):
+    def __contains__(self, other: Any) -> bool:
         route = self.locate(other)
         if route is not None:
             return True
@@ -131,7 +133,7 @@ class RoutePool():
 
     # Simulate fetching a route off a stack of routes.
     # Just hides certain pointer offsets when indexing, lel.
-    def pop(self):
+    def pop(self) -> Any:
         if self.pop_pointer >= self.wan_hosts:
             raise Exception("No more routes.")
 
@@ -140,7 +142,7 @@ class RoutePool():
 
         return ret
 
-    def get_route_info(self, route_offset, abs_host_offset):
+    def get_route_info(self, route_offset: int, abs_host_offset: int) -> Any:
         # Route to use for the WAN addresses.
         assert(route_offset <= (len(self.routes) - 1))
         route = self.routes[route_offset]
@@ -176,10 +178,10 @@ class RoutePool():
 
         return new_route
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.wan_hosts
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: Any) -> Any:
         # Possible due to pop decreasing host no.
         if not self.wan_hosts:
             return []
@@ -203,9 +205,9 @@ class RoutePool():
         else:
             raise TypeError('Invalid argument type: {}'.format(type(key)))
 
-    def __iter__(self):
+    def __iter__(self) -> RoutePoolIter:
         return RoutePoolIter(self)
 
-    def __reversed__(self):
+    def __reversed__(self) -> RoutePoolIter:
         return RoutePoolIter(self, reverse=True)
 

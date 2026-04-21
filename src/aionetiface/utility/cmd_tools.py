@@ -8,7 +8,15 @@ import platform
 import sys
 import subprocess
 import base64
+from typing import Any, Callable, Optional
 from ..utility.utils import *
+
+__all__ = [
+    "nt_set_pshell_unrestricted", "nt_is_admin", "mac_arg_escape", "nix_arg_escape",
+    "win_arg_escape", "get_powershell_path", "cmd", "powershell_encoded_cmd",
+    "ps1_exec_trick", "is_pshell_restricted", "nt_pshell", "get_arg_escape_func",
+    "run_py_script", "is_root", "win_uac", "ensure_root",
+]
 
 """
 Windows doesn't always use UTF-8 for string encoding.
@@ -34,7 +42,7 @@ My function nt_pshell already checks if powershell can
 run scripts and if not -- automatically unrestricts
 powershell and continues running the script.
 """
-async def nt_set_pshell_unrestricted():
+async def nt_set_pshell_unrestricted() -> None:
     import winreg
 
     def mk_unrestricted(path):
@@ -68,7 +76,7 @@ async def nt_set_pshell_unrestricted():
     mk_unrestricted(nostics_path)
     mk_unrestricted(pshell_path)
 
-def nt_is_admin():
+def nt_is_admin() -> bool:
     if sys.platform != 'win32':
         return False
     try:
@@ -77,7 +85,7 @@ def nt_is_admin():
         return False
 
 # Surrounds with DOUBLE quotes.
-def mac_arg_escape(arg):
+def mac_arg_escape(arg: str) -> str:
     black_list = "\"\\"
     buf = ""
     for ch in arg:
@@ -96,10 +104,10 @@ Hence the surrounding quotes APPEAR escaped when
 printing them.
 """
 # Surrounds with SINGLE quotes.
-def nix_arg_escape(arg):
+def nix_arg_escape(arg: str) -> str:
     return shlex.quote(arg)
 
-def win_arg_escape(arg, allow_vars=0):
+def win_arg_escape(arg: str, allow_vars: int = 0) -> str:
     # Double all the backslashes before a double quote.
     # Then ensure the double quote is escaped.
     # Doubling up neutralizes double quotes that may be unbalanced.
@@ -118,7 +126,7 @@ def win_arg_escape(arg, allow_vars=0):
 
     return arg
 
-def get_powershell_path():
+def get_powershell_path() -> str:
     ps_dir = "%WINDIR%\\System32\\WindowsPowerShell"
     ps_dir = os.path.expandvars(ps_dir)
     dir_list = os.listdir(ps_dir)
@@ -164,7 +172,7 @@ you want to execute to powershell.
 
 Example: 'powershell "route print"'
 """
-async def cmd(value, io=None, er=True, timeout=10):
+async def cmd(value: Any, io: Optional[Any] = None, er: Any = True, timeout: Optional[int] = 10) -> Any:
     # Output type.
     out_type = value
     null_out = to_type('', out_type)
@@ -231,23 +239,23 @@ async def cmd(value, io=None, er=True, timeout=10):
     else:
         return to_type(stdout, out_type)
     
-def powershell_encoded_cmd(ps1):
+def powershell_encoded_cmd(ps1: str) -> str:
     unicode_bytes = ps1.encode("utf-16le")
     param = base64.b64encode(unicode_bytes)
     return to_s(param)
 
-async def ps1_exec_trick(ps1):
+async def ps1_exec_trick(ps1: str) -> Any:
     param = powershell_encoded_cmd(ps1)
     ps_path = get_powershell_path()
     out = await cmd(fstr("{0} -encodedCommand {1}", (ps_path, param,)), timeout=None)
     log(out)
     return out
 
-async def is_pshell_restricted():
+async def is_pshell_restricted() -> bool:
     out = await cmd("powershell Get-ExecutionPolicy", timeout=None)
     return not "Unrestricted" in out
 
-async def nt_pshell(value, timeout=10, is_unrestricted=None):
+async def nt_pshell(value: str, timeout: Optional[int] = 10, is_unrestricted: Optional[bool] = None) -> Any:
     # Allow powershell scripts to be run
     # by modifying registry if needed.
     if is_unrestricted is None:
@@ -280,7 +288,7 @@ async def nt_pshell(value, timeout=10, is_unrestricted=None):
 
     return out
 
-def get_arg_escape_func():
+def get_arg_escape_func() -> Optional[Callable[[str], str]]:
     if platform.system() == "Linux":
         return nix_arg_escape
 
@@ -292,7 +300,7 @@ def get_arg_escape_func():
 
     return None
 
-async def run_py_script(script, root_pw=None, cleanup=False):
+async def run_py_script(script: str, root_pw: Optional[str] = None, cleanup: bool = False) -> Any:
     # Write a temp file into the temp dir
     # with the script to execute.
     out = None
@@ -329,7 +337,7 @@ async def run_py_script(script, root_pw=None, cleanup=False):
 
     return out
 
-def is_root():
+def is_root() -> bool:
     if platform.system() == "Windows":
         import ctypes
         if ctypes.windll.shell32.IsUserAnAdmin() == 0:
@@ -340,11 +348,11 @@ def is_root():
 
     return True
 
-def win_uac():
+def win_uac() -> None:
     if sys.platform != 'win32':
         return
     ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
 
-def ensure_root():
+def ensure_root() -> None:
     if not is_root():
         raise Exception("root required for this code.")

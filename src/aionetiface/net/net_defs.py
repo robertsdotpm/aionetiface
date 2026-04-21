@@ -1,10 +1,27 @@
 import sys
 import socket
+import asyncio
 import platform
 import ipaddress
 from io import BytesIO
+from typing import Any
 from ..errors import *
 from ..utility.cmd_tools import *
+
+__all__ = [
+    "HOST_TYPE_DOMAIN", "HOST_TYPE_IP", "AF_ANY", "AF_NONE", "AF_LINK", "AF_INET",
+    "AF_INET6", "TCP", "STREAM", "SOCK_STREAM", "UDP", "DGRAM", "SOCK_DGRAM", "RUDP",
+    "INTERFACE_UNKNOWN", "INTERFACE_ETHERNET", "INTERFACE_WIRELESS", "UNKNOWN_STACK",
+    "IP4", "V4", "V4_STACK", "IP6", "V6", "V6_STACK", "V6_LINK_LOCAL_MASK",
+    "DUEL_STACK", "VALID_AFS", "VALID_STACKS", "NET_NON_BLOCKING", "NET_BLOCKING",
+    "NET_MAX_MSG_NO", "NET_MAX_MSGS_SIZEOF", "ZERO_NETMASK_IP4", "ZERO_NETMASK_IP6",
+    "BLACK_HOLE_IPS", "VALID_LOOPBACKS", "VALID_ANY_ADDR", "ANY_ADDR", "LOOPBACK_BIND",
+    "IPA_TYPES", "ipa_types", "ANY_ADDR_LOOKUP", "LOCALHOST_LOOKUP", "PROTO_LOOKUP",
+    "DATAGRAM_TYPES", "STREAM_TYPES", "V4_VALID_ANY", "V6_VALID_ANY", "V6_VALID_LOCALHOST",
+    "V4_VALID_LOCALHOST", "VALID_LOCALHOST", "NIC_BIND", "EXT_BIND", "NIC_FAIL",
+    "EXT_FAIL", "IP_PRIVATE", "IP_PUBLIC", "IP_APPEND", "IP_BIND_TUP", "NOT_WINDOWS",
+    "SUB_ALL", "NET_CONF", "FakeSocket",
+]
 
 # Every network endpoint is uniquely identified by the 4-tuple
 # (src_ip, src_port, dest_ip, dest_port).  UDP sockets allow sharing
@@ -199,17 +216,17 @@ NET_CONF = {
 }
 
 class FakeSocket():
-    def __init__(self, response_bytes):
+    def __init__(self, response_bytes: bytes) -> None:
         self._file = BytesIO(response_bytes)
 
-    def makefile(self, *args, **kwargs):
+    def makefile(self, *args: Any, **kwargs: Any) -> BytesIO:
         return self._file
-    
-    def close(self):
+
+    def close(self) -> None:
         return
-    
-    def _close_conn(self):
+
+    def _close_conn(self) -> None:
         return
-    
-    def flush(self):
+
+    def flush(self) -> None:
         return

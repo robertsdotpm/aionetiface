@@ -2,19 +2,20 @@ import platform
 import sys
 import os
 import multiprocessing
+from typing import Any, Optional, List
 from aionetiface import *
 
 
 
 class TestCmd(unittest.IsolatedAsyncioTestCase):
-    async def do_esc_test(self, s):
+    async def do_esc_test(self, s: str) -> Any:
         # So paths with spaces don't break the command.
         py = sys.executable
         c = "import sys; print(sys.argv[-1], end='')"
         buf = py + "\" -c \"" + c + "\" " + s
         return await cmd(buf)
 
-    async def test_escape(self):
+    async def test_escape(self) -> None:
         return
         if platform.system() in ["Windows"]:
             tests = [
@@ -146,16 +147,16 @@ class TestCmd(unittest.IsolatedAsyncioTestCase):
 
             self.assertTrue(isinstance(exp_param, str))
 
-    async def test_cmd(self):
+    async def test_cmd(self) -> None:
         py = sys.executable
         out = await cmd('"' + py + '" -c "print(\'something\')"')
         self.assertTrue("something" in out)
 
-    async def test_is_root(self):
+    async def test_is_root(self) -> None:
         b = is_root()
         self.assertTrue(b in [True, False])
 
-    async def test_nt_is_admin(self):
+    async def test_nt_is_admin(self) -> None:
         if platform.system() != "Windows":
             return
 

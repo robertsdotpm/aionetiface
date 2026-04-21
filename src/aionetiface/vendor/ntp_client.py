@@ -32,8 +32,15 @@ import datetime
 import struct
 import time
 import asyncio
+from typing import Any, Optional
 from ..net.address import *
 from ..net.pipe.pipe import *
+
+__all__ = [
+    "NTPException", "NTP", "NTPPacket", "NTPStats", "NTPClient",
+    "ntp_to_system_time", "system_to_ntp_time", "leap_to_text", "mode_to_text",
+    "stratum_to_text", "ref_id_to_text",
+]
 
 class NTPException(Exception):
     """Exception raised by this module."""
@@ -122,7 +129,7 @@ class NTPPacket:
     _PACKET_FORMAT = "!B B B b 11I"
     """packet format to pack/unpack"""
 
-    def __init__(self, version=2, mode=3, tx_timestamp=0):
+    def __init__(self, version: int = 2, mode: int = 3, tx_timestamp: float = 0) -> None:
         """Constructor.
 
         Parameters:
@@ -157,7 +164,7 @@ class NTPPacket:
         self.tx_timestamp = tx_timestamp
         """tansmit timestamp"""
 
-    def to_data(self):
+    def to_data(self) -> bytes:
         """Convert this NTPPacket to a buffer that can be sent over a socket.
 
         Returns:
@@ -188,7 +195,7 @@ class NTPPacket:
             raise NTPException("Invalid NTP packet fields.")
         return packed
 
-    def from_data(self, data):
+    def from_data(self, data: bytes) -> None:
         """Populate this instance from a NTP packet payload received from
         the network.
 
@@ -226,46 +233,46 @@ class NTPStats(NTPPacket):
     delay, and timestamps converted to system time.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Constructor."""
         NTPPacket.__init__(self)
         self.dest_timestamp = 0
         """destination timestamp"""
 
     @property
-    def offset(self):
+    def offset(self) -> float:
         """offset"""
         return ((self.recv_timestamp - self.orig_timestamp) +
                 (self.tx_timestamp - self.dest_timestamp))/2
 
     @property
-    def delay(self):
+    def delay(self) -> float:
         """round-trip delay"""
         return ((self.dest_timestamp - self.orig_timestamp) -
                 (self.tx_timestamp - self.recv_timestamp))
 
     @property
-    def tx_time(self):
+    def tx_time(self) -> float:
         """Transmit timestamp in system time."""
         return ntp_to_system_time(self.tx_timestamp)
 
     @property
-    def recv_time(self):
+    def recv_time(self) -> float:
         """Receive timestamp in system time."""
         return ntp_to_system_time(self.recv_timestamp)
 
     @property
-    def orig_time(self):
+    def orig_time(self) -> float:
         """Originate timestamp in system time."""
         return ntp_to_system_time(self.orig_timestamp)
 
     @property
-    def ref_time(self):
+    def ref_time(self) -> float:
         """Reference timestamp in system time."""
         return ntp_to_system_time(self.ref_timestamp)
 
     @property
-    def dest_time(self):
+    def dest_time(self) -> float:
         """Destination timestamp in system time."""
         return ntp_to_system_time(self.dest_timestamp)
 
@@ -273,12 +280,12 @@ class NTPStats(NTPPacket):
 class NTPClient:
     """NTP client session."""
 
-    def __init__(self, af, interface):
+    def __init__(self, af: int, interface: Any) -> None:
         """Constructor."""
         self.af = af
         self.interface = interface
 
-    async def request(self, dest, version=2, timeout=2):
+    async def request(self, dest: Any, version: int = 2, timeout: int = 2) -> Optional[Any]:
         """Query a NTP server.
 
         Parameters:
@@ -330,7 +337,7 @@ class NTPClient:
         return stats
 
 
-def _to_int(timestamp):
+def _to_int(timestamp: float) -> int:
     """Return the integral part of a timestamp.
 
     Parameters:
@@ -342,7 +349,7 @@ def _to_int(timestamp):
     return int(timestamp)
 
 
-def _to_frac(timestamp, n=32):
+def _to_frac(timestamp: float, n: int = 32) -> int:
     """Return the fractional part of a timestamp.
 
     Parameters:
@@ -355,7 +362,7 @@ def _to_frac(timestamp, n=32):
     return int(abs(timestamp - _to_int(timestamp)) * 2**n)
 
 
-def _to_time(integ, frac, n=32):
+def _to_time(integ: int, frac: int, n: int = 32) -> float:
     """Return a timestamp from an integral and fractional part.
 
     Parameters:
@@ -369,7 +376,7 @@ def _to_time(integ, frac, n=32):
     return integ + float(frac)/2**n
 
 
-def ntp_to_system_time(timestamp):
+def ntp_to_system_time(timestamp: float) -> float:
     """Convert a NTP time to system time.
 
     Parameters:
@@ -381,7 +388,7 @@ def ntp_to_system_time(timestamp):
     return timestamp - NTP.NTP_DELTA
 
 
-def system_to_ntp_time(timestamp):
+def system_to_ntp_time(timestamp: float) -> float:
     """Convert a system time to a NTP time.
 
     Parameters:
@@ -393,7 +400,7 @@ def system_to_ntp_time(timestamp):
     return timestamp + NTP.NTP_DELTA
 
 
-def leap_to_text(leap):
+def leap_to_text(leap: int) -> str:
     """Convert a leap indicator to text.
 
     Parameters:
@@ -411,7 +418,7 @@ def leap_to_text(leap):
         raise NTPException("Invalid leap indicator.")
 
 
-def mode_to_text(mode):
+def mode_to_text(mode: int) -> str:
     """Convert a NTP mode value to text.
 
     Parameters:
@@ -429,7 +436,7 @@ def mode_to_text(mode):
         raise NTPException("Invalid mode.")
 
 
-def stratum_to_text(stratum):
+def stratum_to_text(stratum: int) -> str:
     """Convert a stratum value to text.
 
     Parameters:
@@ -451,7 +458,7 @@ def stratum_to_text(stratum):
         raise NTPException("Invalid stratum or reserved.")
 
 
-def ref_id_to_text(ref_id, stratum=2):
+def ref_id_to_text(ref_id: int, stratum: int = 2) -> str:
     """Convert a reference clock identifier to text according to its stratum.
 
     Parameters:

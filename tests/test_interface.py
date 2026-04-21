@@ -1,7 +1,8 @@
+from typing import Any
 from aionetiface import *
 
 class TestInterface(unittest.IsolatedAsyncioTestCase):
-    async def test_regular(self):
+    async def test_regular(self) -> None:
         global aionetiface_fds
         i = await Interface()
         print(i)
@@ -18,7 +19,7 @@ class TestInterface(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(5)
 
 
-    async def test_fallback_zero_bind(self):
+    async def test_fallback_zero_bind(self) -> None:
         return
         # TODO: figure out how to test htis
 
@@ -49,7 +50,7 @@ class TestInterface(unittest.IsolatedAsyncioTestCase):
         
 
     # Should find at least a valid iface on whatever OS.
-    async def test_default_interface(self):
+    async def test_default_interface(self) -> None:
         i = await Interface()
         self.assertTrue(i.name)
 
@@ -63,7 +64,7 @@ class TestInterface(unittest.IsolatedAsyncioTestCase):
         d_list = if_list_to_dict([i])
         if_list = dict_to_if_list(d_list, Interface)
 
-    async def test_invalid_interface_name(self):
+    async def test_invalid_interface_name(self) -> None:
         test_passes = False
         try:
             out = await Interface("meow")
@@ -73,12 +74,12 @@ class TestInterface(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(test_passes)
 
-    async def test_nat_validation(self):
+    async def test_nat_validation(self) -> None:
         nat = nat_info()
         i = Interface(nat=nat)
         i.set_nat(nat)
 
-    async def test_fake_ext_route(self):
+    async def test_fake_ext_route(self) -> None:
         one_valid = False
         for af in VALID_AFS:
             try:
@@ -88,12 +89,12 @@ class TestInterface(unittest.IsolatedAsyncioTestCase):
                 # Throws if no NIC IP for AF.
                 r = i.route(af)
                 one_valid = True
-            except Exception:
+            except (OSError, ValueError, AttributeError):
                 continue
 
         self.assertTrue(one_valid)
 
-    async def test_interface_start(self):
+    async def test_interface_start(self) -> None:
         start_worked = False
         i = await Interface()
         for af in i.supported():
@@ -102,7 +103,7 @@ class TestInterface(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(start_worked)
 
-    async def test_load_interfaces(self):
+    async def test_load_interfaces(self) -> None:
         if_names = await list_interfaces()
         print(if_names)
         ifs = await load_interfaces(if_names, Interface, min_agree=1)

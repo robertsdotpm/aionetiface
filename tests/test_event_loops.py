@@ -1,10 +1,11 @@
+from typing import Any
 from aionetiface import *
 
 import asyncio
 
 
 class TestEventLoops(unittest.IsolatedAsyncioTestCase):
-    async def test_event_loops_a(self):
+    async def test_event_loops_a(self) -> None:
         running_loop = asyncio.get_event_loop()
 
                 

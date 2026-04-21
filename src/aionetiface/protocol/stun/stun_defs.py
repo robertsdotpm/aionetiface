@@ -2,8 +2,15 @@ from struct import pack
 import hmac
 import socket
 import hashlib
-from ...utility.utils import *
-from ...net.net_utils import *
+from typing import Any, Optional, Tuple
+from ...utility.utils import b_and, b_or, b_to_i, rand_b, xor_bufs
+from ...net.net_defs import IP4
+
+__all__ = [
+    "STUN_CHANGE_NONE", "STUN_CHANGE_PORT", "STUN_CHANGE_BOTH", "STUN_MAGIC_COOKIE",
+    "STUN_MAGIC_XOR", "RFC3489", "RFC5389", "RFC8489", "STUNMsgTypes", "STUNAttrs",
+    "STUNMsgCodes", "STUNAddrTup", "STUNMsg",
+]
 
 STUN_CHANGE_NONE = 1
 STUN_CHANGE_PORT = 2
@@ -101,7 +108,7 @@ class STUNMsgCodes:
     get = classmethod(lambda cls, val, type_=int: _get_const_name(cls, val, type_))
 
 class STUNAddrTup:
-    def __init__(self, ip=None, port=None, af=IP4, txid=b"", magic_cookie=STUN_MAGIC_XOR):
+    def __init__(self, ip: Optional[str] = None, port: Optional[int] = None, af: int = IP4, txid: bytes = b"", magic_cookie: bytes = STUN_MAGIC_XOR) -> None:
         self.ip = ip
         self.port = port 
         self.af = af
@@ -109,14 +116,14 @@ class STUNAddrTup:
         self.magic_cookie = magic_cookie
         self.tup = ()
 
-    def get_family_buf(self):
+    def get_family_buf(self) -> bytes:
         if self.af == IP4:
             return b"\0\1"
         else:
             return b"\0\2"
         
     @staticmethod
-    def get_addr_bufs(af, attr_data):
+    def get_addr_bufs(af: int, attr_data: Any) -> Tuple[Any, Any]:
         port_buf = attr_data[2:4]
         if af == IP4:
             ip_buf = attr_data[4:8]
@@ -126,12 +133,12 @@ class STUNAddrTup:
         return (ip_buf, port_buf)
     
     @staticmethod
-    def addr_bufs_to_tup(af, ip_buf, port_buf):
+    def addr_bufs_to_tup(af: int, ip_buf: Any, port_buf: Any) -> Tuple[str, int]:
         port = b_to_i(port_buf, 'big')
         ip = socket.inet_ntop(af, ip_buf)
         return (ip, port)
 
-    def decode(self, code, data):
+    def decode(self, code: Any, data: Any) -> Tuple[Any, Any, Any]:
         # Get field bufs.
         ip_buf, port_buf = STUNAddrTup.get_addr_bufs(self.af, data)
 
@@ -163,7 +170,7 @@ class STUNAddrTup:
         self.tup = STUNAddrTup.addr_bufs_to_tup(self.af, ip_buf, port_buf)
         return ip_buf, port_buf, data
     
-    def encode(self, code):
+    def encode(self, code: Any) -> bytes:
         # Convert IP address to binary.
         family = self.get_family_buf()
         if family == b"\0\1":
@@ -191,20 +198,20 @@ class STUNAddrTup:
             return dec_buf
         return buf
     
-    def pack(self, ip, port, af):
+    def pack(self, ip: str, port: int, af: int) -> bytes:
         inst = STUNAddrTup(ip=ip, port=port, af=af, xor_extra=self.xor_extra, magic_cookie=self.magic_cookie)
         return inst.encode()
 
-    def unpack(self, code, data):
+    def unpack(self, code: Any, data: Any) -> "STUNAddrTup":
         inst = STUNAddrTup(af=self.af, txid=self.txid, magic_cookie=self.magic_cookie)
         inst.decode(code, data)
         return inst
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '{}:{}'.format(self.ip, self.port)
 
 class STUNMsg:
-    def __init__(self, msg_type=STUNMsgTypes.Binding, msg_code=STUNMsgCodes.Request, mode=RFC3489):
+    def __init__(self, msg_type: Any = STUNMsgTypes.Binding, msg_code: Any = STUNMsgCodes.Request, mode: int = RFC3489) -> None:
         self.msg_code = msg_code
         self.msg_type = msg_type # type: int
         self.msg_len = 0 # type: int
@@ -220,11 +227,11 @@ class STUNMsg:
         else:
             self.magic_cookie = STUN_MAGIC_COOKIE
 
-    def reset_attr(self):
+    def reset_attr(self) -> None:
         self.msg_len = 0
         self.msg = bytearray()
 
-    def write_attr(self, attr: bytes, *data, fmt: str = None):
+    def write_attr(self, attr: bytes, *data, fmt: str = None) -> None:
         # process data -> bytes
         if fmt:
             data = pack(fmt, *data)
@@ -249,7 +256,7 @@ class STUNMsg:
         self.msg_len += len(buf)
         self.msg += buf
 
-    def write_credential(self, username: str, realm: str, nonce: bytes = b''):
+    def write_credential(self, username: str, realm: str, nonce: bytes = b'') -> None:
         self.write_attr(STUNAttrs.Username, username)
         self.write_attr(STUNAttrs.Realm, realm)
         self.write_attr(STUNAttrs.Nonce, nonce)
@@ -258,7 +265,7 @@ class STUNMsg:
         hashed = hmac.new(key, msg, hashlib.sha1)
         return hashed.digest()
     
-    def write_hmac(self, key: bytes):
+    def write_hmac(self, key: bytes) -> None:
         self.msg_len += 24
         msg_hmac = self.pack()
         self.msg_len -= 24
@@ -299,7 +306,7 @@ class STUNMsg:
         # Return results.
         return m_attr, m_len, m_data 
 
-    def __bytes__(self):
+    def __bytes__(self) -> bytes:
         return b''
 
     def pack(self) -> bytes:
@@ -318,7 +325,7 @@ class STUNMsg:
             self.msg
         ])
 
-    def decode(self, msg: memoryview) -> memoryview:
+    def decode(self, msg: Any) -> Optional[Any]:
         # Unpack data from buffer using memory views.
         msg_len = len(msg)
         self.attr_cursor = 0
@@ -339,7 +346,7 @@ class STUNMsg:
                 else:
                     raise Exception("Invalid length for STUN msg.")
 
-    def unpack(msg, mode=RFC3489):
+    def unpack(msg: Any, mode: int = RFC3489) -> Tuple["STUNMsg", Any]:
         inst = STUNMsg(mode=mode)
         buf = inst.decode(msg)
         return inst, buf

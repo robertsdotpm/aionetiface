@@ -1,23 +1,34 @@
+import asyncio
 import random
-from ...net.address import *
-from .nat_defs import *
+from typing import Any, Dict, List, Optional
+from .nat_defs import (
+    STUN_PORT, MAX_MAP_NO, OPEN_INTERNET, SYMMETRIC_UDP_FIREWALL,
+    FULL_CONE, RESTRICT_NAT, RESTRICT_PORT_NAT, SYMMETRIC_NAT, BLOCKED_NAT,
+    NA_DELTA, EQUAL_DELTA, PRESERV_DELTA, INDEPENDENT_DELTA, DEPENDENT_DELTA,
+    RANDOM_DELTA, EASY_NATS, PREDICTABLE_NATS, FUSSY_NATS, BLOCKING_NATS,
+)
+from ...utility.utils import (
+    MAX_PORT, log, log_exception, async_wrap_errors,
+    field_dist, range_intersects, intersect_range, in_range,
+)
+
 
 
 # Convenience funcs.
 # delta, nat_type
 f_is_open = lambda n, d: n in [OPEN_INTERNET, SYMMETRIC_UDP_FIREWALL]
 f_can_predict = lambda n, d: n in PREDICTABLE_NATS
-def f_is_hard(n, d):
+def f_is_hard(n: int, d: Dict[str, Any]) -> bool:
     not_easy = n not in EASY_NATS
     return not_easy and d["type"] not in [PRESERV_DELTA, EQUAL_DELTA]
 
-def delta_info(delta_type, delta_value):
+def delta_info(delta_type: int, delta_value: int) -> Dict[str, Any]:
     return {
         "type": delta_type,
         "value": delta_value
     }
 
-def nat_info(nat_type=None, delta=None, map_range=None):
+def nat_info(nat_type: Optional[int] = None, delta: Optional[Dict[str, Any]] = None, map_range: Optional[List[int]] = None) -> Dict[str, Any]:
     # Defaults.
     delta = delta or delta_info(RANDOM_DELTA, 0)
     map_range = map_range or [1, MAX_PORT]
@@ -40,7 +51,7 @@ def nat_info(nat_type=None, delta=None, map_range=None):
     # Return results.
     return nat
 
-def valid_mappings_len(mappings):
+def valid_mappings_len(mappings: List[Any]) -> int:
     if not len(mappings):
         return 0
 
@@ -50,7 +61,7 @@ def valid_mappings_len(mappings):
     return 1
 
 
-async def delta_test(stun_clients, test_no=8, threshold=5, concurrency=True):
+async def delta_test(stun_clients: List[Any], test_no: int = 8, threshold: int = 5, concurrency: bool = True) -> Dict[str, Any]:
     """
     Probe the NAT to determine what kind of port delta behaviour it exhibits.
 
@@ -304,7 +315,7 @@ async def delta_test(stun_clients, test_no=8, threshold=5, concurrency=True):
     # Return delta value.
     return delta_info( RANDOM_DELTA, 0 )
 
-def nats_intersect(our_nat, their_nat, test_no):
+def nats_intersect(our_nat: Dict[str, Any], their_nat: Dict[str, Any], test_no: int) -> List[int]:
     """
     Return the port range both NATs can agree on for test probes.
 
@@ -345,7 +356,7 @@ def nats_intersect(our_nat, their_nat, test_no):
         
     return use_range
 
-def nats_can_predict(our_nat, their_nat):
+def nats_can_predict(our_nat: Dict[str, Any], their_nat: Dict[str, Any]) -> int:
     """
     Validate that mapping prediction is possible given the two NAT profiles.
 

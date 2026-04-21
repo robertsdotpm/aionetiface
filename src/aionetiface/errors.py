@@ -1,5 +1,19 @@
 # Defines all custon exceptions.
 
+__all__ = [
+    "NoGatewayForAF",
+    "InterfaceNotFound",
+    "InterfaceInvalidAF",
+    "ErrorNoReply",
+    "ErrorPipeOpen",
+    "ErrorFeatureDeprecated",
+    "ErrorCantLoadNATInfo",
+    "AlreadyClosedError",
+    "TunnelFailed",
+    "StartNodeNicknameFailed",
+    "BadProtoResp",
+]
+
 # There's no gateway defined for that address family.
 class NoGatewayForAF(Exception):
     pass

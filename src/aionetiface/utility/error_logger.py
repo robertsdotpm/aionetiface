@@ -9,7 +9,8 @@ import os
 import sys
 import threading
 import traceback
-from .fstr import *
+from typing import Any, Union
+from .fstr import fstr
 from ..install import get_aionetiface_install_root
 
 LOGS_ROOT_PATH = os.path.join(
@@ -19,7 +20,7 @@ LOGS_ROOT_PATH = os.path.join(
 
 log_fds = {}
 
-def _close_log_fds():
+def _close_log_fds() -> None:
     """Close all open log file descriptors at interpreter shutdown."""
     for fd in list(log_fds.values()):
         try:
@@ -30,7 +31,7 @@ def _close_log_fds():
 
 atexit.register(_close_log_fds)
 
-def open_log_fd(tid):
+def open_log_fd(tid: int) -> int:
     if tid not in log_fds:
         path = os.path.join(
             LOGS_ROOT_PATH,
@@ -45,7 +46,7 @@ def open_log_fd(tid):
         
     return log_fds[tid]
 
-def log(msg):
+def log(msg: Union[str, bytes, Any]) -> None:
     if not os.path.exists(LOGS_ROOT_PATH):
         return
     
@@ -60,9 +61,9 @@ def log(msg):
     else:
         os.write(fd, msg.encode("utf-8") + b"\n")
 
-def log_exception():
+def log_exception() -> None:
     exc = "".join(traceback.format_exception(*sys.exc_info()))
     log("EXCEPTION: " + exc.strip())
 
-def log_p2p(msg, node_id):
+def log_p2p(msg: Any, node_id: Any) -> None:
     log(fstr("p2p <{0}>: {1}", (node_id, msg)))

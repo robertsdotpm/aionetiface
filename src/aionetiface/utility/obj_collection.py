@@ -1,15 +1,18 @@
 import inspect
 import asyncio
 import random
-from .utils import *
-from ..net.net_defs import *    
-from ..net.net_utils import *
+from typing import Any, Callable, Dict, Generator, List, Optional
+from .utils import strip_none
+from ..net.net_defs import IP4, UDP, SUB_ALL
 from ..servers import get_infra
-from ..nic.interface import *
+from ..nic.interface import Interface
+from ..protocol.stun.stun_defs import RFC3489, RFC5389
+from ..protocol.stun.stun_client import STUNClient
+
 
 # Given a list and a random str.
 # Return a deterministically shuffled generator.
-def seed_iter(items, seed_str):
+def seed_iter(items: List[Any], seed_str: Any) -> Generator[Any, None, None]:
     # avoid mutating the original list
     items_copy = list(items) 
 
@@ -23,7 +26,7 @@ def seed_iter(items, seed_str):
 
 # Given a func that takes a list of named params and a dict
 # of mixed kv pairs -- only use the kvs that match a param.
-def func_relevant_params(func, kv):
+def func_relevant_params(func: Any, kv: Dict[str, Any]) -> Dict[str, Any]:
     sig = inspect.signature(func)
     params = sig.parameters
     param_names = list(params.keys())
@@ -31,13 +34,13 @@ def func_relevant_params(func, kv):
     return relevant_params
 
 class ObjCollection():
-    def __init__(self, obj_factory, select_servers=None):
+    def __init__(self, obj_factory: Callable[..., Any], select_servers: Optional[Callable[..., Any]] = None) -> None:
         self.obj_factory = obj_factory
         self.select_servers = select_servers
 
     # Get n new objs using obj factory.
     # An optional function can be provided to select the server.
-    async def get_n(self, n, kv=None):
+    async def get_n(self, n: int, kv: Optional[Dict[str, Any]] = None) -> List[Any]:
         if kv is None:
             kv = {}
         # If func is defined for getting dest server
@@ -64,7 +67,7 @@ class ObjCollection():
     
     # Get n new objects but add a function to qualify them.
     # Qualify function returns the obj if it passes.
-    async def get_n_qualify(self, n, kv, qualify, min_success=None, max_attempts=2):
+    async def get_n_qualify(self, n: int, kv: Dict[str, Any], qualify: Callable[..., Any], min_success: Optional[int] = None, max_attempts: int = 2) -> List[Any]:
         out = []
         attempts = 0
         min_success = min_success or n
@@ -87,7 +90,7 @@ class ObjCollection():
 
         return out[:min_success]
 
-async def workspace_one():
+async def workspace_one() -> None:
     def select_servers(n, kv):
         if kv["mode"] == RFC3489:
             name = "STUN(test_nat)"

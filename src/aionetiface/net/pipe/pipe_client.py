@@ -1,11 +1,15 @@
 import asyncio
 import re
+from typing import Any, Dict, List, Optional, Tuple, Union
+from ...utility.utils import fstr
 from ...protocol.ack_udp import *
+from ..net_defs import NET_CONF, SUB_ALL
 from ..net_utils import *
 from ..ip_range import *
 from .pipe_defs import *
 from .pipe_utils import *
 from ..asyncio.create_udp_fallback import PolledDatagramTransport
+
 
 """
 The code in this class supports a pull / fetch style use-case.
@@ -15,7 +19,7 @@ API needs for messages to be subscribed to beforehand.
 """
 
 class PipeClient(ACKUDP):
-    def __init__(self, pipe_events, loop=None, conf=NET_CONF):
+    def __init__(self, pipe_events: Any, loop: Optional[Any] = None, conf: Any = NET_CONF) -> None:
         super().__init__()
         self.conf = conf
         self.dest = None
@@ -38,7 +42,7 @@ class PipeClient(ACKUDP):
     (2) TCP cons have a dest set.
     (3) TCP and UDP servers won't have a dest.
     """
-    def set_dest_tup(self, dest_tup):
+    def set_dest_tup(self, dest_tup: Optional[Tuple[Any, ...]]) -> None:
         dest_tup = client_tup_norm(dest_tup)
         self.dest_tup = dest_tup
 
@@ -47,14 +51,14 @@ class PipeClient(ACKUDP):
     For UDP this is a asyncio.DatagramTransport.
     For TCP it's a asyncio.StreamWriter.
     """
-    def set_handle(self, handle, client_tup=None):
+    def set_handle(self, handle: Any, client_tup: Optional[Tuple[Any, ...]] = None) -> None:
         if client_tup is not None:
             client_tup = client_tup_norm(client_tup)
             self.handle[client_tup] = handle
         else:
             self.handle = handle
 
-    def hash_sub(self, sub):
+    def hash_sub(self, sub: Any) -> int:
         h = hash(sub[0])
         if sub[1] is not None:
             client_tup_str = fstr("{0}:{1}", (sub[1][0], sub[1][1],))
@@ -65,7 +69,7 @@ class PipeClient(ACKUDP):
     # Subscribe to a certain message and host type.
     # sub = [b_msg_pattern, b_addr_pattern]
     # optional: 3rd field in sub = example match
-    def subscribe(self, sub, handler=None):
+    def subscribe(self, sub: Any, handler: Optional[Any] = None) -> int:
         b_msg_p, client_tup = sub
         if client_tup is not None:
             assert(isinstance(client_tup[1], int))
@@ -83,7 +87,7 @@ class PipeClient(ACKUDP):
         return offset
 
     # Remove a subscription.
-    def unsubscribe(self, sub):
+    def unsubscribe(self, sub: Any) -> "PipeClient":
         offset = self.hash_sub(sub)
         if offset in self.subs:
             del self.subs[offset]
@@ -97,7 +101,7 @@ class PipeClient(ACKUDP):
     being empty? Should it discard data? Maybe on limit - 1
     call https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.remove_reader and on queue empty add it back.
     """
-    def add_msg(self, data, client_tup):
+    def add_msg(self, data: bytes, client_tup: Tuple[Any, ...]) -> None:
         # No subscriptions.
         if not len(self.subs):
             return
@@ -161,7 +165,7 @@ class PipeClient(ACKUDP):
             log(fstr("Discarded {0} = {1}", (client_tup, data,)))
 
     # Async wait for a message that matches a pattern in a queue.
-    async def recv(self, sub=SUB_ALL, timeout=2, full=False):
+    async def recv(self, sub: Any = SUB_ALL, timeout: int = 2, full: bool = False) -> Optional[bytes]:
         recv_timeout = timeout or self.conf["recv_timeout"]
         msg_p, addr_p = sub
         if addr_p is not None:
@@ -200,7 +204,7 @@ class PipeClient(ACKUDP):
         except (OSError, ConnectionError, asyncio.TimeoutError):
             return None
 
-    async def recv_n(self, n, sub=SUB_ALL):
+    async def recv_n(self, n: int, sub: Any = SUB_ALL) -> bytes:
         buf = b""
         while len(buf) < n:
             out = await self.recv(sub)
@@ -212,7 +216,7 @@ class PipeClient(ACKUDP):
 
     # Async send for TCP and UDP cons.
     # Listen servers also supported.
-    async def send(self, data, dest_tup):
+    async def send(self, data: bytes, dest_tup: Optional[Tuple[Any, ...]]) -> int:
         dest_tup = client_tup_norm(dest_tup)
         try:
             # Get handle reference.

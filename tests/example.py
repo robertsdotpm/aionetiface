@@ -1,6 +1,7 @@
+from typing import Any
 from aionetiface import *
 
-async def do_stuff():
+async def do_stuff() -> None:
     #netifaces = await Netifaces().start()
     print(netifaces.interfaces())
     if_name = netifaces.interfaces()[0]

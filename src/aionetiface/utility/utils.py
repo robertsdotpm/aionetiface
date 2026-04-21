@@ -1,5 +1,6 @@
 import asyncio
 import binascii
+from typing import Any, Callable, Dict, Generator, Iterable, Iterator, List, Optional, Set, Tuple, Type, Union
 import copy
 import ctypes
 import functools
@@ -26,7 +27,31 @@ from ecdsa.curves import NIST192p
 import ecdsa
 
 from .fstr import fstr
-from .error_logger import *
+from .error_logger import log, log_exception, log_p2p
+
+__all__ = [
+    "vmaj", "vmin", "DB_READ_LOCK", "DB_WRITE_LOCK", "STATUS_RETRY", "STATUS_SUCCESS",
+    "STATUS_FAILURE", "MAX_PORT", "to_b", "to_s", "to_hs", "to_h", "to_i", "to_n",
+    "i_to_b", "b_to_i", "h_to_b", "ip_f", "rm_whitespace", "urlencode", "urldecode",
+    "sha256", "hash160", "sha3_256", "b_sha3_256", "dhash", "rendezvous_score",
+    "valid_port", "port_wrap", "to_unique", "strip_none", "shuffle", "d_keys", "d_vals",
+    "list_join", "list_x_to_dict", "from_range", "in_range", "len_range", "dict_plus",
+    "b_and", "b_or", "is_number", "is_bytes", "class_name", "timestamp", "bind_str",
+    "rand_rang", "get_bits", "neg_flip", "numeric_distance", "n_dist", "rand_rang_alias",
+    "rand_b", "rand_b_readable", "rand_plain", "list_clone_rand", "list_exclude_dict",
+    "list_get_dict", "file_get_contents", "to_type", "dict_child", "dict_merge",
+    "xor_bufs", "bits_to_bytes", "buf_in_class", "hamming_weight", "range_intersects",
+    "intersect_range", "field_wrap", "field_dist", "sorted_search", "create_task",
+    "get_running_loop", "safe_run", "return_true", "threshold_gather", "async_wrap_errors",
+    "sync_wrap_errors", "async_retry", "async_test", "async_to_sync",
+    "handler_done_builder", "run_handler", "run_handlers", "run_in_executor",
+    "run_in_executor2", "safe_gather", "sleep_random", "recover_verify_key",
+    "find_intersect", "as_slice", "is_ascii", "sqlite_dict_factory", "what_exception",
+    "my_except_hook", "ensure_resolved",
+    "fstr", "log", "log_exception", "log_p2p",
+    "cancel_task", "cancel_tasks", "rm_done_tasks",
+    "gather_or_cancel", "handle_exceptions",
+]
 
 
 # ---------------------------------------------------------------------------
@@ -92,11 +117,11 @@ MAX_PORT = 65535
 # Type conversion helpers
 # ---------------------------------------------------------------------------
 
-def to_b(x):
+def to_b(x: Union[str, bytes]) -> bytes:
     """Convert x to bytes. Passes through if already bytes."""
     return x if type(x) == bytes else x.encode("ascii", errors='ignore')
 
-def to_s(x):
+def to_s(x: Union[str, bytes]) -> str:
     """Convert x to str. Passes through if already str."""
     return x if type(x) == str else x.decode("utf-8", errors='ignore')
 
@@ -187,7 +212,7 @@ rand_rang = random.randrange
 # Bit manipulation
 # ---------------------------------------------------------------------------
 
-def get_bits(n, length, position=0):
+def get_bits(n: int, length: int, position: int = 0) -> int:
     """
     Extract `length` bits from integer `n` starting at `position`
     (0 = least significant bit).
@@ -202,11 +227,11 @@ def get_bits(n, length, position=0):
 # Numeric distance helpers
 # ---------------------------------------------------------------------------
 
-def neg_flip(result, x, y):
+def neg_flip(result: float, x: float, y: float) -> float:
     """Return -result if x > y, otherwise result."""
     return -result if x > y else result
 
-def numeric_distance(x, y):
+def numeric_distance(x: float, y: float) -> float:
     """Signed distance between two numbers: positive if y > x."""
     raw = max(x, y) - min(x, y)
     return neg_flip(raw, x, y)
@@ -219,18 +244,18 @@ n_dist = numeric_distance
 # Randomness helpers
 # ---------------------------------------------------------------------------
 
-def rand_rang_alias():
+def rand_rang_alias() -> Callable[..., int]:
     """Alias kept for backward compatibility. Prefer random.randrange directly."""
     return random.randrange
 
-def rand_b(n):
+def rand_b(n: int) -> bytes:
     """Return n random bytes."""
     buf = b""
     for i in range(n):
         buf += bytes([random.randrange(256)])
     return buf
 
-def rand_b_readable(n):
+def rand_b_readable(n: int) -> bytes:
     """Return n random printable ASCII bytes (letters, digits, space)."""
     chars = (
         b"abcdefghijklmnopqrstuvwxyz"
@@ -242,7 +267,7 @@ def rand_b_readable(n):
         buf += bytes([random.choice(chars)])
     return buf
 
-def rand_plain(n):
+def rand_plain(n: int) -> bytes:
     """Return n random alphanumeric bytes (no spaces)."""
     charset = (
         b"012345678abcdefghijklmnopqrs"
@@ -254,7 +279,7 @@ def rand_plain(n):
         buf += bytes([ch])
     return buf
 
-def list_clone_rand(the_list, n):
+def list_clone_rand(the_list: List[Any], n: int) -> List[Any]:
     """Return a randomly shuffled copy of the_list, trimmed to n elements."""
     the_clone = the_list[:]
     random.shuffle(the_clone)
@@ -265,7 +290,7 @@ def list_clone_rand(the_list, n):
 # List / dict utilities
 # ---------------------------------------------------------------------------
 
-def list_exclude_dict(key_name, exclusion, entry_list):
+def list_exclude_dict(key_name: str, exclusion: Any, entry_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Return entry_list without entries where entry[key_name] == exclusion."""
     result = []
     for entry in entry_list:
@@ -278,7 +303,7 @@ def list_exclude_dict(key_name, exclusion, entry_list):
 
     return result
 
-def list_get_dict(key_name, criteria, entry_list):
+def list_get_dict(key_name: str, criteria: Any, entry_list: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     """Return the first entry in entry_list where entry[key_name] == criteria."""
     for entry in entry_list:
         if key_name not in entry:
@@ -287,19 +312,19 @@ def list_get_dict(key_name, criteria, entry_list):
         if entry[key_name] == criteria:
             return entry
 
-def file_get_contents(path):
+def file_get_contents(path: str) -> bytes:
     """Read and return the raw bytes of the file at path."""
     with open(path, mode='rb') as f:
         return f.read()
 
-def to_type(x, out_type):
+def to_type(x: Union[str, bytes], out_type: Union[str, bytes]) -> Union[str, bytes]:
     """Convert x to the same type as out_type (str or bytes)."""
     if isinstance(out_type, str):
         return to_s(x)
     if isinstance(out_type, bytes):
         return to_b(x)
 
-def dict_child(x, y):
+def dict_child(x: Dict[str, Any], y: Dict[str, Any]) -> Dict[str, Any]:
     """
     Merge child dict x into template dict y.
 
@@ -314,7 +339,7 @@ def dict_child(x, y):
         out[key] = x[key]
     return out
 
-def dict_merge(x, y):
+def dict_merge(x: Dict[str, Any], y: Dict[str, Any]) -> Dict[str, Any]:
     """Merge dict y into dict x in place and return x."""
     x.update(y)
     return x
@@ -324,7 +349,7 @@ def dict_merge(x, y):
 # Binary utilities
 # ---------------------------------------------------------------------------
 
-def xor_bufs(a, b):
+def xor_bufs(a: bytes, b: bytes) -> bytes:
     """
     XOR two byte strings together.
 
@@ -341,11 +366,11 @@ def xor_bufs(a, b):
 
     return bytes(result)[:min(a_len, b_len)]
 
-def bits_to_bytes(s):
+def bits_to_bytes(s: str) -> bytes:
     """Convert a binary string like '1010' to bytes."""
     return int(s, 2).to_bytes((len(s) + 7) // 8, byteorder='big')
 
-def buf_in_class(cls, buf):
+def buf_in_class(cls: Any, buf: Any) -> Union[str, bool]:
     """
     Search cls for a member whose value equals buf.
 
@@ -359,7 +384,7 @@ def buf_in_class(cls, buf):
             return member
     return False
 
-def hamming_weight(n):
+def hamming_weight(n: int) -> int:
     """
     Count the number of set bits in integer n (also called popcount).
 
@@ -378,7 +403,7 @@ def hamming_weight(n):
 # Range utilities
 # ---------------------------------------------------------------------------
 
-def range_intersects(a, b):
+def range_intersects(a: List[int], b: List[int]) -> bool:
     """
     Return True if two numeric ranges [a[0], a[1]] and [b[0], b[1]] overlap.
 
@@ -394,7 +419,7 @@ def range_intersects(a, b):
     ordered = sum(sorted([a, b]), [])
     return ordered[2] <= ordered[1]
 
-def intersect_range(a, b):
+def intersect_range(a: List[int], b: List[int]) -> List[int]:
     """
     Return the overlapping sub-range [start, end] of ranges a and b.
 
@@ -404,7 +429,7 @@ def intersect_range(a, b):
     all_endpoints = sorted(a + b)
     return [all_endpoints[1], all_endpoints[2]]
 
-def field_wrap(n, field):
+def field_wrap(n: int, field: List[int]) -> int:
     """
     Wrap integer n so that it falls within [field[0], field[1]].
 
@@ -423,7 +448,7 @@ def field_wrap(n, field):
             break
     return x
 
-def field_dist(x, y, field):
+def field_dist(x: int, y: int, field: int) -> int:
     """
     Return the shortest signed distance between x and y within a circular field.
 
@@ -448,7 +473,7 @@ def field_dist(x, y, field):
 # Sorted binary search
 # ---------------------------------------------------------------------------
 
-def sorted_search(n_list, target, start_at=None):
+def sorted_search(n_list: List[int], target: int, start_at: Optional[int] = None) -> Optional[int]:
     """
     Binary search returning the index of the first element >= target.
 
@@ -488,12 +513,12 @@ def sorted_search(n_list, target, start_at=None):
 # Async utilities
 # ---------------------------------------------------------------------------
 
-def create_task(coro, loop=None):
+def create_task(coro: Any, loop: Optional[Any] = None) -> Any:
     """Schedule coro as a task on the given (or current) event loop."""
     loop = loop or asyncio.get_event_loop()
     return loop.create_task(coro)
 
-def get_running_loop():
+def get_running_loop() -> Optional[Any]:
     """
     Return the currently running event loop, or None if there isn't one.
 
@@ -508,7 +533,7 @@ def get_running_loop():
     except RuntimeError:
         return None
 
-async def safe_run(f, args=None):
+async def safe_run(f: Any, args: Optional[List[Any]] = None) -> None:
     """
     Run f(*args), then wait for all remaining tasks in the event loop to finish.
 
@@ -527,11 +552,11 @@ async def safe_run(f, args=None):
 
     await asyncio.gather(*tasks - {cur_task})
 
-async def return_true(result=None):
+async def return_true(result: Any = None) -> bool:
     """No-op coroutine that always returns True. Useful as a stub callback."""
     return True
 
-async def threshold_gather(tasks, result_filter, threshold):
+async def threshold_gather(tasks: List[Any], result_filter: Callable[[List[Any]], List[Any]], threshold: int) -> Optional[Any]:
     """
     Run tasks concurrently and return the first result that appears at least
     `threshold` times after applying result_filter.
@@ -558,7 +583,7 @@ async def threshold_gather(tasks, result_filter, threshold):
 
     return None
 
-async def async_wrap_errors(coro, timeout=None, logging=True):
+async def async_wrap_errors(coro: Any, timeout: Optional[int] = None, logging: bool = True) -> Optional[Any]:
     """
     Await coro, optionally bounded by timeout seconds.
 
@@ -572,12 +597,12 @@ async def async_wrap_errors(coro, timeout=None, logging=True):
             return await asyncio.wait_for(coro, timeout)
     except asyncio.CancelledError:
         raise
-    except Exception:
+    except Exception:  # noqa: BLE001
         if logging:
             log("async_wrap_errors: exception caught")
             log_exception()
 
-def sync_wrap_errors(f, args=None):
+def sync_wrap_errors(f: Callable[..., Any], args: Optional[List[Any]] = None) -> Optional[Any]:
     """
     Call f(*args) synchronously, logging any exception without re-raising.
 
@@ -588,13 +613,13 @@ def sync_wrap_errors(f, args=None):
             return f(*args)
         else:
             return f()
-    except Exception:
+    except Exception:  # noqa: BLE001
         try:
             log_exception()
-        except Exception:
+        except Exception:  # noqa: BLE001
             pass
 
-async def async_retry(gen, count, timeout=4):
+async def async_retry(gen: Callable[[], Any], count: int, timeout: int = 4) -> None:
     """
     Retry the coroutine produced by gen() up to count times with the given timeout.
 
@@ -640,7 +665,7 @@ from .cleanup import (
 )
 
 # Will be used in sample code to avoid boilerplate.
-def async_test(coro, loop=None):
+def async_test(coro: Any, loop: Optional[Any] = None) -> None:
     """
     Run a coroutine (or coroutine function) synchronously.
 
@@ -656,7 +681,7 @@ def async_test(coro, loop=None):
         loop = loop or asyncio.get_event_loop()
         loop.run_until_complete(coro)
 
-def async_to_sync(f, params=None, loop=None):
+def async_to_sync(f: Callable[..., Any], params: Optional[Any] = None, loop: Optional[Any] = None) -> Callable[..., Any]:
     """
     Wrap async function f into a synchronous callable.
 
@@ -688,7 +713,7 @@ def async_to_sync(f, params=None, loop=None):
 # Handler / pipe event dispatch
 # ---------------------------------------------------------------------------
 
-def handler_done_builder(pipe, handler, task=None):
+def handler_done_builder(pipe: Any, handler: Any, task: Optional[Any] = None) -> Callable[[Any], None]:
     """
     Return a done-callback for a handler task attached to pipe.
 
@@ -707,7 +732,7 @@ def handler_done_builder(pipe, handler, task=None):
 
     return on_done
 
-def run_handler(pipe, handler, client_tup, data=None):
+def run_handler(pipe: Any, handler: Callable[..., Any], client_tup: Any, data: Optional[bytes] = None) -> None:
     """
     Dispatch a single handler on a received message.
 
@@ -722,7 +747,7 @@ def run_handler(pipe, handler, client_tup, data=None):
         result = handler(data, client_tup, pipe)
         handler_done_builder(pipe, handler)(result)
 
-def run_handlers(pipe, handlers, client_tup, data=None):
+def run_handlers(pipe: Any, handlers: List[Callable[..., Any]], client_tup: Any, data: Optional[bytes] = None) -> None:
     """
     Dispatch all registered handlers for a pipe event.
 
@@ -737,7 +762,7 @@ def run_handlers(pipe, handlers, client_tup, data=None):
 # Executor wrappers
 # ---------------------------------------------------------------------------
 
-def run_in_executor(f):
+def run_in_executor(f: Callable[..., Any]) -> Callable[..., Any]:
     """
     Decorator that runs f in a thread-pool executor.
 
@@ -763,7 +788,7 @@ def run_in_executor(f):
 
     return inner
 
-def run_in_executor2(f):
+def run_in_executor2(f: Callable[..., Any]) -> Callable[..., Any]:
     """
     Decorator that schedules async functions as tasks, or runs sync
     functions in the executor.
@@ -782,7 +807,7 @@ def run_in_executor2(f):
 # Concurrency safety
 # ---------------------------------------------------------------------------
 
-async def safe_gather(*args):
+async def safe_gather(*args: Any) -> List[Any]:
     """
     Gather coroutines, but run them sequentially on Python 3.5 to avoid
     filling the executor pool, which is buggy on older interpreter versions.
@@ -796,7 +821,7 @@ async def safe_gather(*args):
     else:
         return await asyncio.gather(*args)
 
-async def sleep_random(min_ms=100, max_ms=2000):
+async def sleep_random(min_ms: int = 100, max_ms: int = 2000) -> None:
     """Sleep for a random duration between min_ms and max_ms milliseconds."""
     delay = random.randrange(min_ms, max_ms + 1) / 1000.0
     await asyncio.sleep(delay)
@@ -806,7 +831,7 @@ async def sleep_random(min_ms=100, max_ms=2000):
 # Cryptography utilities
 # ---------------------------------------------------------------------------
 
-def recover_verify_key(msg_b, sig_b, vk_b=None, curve=NIST192p, hashfunc=hashlib.sha1):
+def recover_verify_key(msg_b: bytes, sig_b: bytes, vk_b: Optional[bytes] = None, curve: Any = NIST192p, hashfunc: Any = hashlib.sha1) -> Any:
     """
     Recover ECDSA verify key(s) from a signature.
 
@@ -838,21 +863,21 @@ def recover_verify_key(msg_b, sig_b, vk_b=None, curve=NIST192p, hashfunc=hashlib
 # Miscellaneous
 # ---------------------------------------------------------------------------
 
-def find_intersect(list_a, list_b):
+def find_intersect(list_a: List[Any], list_b: List[Any]) -> Iterator[Any]:
     """Yield values that appear in both list_a and list_b."""
     for a_val in list_a:
         for b_val in list_b:
             if a_val == b_val:
                 yield a_val
 
-def as_slice(needle, haystack):
+def as_slice(needle: bytes, haystack: bytes) -> Optional[slice]:
     """Return a slice for the first occurrence of needle in haystack, or None."""
     pos = haystack.find(needle)
     if pos == -1:
         return None
     return slice(pos, pos + len(needle))
 
-def is_ascii(data):
+def is_ascii(data: Union[str, bytes]) -> bool:
     """Return True if data can be encoded/decoded as ASCII without errors."""
     if isinstance(data, bytes):
         try:
@@ -867,11 +892,11 @@ def is_ascii(data):
         except UnicodeEncodeError:
             return False
 
-def sqlite_dict_factory(cursor, row):
+def sqlite_dict_factory(cursor: Any, row: Any) -> Dict[str, Any]:
     """Row factory for sqlite3 that returns rows as dicts keyed by column name."""
     return {col[0]: row[idx] for idx, col in enumerate(cursor.description)}
 
-def what_exception():
+def what_exception() -> None:
     """
     Print a formatted summary of the current exception to stdout.
 
@@ -903,12 +928,12 @@ def what_exception():
     print("\nFull Traceback:")
     print(traceback.format_exc())
 
-def my_except_hook(exctype, value, tb):
+def my_except_hook(exctype: Type[BaseException], value: BaseException, tb: Any) -> None:
     """Global exception hook that logs unexpected top-level exceptions."""
     log("Global except handler called.")
     log_exception()
 
-def ensure_resolved(targets):
+def ensure_resolved(targets: Union[Any, List[Any]]) -> None:
     """
     Assert that all targets have been resolved (i.e. target.resolved is truthy).
 

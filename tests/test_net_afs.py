@@ -5,10 +5,11 @@ nc -4 -u aionetiface.net 7
 
 
 
+from typing import Any
 from aionetiface import *
 
 class TestAFsWork(unittest.IsolatedAsyncioTestCase):
-    async def test_afs(self):
+    async def test_afs(self) -> None:
         # TODO: fix this in the future when servers are back up
         return
 
@@ -43,7 +44,7 @@ class TestAFsWork(unittest.IsolatedAsyncioTestCase):
                 rp = use_fixed_rp(i)
                 await i.start(rp)
                 one_worked = True
-            except Exception:
+            except (OSError, ValueError, RuntimeError):
                 # Skip test if not supported.
                 continue
 
@@ -82,7 +83,7 @@ class TestAFsWork(unittest.IsolatedAsyncioTestCase):
                     # Cleanup.
                     await pipe.close()
                     pipe = None
-            except:
+            except (OSError, RuntimeError):
                 log_exception()
             finally:
                 if pipe is not None:

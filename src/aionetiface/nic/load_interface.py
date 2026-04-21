@@ -1,21 +1,28 @@
 import asyncio
-from ..errors import *
-from ..settings import *
-from .route.route_pool import *
-from .route.route_utils import *
-from .route.route_load import *
-from .netifaces.netiface_fallback import *
-from .nat.nat_utils import *
-from .route.route_table import *
-from ..protocol.stun.stun_client import *
-from ..entrypoint import *
-from ..servers import INFRA
-from ..updater import *
+from typing import Any, Optional
+from ..errors import InterfaceNotFound, InterfaceInvalidAF
+from ..net.net_defs import AF_ANY, DUEL_STACK, VALID_AFS, VALID_STACKS, IP4, IP6, UDP
+from ..protocol.stun.stun_defs import RFC5389
+from ..utility.utils import async_wrap_errors, fstr, log, log_exception, to_s
+from .route.route_pool import RoutePool
+from .route.route_utils import interfaces_to_rp
+from .route.route_load import discover_nic_wan_ips
+from .netifaces.netiface_fallback import load_if_info_fallback
+from .netifaces.netiface_extra import get_mac_address
+from .interface_utils import (
+    clean_if_list, get_default_iface, get_interface_af,
+    get_interface_stack, get_interface_type,
+)
+from ..protocol.stun.stun_client import STUNClient, get_stun_clients
+from ..entrypoint import aionetiface_setup_netifaces
+from ..servers import INFRA, get_infra
+from ..updater import reconcile_infra, update_server_list
+
 
 _infra_lock = asyncio.Lock()
 
 # Load mac, nic_no, and process name.
-def load_if_info(nic):
+def load_if_info(nic: Any) -> Any:
     # Assume its an AF.
     if isinstance(nic.name, int):
         if nic.name not in [IP4, IP6, AF_ANY]:
@@ -68,7 +75,7 @@ def load_if_info(nic):
 
     return nic
 
-async def load_interface(nic, netifaces, min_agree, max_agree, timeout):
+async def load_interface(nic: Any, netifaces: Optional[Any], min_agree: int, max_agree: int, timeout: int) -> Any:
     global INFRA_BUF
     global INFRA
 

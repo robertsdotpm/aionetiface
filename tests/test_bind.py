@@ -9,11 +9,12 @@ that varies based on the python version. Need to normalize that in the binder fu
 without breaking it.
 """
 
+from typing import Any
 from aionetiface import *
 
 
 class TestBind(unittest.IsolatedAsyncioTestCase):
-    async def test_binder(self):
+    async def test_binder(self) -> None:
         vectors = [
             [
                 "Windows",
@@ -141,7 +142,7 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
 
             try:
                 out = await binder_async(*params, plat=plat)
-            except:
+            except (OSError, ValueError):
                 what_exception()
                 print("skipping ", vector)
                 continue
@@ -155,7 +156,7 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
 
         assert(failed == 0)
 
-    async def test_bind_closure(self):
+    async def test_bind_closure(self) -> None:
         pass
 
         i = await Interface()
@@ -188,7 +189,7 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
             b = Bind(i, IP6, leave_none=1)
 
             out = (await bind_closure(b, binder_async)(80, "fe80::6c00:b217:18ca:e365"))._bind_tups
-        except:
+        except (OSError, ValueError):
             log_exception()
 
         #assert(out[1][2] > 0 or out[2][2] > 0)
@@ -196,12 +197,12 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
 
         #out = (await bind_closure(b)(80, ""))._bind_tups
         
-    async def test_bind(self):
+    async def test_bind(self) -> None:
         i = await Interface()
         af = i.stack if i.stack != DUEL_STACK else IP4
         b = Bind(i, af)
 
-    async def test_ip_val_v6_bind_types(self):
+    async def test_ip_val_v6_bind_types(self) -> None:
         i = await Interface()
         try:
             # Test global tuples set.
@@ -222,10 +223,10 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
             s = await socket_factory(b)
             self.assertTrue(isinstance(s, socket.socket))
             s.close()
-        except:
+        except (OSError, ValueError, AttributeError):
             return
 
-    async def test_ip_val_v4_bind_types(self):
+    async def test_ip_val_v4_bind_types(self) -> None:
         i = await Interface()
 
         # Test nic bind occurs.
@@ -235,14 +236,14 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
             await b.bind()
             self.assertEqual(b.bind_tup(flag=NIC_BIND)[0], ip)
 
-    async def test_route_v4_bind_types(self):
+    async def test_route_v4_bind_types(self) -> None:
         i = await Interface()
         r = i.route(IP4)
         b = await r.bind()
         tup = b.bind_tup(flag=NIC_BIND)
         self.assertTrue(tup[0])
 
-    async def test_route_v6_bind_types(self):
+    async def test_route_v6_bind_types(self) -> None:
         i = await Interface()
 
         try:
@@ -254,20 +255,20 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
             b = await r.bind()
             tup = b.bind_tup(flag=EXT_BIND)
             self.assertTrue(tup[0])
-        except:
+        except (OSError, ValueError, AttributeError):
             return
 
     # TODO: netifaces is pulling invalid net masks for some IPs?
-    async def test_bind_assumptions(self):
+    async def test_bind_assumptions(self) -> None:
         ip = "139.99.209.1"
         #socket.socket(IP4, TCP)
 
 
-    async def test_bind_start_v4_all_addr(self):
+    async def test_bind_start_v4_all_addr(self) -> None:
         af = IP4
         try:
             i = await Interface(af)
-        except:
+        except (OSError, ValueError):
             # If not supported.
             return
 
@@ -279,7 +280,7 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
         if s is not None:
             s.close()
 
-    async def test_bind_start_v6_all_addr(self):
+    async def test_bind_start_v6_all_addr(self) -> None:
         i = await Interface()
         try:
             af = IP6
@@ -301,7 +302,7 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(s is not None)
             if s is not None:
                 s.close()
-        except:
+        except (OSError, ValueError, TypeError):
             return
 
 # TODO loopback tests.

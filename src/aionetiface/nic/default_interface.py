@@ -4,13 +4,17 @@ theres no actual nic_no stuff this is for simplied programs.
 """
 
 import socket
-from ..net.ip_range import *
-from ..net.net_utils import *
-from .route.route import *
-from .route.route_pool import *
-from .interface_utils import *
+from typing import Any, Dict, Optional
+from ..net.net_defs import IP4, IP6
+from ..net.net_utils import ip_norm
+from ..net.ip_range import IPR
+from .route.route import Route
+from .route.route_pool import RoutePool
+from .interface_utils import get_interface_stack
+from .nat.nat_utils import nat_info
 
-def get_default_routes(nic):
+
+def get_default_routes(nic: Any) -> Dict[int, Any]:
     dests = {
         IP4: "8.8.8.8",
         IP6: "2001:4860:4860::8888"
@@ -32,7 +36,7 @@ def get_default_routes(nic):
 
     return routes
 
-def use_default_interface(nic):
+def use_default_interface(nic: Any) -> None:
     nic.name = "default"
     nic.timeout = 4
     nic.netiface_index = 0

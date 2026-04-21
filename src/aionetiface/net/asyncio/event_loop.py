@@ -3,7 +3,9 @@ import socket
 import selectors
 import traceback
 import weakref
+from typing import Any, Dict, List, Optional
 from ...utility.utils import *
+
 
 # Map: id(socket_object) -> Future
 # We use id() because FDs are recycled, but Python object memory IDs 
@@ -13,7 +15,7 @@ CLOSE_FUTURES = {}
 class ProxySelector:
     """A wrapper around elector object to intercept unregister calls."""
     
-    def __init__(self, selector_instance, loop):
+    def __init__(self, selector_instance: Any, loop: Any) -> None:
         self.selector = selector_instance
         self.loop = loop
 
@@ -24,7 +26,7 @@ class ProxySelector:
         self.get_map = selector_instance.get_map
         self.get_key = selector_instance.get_key
 
-    def maybe_signal_removal(self, fd, events, data):
+    def maybe_signal_removal(self, fd: Any, events: int, data: Any) -> None:
         """Helper to signal if FD is being completely unregistered."""
         
         # Check if the FD's future exists in the global map
@@ -41,7 +43,7 @@ class ProxySelector:
                     # potential recursion issues during selector processing
                     self.loop.call_soon(future.set_result, True)
 
-    def unregister(self, fd):
+    def unregister(self, fd: Any) -> Any:
         """Intercepts the complete removal of the FD."""
         # CLOSE_FUTURES is keyed by integer fd.  Convert a socket/file object
         # to its integer fd before the lookup so the future is actually found.
@@ -49,7 +51,7 @@ class ProxySelector:
         self.maybe_signal_removal(real_fd, 0, None)
         return self.selector.unregister(fd)
     
-    def modify(self, fd, events, data=None):
+    def modify(self, fd: Any, events: int, data: Optional[Any] = None) -> Any:
         """Intercepts modification, checking if FD is effectively unregistered."""
         # fileobj/fd check
         real_fd = fd if isinstance(fd, int) else fd.fileno()
@@ -64,7 +66,7 @@ class ProxySelector:
 class CustomEventLoop(asyncio.SelectorEventLoop):
     """Event loop that uses the ProxySelector."""
     
-    def __init__(self, selector=None):
+    def __init__(self, selector: Optional[Any] = None) -> None:
         # Determine the default selector class if none is provided
         if selector is None:
             selector_cls = selectors.DefaultSelector
@@ -81,7 +83,7 @@ class CustomEventLoop(asyncio.SelectorEventLoop):
         # The base SelectorEventLoop expects a selector object here.
         super().__init__(proxy_selector)
 
-    def close(self):
+    def close(self) -> None:
         """
         Override to drain CLOSE_FUTURES when the loop is closed.
 
@@ -103,7 +105,7 @@ class CustomEventLoop(asyncio.SelectorEventLoop):
         super().close()
 
     # Add your public API method back (using the global map from the proxy)
-    def await_fd_close(self, sock):
+    def await_fd_close(self, sock: Any) -> Any:
         # Ensure we are not returning a coroutine
         fd = sock.fileno()
         if fd == -1:
@@ -122,7 +124,7 @@ class CustomEventLoop(asyncio.SelectorEventLoop):
 
 class CustomEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
     @staticmethod
-    def exception_handler(self, context):
+    def exception_handler(self: Any, context: Dict[str, Any]) -> None:
         """
         Custom asyncio exception handler.
         Logs exception type, message, and the line number where it occurred.
@@ -162,7 +164,7 @@ class CustomEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
         log("\n".join(buf))
 
     @staticmethod
-    def loop_setup(loop):
+    def loop_setup(loop: Any) -> None:
         loop.set_debug(False)
         loop.set_exception_handler(CustomEventLoopPolicy.exception_handler)
         # Note: do NOT assign to loop.default_exception_handler here.
@@ -171,7 +173,7 @@ class CustomEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
         # not two.  Assigning our staticmethod (which needs two args) would cause a
         # TypeError the first time the default handler is invoked directly.
 
-    def new_event_loop(self):
+    def new_event_loop(self) -> CustomEventLoop:
         selector = selectors.SelectSelector()
         loop = CustomEventLoop(selector)
         CustomEventLoopPolicy.loop_setup(loop)

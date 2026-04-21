@@ -1,8 +1,9 @@
+from typing import Any
 from aionetiface import *
 
 
 class TestIPRange(unittest.IsolatedAsyncioTestCase):
-    async def test_domain_resolve(self):
+    async def test_domain_resolve(self) -> None:
         i = await Interface()
         r = i.route()
         a = ("www.google.com", 80)
@@ -11,7 +12,7 @@ class TestIPRange(unittest.IsolatedAsyncioTestCase):
         assert(dest.IP4 is not None)
 
 
-    async def test_v6_resolve(self):
+    async def test_v6_resolve(self) -> None:
         try:
             i = await Interface()
             dest = Address(
@@ -20,10 +21,10 @@ class TestIPRange(unittest.IsolatedAsyncioTestCase):
             )
             await dest.res( i.route(IP6) )
             assert(dest.IP6 is not None)
-        except:
+        except (OSError, ValueError, AttributeError):
             log_exception()
 
-    async def test_v4_resolve(self):
+    async def test_v4_resolve(self) -> None:
         try:
             i = await Interface()
             dest = Address(
@@ -32,7 +33,7 @@ class TestIPRange(unittest.IsolatedAsyncioTestCase):
             )
             await dest.res( i.route(IP4) )
             assert(dest.IP4 is not None)
-        except:
+        except (OSError, ValueError, AttributeError):
             log_exception()
 
 if __name__ == '__main__':

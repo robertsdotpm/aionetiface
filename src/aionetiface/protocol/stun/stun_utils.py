@@ -6,13 +6,16 @@ The main entry point is get_stun_reply, which sends a STUN binding request
 and returns the parsed reply with address fields attached.
 """
 
-from ...utility.utils import *
-from .stun_defs import *
-from ...net.net_utils import *
-from ...net.ip_range import *
-from ...net.net_patterns import *
+import re
+from typing import Any, Dict, List, Optional, Tuple
+from ...utility.utils import async_test, buf_in_class, fstr, log, to_h, valid_port
+from ...errors import ErrorNoReply
+from .stun_defs import RFC3489, STUNAddrTup, STUNAttrs, STUNMsg
+from ...net.ip_range import IPRange
+from ...net.net_patterns import send_recv_loop
 
-def stun_proc_attrs(af, attr_code, attr_data, msg):
+
+def stun_proc_attrs(af: int, attr_code: Any, attr_data: Any, msg: Any) -> None:
     # Set our remote IP and port.
     if not hasattr(msg, "rtup"):
         xor_addr_attrs = [STUNAttrs.XorMappedAddressX, STUNAttrs.XorMappedAddress]
@@ -38,7 +41,7 @@ def stun_proc_attrs(af, attr_code, attr_data, msg):
             ).unpack(attr_code, attr_data)
             msg.ctup = stun_addr_field.tup
 
-def stun_proto(buf, af):
+def stun_proto(buf: bytes, af: int) -> Tuple[Any, bytes]:
     msg, buf = STUNMsg.unpack(buf)
     msg.af = af
     while not msg.eof():
@@ -50,7 +53,7 @@ def stun_proto(buf, af):
 
 # Handles making a STUN request to a server.
 # Pipe also accepts route and its upgraded to a pipe.
-async def get_stun_reply(mode, dest_addr, reply_addr, pipe, attrs=None):
+async def get_stun_reply(mode: int, dest_addr: Tuple[str, int], reply_addr: Tuple[str, int], pipe: Any, attrs: Optional[List[Any]] = None) -> Any:
     """
     The function uses subscriptions to the TXID so that even
     on unordered protocols like UDP the right reply is returned.
@@ -82,7 +85,7 @@ async def get_stun_reply(mode, dest_addr, reply_addr, pipe, attrs=None):
     reply.stup = reply_addr
     return reply
 
-async def stun_reply_to_ret_dic(reply):
+async def stun_reply_to_ret_dic(reply: Any) -> Optional[Dict[str, Any]]:
     ret = {}
     if reply is None:
         return None
@@ -118,7 +121,7 @@ async def stun_reply_to_ret_dic(reply):
     ret["resp"] = True
     return ret
 
-def validate_stun_reply(reply, mode):
+def validate_stun_reply(reply: Any, mode: int) -> Optional[Any]:
     if reply is None:
         return None
 
@@ -153,7 +156,7 @@ def validate_stun_reply(reply, mode):
     return reply
     
 
-async def run_stun_utils():
+async def run_stun_utils() -> None:
     m = STUNMsg()
     buf = m.encode()
 

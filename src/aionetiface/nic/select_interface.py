@@ -1,6 +1,18 @@
-from .interface import *
+import asyncio
+import platform
+from typing import Any, List, Optional, Tuple
+from ..utility.utils import fstr, log, log_exception, to_unique
+from ..net.net_defs import INTERFACE_UNKNOWN, VALID_AFS, IP4, IP6
+from ..net.ip_range import IPRange
+from ..net.net_utils import determine_if_path
+from .route.route import Route
+from .route.route_table import is_internet_if
+from .interface import Interface
+from .interface_utils import get_interface_type, log_interface_rp
+from ..entrypoint import aionetiface_setup_netifaces
 
-def get_if_by_nic_ipr(nic_ipr, netifaces):
+
+def get_if_by_nic_ipr(nic_ipr: Any, netifaces: Any) -> Optional[Any]:
     for if_name in netifaces.interfaces():
         valid_afs = [netifaces.AF_INET, netifaces.AF_INET6]
         addr_infos = netifaces.ifaddresses(if_name)
@@ -27,7 +39,7 @@ correspond to a certain network interface which
 can be double-checked against what interface is
 intended as the source for a connection.
 """
-async def select_if_by_dest(af, src_index, dest_ip, interface, ifs=None):
+async def select_if_by_dest(af: int, src_index: int, dest_ip: str, interface: Any, ifs: Optional[List[Any]] = None) -> Tuple[Any, int]:
     """
     All valid interfaces for the software can reach
     internet -- use original interface if the dest_ip
@@ -103,7 +115,7 @@ so that only interfaces that are used for the Internet remain.
 Already done in win_netifaces. Uses route tables for Linux and Mac.
 Other OS is based on the interface name (not that accurate.)
 """
-async def filter_trash_interfaces(netifaces=None):
+async def filter_trash_interfaces(netifaces: Optional[Any] = None) -> List[str]:
     netifaces = netifaces or Interface.get_netifaces()
     ifs = netifaces.interfaces()
     os_family = platform.system()
@@ -148,7 +160,7 @@ async def filter_trash_interfaces(netifaces=None):
 
     return clean_ifs
 
-async def list_interfaces(netifaces=None):
+async def list_interfaces(netifaces: Optional[Any] = None) -> List[str]:
     if netifaces is None:
         netifaces = await aionetiface_setup_netifaces()
 

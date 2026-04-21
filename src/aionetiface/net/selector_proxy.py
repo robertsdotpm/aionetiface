@@ -6,13 +6,14 @@ disconnects. Written entirely by AI but seems to work.
 
 import selectors
 import socket
+from typing import Any, Dict, Optional, Tuple
 from ..utility.error_logger import *
 from .net_utils import *
 
 import socket
 import selectors
 
-def close_pair(sock, peers, selector, buffers):
+def close_pair(sock: Any, peers: Dict[Any, Any], selector: Any, buffers: Dict[Any, bytes]) -> None:
     """Cleans up both sides of the proxy connection."""
     peer = peers.pop(sock, None)
     if peer:
@@ -31,7 +32,7 @@ def close_pair(sock, peers, selector, buffers):
             pass
         buffers.pop(s, None)
 
-def selector_proxy(socket_p, destination, stop_reader):
+def selector_proxy(socket_p: Any, destination: Tuple[str, int], stop_reader: Any) -> None:
     selector = selectors.DefaultSelector()
     socket_r = None
     try:

@@ -18,11 +18,13 @@ TODO: revisit drain and shutdown for close.
 """
 
 import asyncio
+from typing import Any, Callable, Dict, List, Optional, Tuple
 from ...utility.utils import *
 from ..net_utils import *
 from ...protocol.ack_udp import *
 from .pipe_client import *
 from .pipe_utils import *
+
 
 """
 In Python's asyncio code you can use so-called 'protocol' classes
@@ -36,7 +38,7 @@ mix well with the async way of doing things. But with some small
 tweaks it is flexible enough to do whatever you want.
 """
 class PipeEvents(BaseACKProto):
-    def __init__(self, sock, route=None, loop=None, conf=NET_CONF):
+    def __init__(self, sock: Any, route: Any = None, loop: Any = None, conf: Any = NET_CONF) -> None:
         # Config.
         self.conf = conf
         self.loop = loop
@@ -115,19 +117,19 @@ class PipeEvents(BaseACKProto):
         self.reachability = {IP4: {}, IP6: {}}
 
     # Indicates the type of endpoint this is.
-    def set_endpoint_type(self, endpoint_type):
+    def set_endpoint_type(self, endpoint_type: int) -> None:
         self.endpoint_type = endpoint_type
 
     # Used for event-based programming.
     # Can execute code on new cons, dropped cons, and new msgs.
-    def run_handlers(self, handlers, client_tup=None, data=None):
+    def run_handlers(self, handlers: List[Any], client_tup: Optional[Tuple[Any, ...]] = None, data: Optional[bytes] = None) -> None:
         # Run any registered call backs on msg.
         self.handler_tasks = rm_done_tasks(self.handler_tasks)
         for handler in handlers:
             # Run the handler as a callback or coroutine.
             run_handler(self, handler, client_tup, data)
 
-    def get_client_tup(self):
+    def get_client_tup(self) -> Optional[Tuple[Any, ...]]:
         # Get transport address.
         client_tup = None
         if self.sock is not None:
@@ -142,7 +144,7 @@ class PipeEvents(BaseACKProto):
 
         return client_tup
     
-    def add_tcp_client(self, client):
+    def add_tcp_client(self, client: Any) -> None:
         # Save location of this client pipe in the table.
         client.p_client_entry = self.p_client_insert
 
@@ -154,7 +156,7 @@ class PipeEvents(BaseACKProto):
         self.tcp_clients.append(client)
         self.client_futures[client.p_client_entry].set_result(client)
 
-    async def make_awaitable(self):
+    async def make_awaitable(self) -> Any:
         if self.endpoint_type == TYPE_TCP_SERVER:
             bound = self.p_client_insert + 1
             for p in range(0, bound):
@@ -180,53 +182,53 @@ class PipeEvents(BaseACKProto):
             # UDP server or con -> multiplex so one pipe for everything.
             return self
 
-    def __await__(self):
+    def __await__(self) -> Any:
         return self.make_awaitable().__await__()
 
-    def set_tcp_server(self, server):
+    def set_tcp_server(self, server: Any) -> None:
         self.transport = server
         self.tcp_server = server
 
-    def set_tcp_server_task(self, task):
+    def set_tcp_server_task(self, task: Any) -> None:
         self.tcp_server_task = task
 
-    def set_ack_handlers(self, is_ack, is_ackable):
+    def set_ack_handlers(self, is_ack: Callable[..., Any], is_ackable: Callable[..., Any]) -> "PipeEvents":
         self.is_ack = is_ack
         self.is_ackable = is_ackable
         return self
 
-    def add_pipe(self, pipe):
+    def add_pipe(self, pipe: Any) -> "PipeEvents":
         self.pipes.append(pipe)
         pipe.parent_pipes.append(self)
         return self
 
-    def del_pipe(self, pipe):
+    def del_pipe(self, pipe: Any) -> "PipeEvents":
         if pipe in self.pipes:
             self.pipes.remove(pipe)
 
         return self
 
-    def add_msg_cb(self, msg_cb):
+    def add_msg_cb(self, msg_cb: Callable[..., Any]) -> "PipeEvents":
         self.msg_cbs.append(msg_cb)
         return self
 
-    def del_msg_cb(self, msg_cb):
+    def del_msg_cb(self, msg_cb: Callable[..., Any]) -> "PipeEvents":
         if msg_cb in self.msg_cbs:
             self.msg_cbs.remove(msg_cb)
 
         return self
     
-    def add_up_cb(self, up_cb):
+    def add_up_cb(self, up_cb: Callable[..., Any]) -> "PipeEvents":
         self.up_cbs.append(up_cb)
         return self
 
-    def del_up_cb_cb(self, up_cb):
+    def del_up_cb_cb(self, up_cb: Callable[..., Any]) -> "PipeEvents":
         if up_cb in self.up_cbs:
             self.up_cbs.remove(up_cb)
 
         return self
 
-    def add_end_cb(self, end_cb):
+    def add_end_cb(self, end_cb: Callable[..., Any]) -> "PipeEvents":
         self.end_cbs.append(end_cb)
 
         # Make sure it runs if this is already closed.
@@ -235,14 +237,14 @@ class PipeEvents(BaseACKProto):
 
         return self
 
-    def del_end_cb(self, end_cb):
+    def del_end_cb(self, end_cb: Callable[..., Any]) -> "PipeEvents":
         if end_cb in self.end_cbs:
             self.end_cbs.remove(end_cb)
 
         return self
 
     # Called only once for UDP.
-    def connection_made(self, transport):
+    def connection_made(self, transport: Any) -> None:
         if self.stream is None:
             # Record the endpoint.
             if transport is not None:
@@ -257,7 +259,7 @@ class PipeEvents(BaseACKProto):
         self.run_handlers(self.up_cbs)
 
     # Socket closed manually or shutdown by other side.
-    def connection_lost(self, exc):
+    def connection_lost(self, exc: Optional[Exception]) -> None:
         super().connection_lost(exc)
 
         # Remove self from any parent pipes.
@@ -268,7 +270,7 @@ class PipeEvents(BaseACKProto):
         self.run_handlers(self.end_cbs, self.client_tup)
         self.on_close.set()
 
-    def route_msg(self, data, client_tup):
+    def route_msg(self, data: bytes, client_tup: Tuple[Any, ...]) -> None:
         # No data to route.
         if not data:
             return
@@ -295,7 +297,7 @@ class PipeEvents(BaseACKProto):
             (client_tup[0], client_tup[1])
         )
 
-    def handle_data(self, data, client_tup):
+    def handle_data(self, data: bytes, client_tup: Tuple[Any, ...]) -> None:
         # Convert data to bytes.
         if isinstance(data, bytearray):
             data = bytes(data)
@@ -339,11 +341,11 @@ class PipeEvents(BaseACKProto):
         # Route message to stream.
         self.route_msg(data, client_tup)
 
-    def error_received(self, exp):
+    def error_received(self, exp: Exception) -> None:
         log_exception()
 
     # UDP packets.
-    def datagram_received(self, data, client_tup):
+    def datagram_received(self, data: bytes, client_tup: Tuple[Any, ...]) -> None:
         #log(fstr("Base proto recv udp = {0} {1}", (client_tup, data,)))
         if self.transport is None:
             log(fstr("Skipping process data cause transport none 1."))
@@ -352,7 +354,7 @@ class PipeEvents(BaseACKProto):
         self.handle_data(data, client_tup)
 
     # Single TCP connection.
-    def data_received(self, data):
+    def data_received(self, data: bytes) -> None:
         try:
             #log(fstr("Base proto recv tcp = {0}", (data,)))
             if self.transport is None:
@@ -367,7 +369,7 @@ class PipeEvents(BaseACKProto):
         except (OSError, ConnectionError):
             log_exception()
 
-    async def close(self, force=False, keep_clients=False):
+    async def close(self, force: bool = False, keep_clients: bool = False) -> None:
         if not self.is_running:
             return
 
@@ -436,30 +438,30 @@ class PipeEvents(BaseACKProto):
             self.proc_lock.release()
 
     # Return a matching message, async, non-blocking.
-    async def recv(self, sub=SUB_ALL, timeout=2, full=False):
+    async def recv(self, sub: Any = SUB_ALL, timeout: int = 2, full: bool = False) -> Optional[bytes]:
         return await self.stream.recv(sub, timeout, full)
     
-    async def recv_n(self, n, sub=SUB_ALL):
+    async def recv_n(self, n: int, sub: Any = SUB_ALL) -> Optional[List[bytes]]:
         return await self.stream.recv_n(n, sub)
 
-    async def send(self, data, dest_tup=None):
+    async def send(self, data: bytes, dest_tup: Optional[Tuple[Any, ...]] = None) -> None:
         dest_tup = dest_tup or self.stream.dest_tup
         return await self.stream.send(data, dest_tup)
 
     # Sync subscribe to a message.
     # Easy way to get a message from sync code too.
-    def subscribe(self, sub=SUB_ALL, handler=None):
+    def subscribe(self, sub: Any = SUB_ALL, handler: Optional[Callable[..., Any]] = None) -> Any:
         return self.stream.subscribe(sub, handler)
 
-    def unsubscribe(self, sub):
+    def unsubscribe(self, sub: Any) -> None:
         return self.stream.unsubscribe(sub)
 
     # Echo client just for testing.
-    async def echo(self, msg, dest_tup):
+    async def echo(self, msg: bytes, dest_tup: Tuple[Any, ...]) -> None:
         buf = bytearray().join([b"ECHO ", msg, b"\n"])
         await self.send(buf, dest_tup)
 
-    async def safe_write(self, data):
+    async def safe_write(self, data: bytes) -> None:
         # 1. Check BEFORE writing
         if self.on_close.is_set() or self.transport is None or self.transport.is_closing():
             raise ConnectionError("Attempted to write to a closed socket.")
@@ -485,9 +487,9 @@ class PipeEvents(BaseACKProto):
                 break
             await asyncio.sleep(0.01) # Small yields to the loop
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "PipeEvents":
         return self
 
-    async def __aexit__(self, *_):
+    async def __aexit__(self, *_: Any) -> bool:
         await self.close()
         return False

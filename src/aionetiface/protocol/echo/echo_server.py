@@ -1,12 +1,15 @@
-from ...net.daemon import *
+import asyncio
+from typing import Any, Tuple
+from ...net.daemon import Daemon
+from ...utility.utils import async_wrap_errors
 from ...utility.fstr import fstr
 from ...net.asyncio.async_run import async_run
 
 class EchoServer(Daemon):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
-    async def msg_cb(self, msg, client_tup, pipe):
+    async def msg_cb(self, msg: bytes, client_tup: Tuple[Any, ...], pipe: Any) -> None:
         await async_wrap_errors(
             pipe.send(msg, client_tup)
         )

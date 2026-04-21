@@ -4,8 +4,12 @@ import operator
 import os
 import random
 from functools import reduce
+from typing import Any, Dict, List, Optional
 
-from .net.net_defs import *
+from .net.net_defs import IP4, IP6, UDP, TCP
+from .utility.utils import rand_b, to_b
+
+__all__ = ["INFRA", "INFRA_SEED", "rng_for_attempt", "filter_by_score", "get_infra"]
 
 _SERVERS_JSON = os.path.join(os.path.dirname(__file__), "servers.json")
 
@@ -16,13 +20,13 @@ INFRA = json.loads(INFRA_BUF)
 INFRA_SEED = rand_b(8)
 
 
-def rng_for_attempt(attempt):
+def rng_for_attempt(attempt: int) -> random.Random:
     h = hashlib.sha256(INFRA_SEED + to_b(str(attempt))).digest()
     seed = int.from_bytes(h[:8], "big")
     return random.Random(seed)
 
 
-def filter_by_score(groups, threshold=0.8):
+def filter_by_score(groups: List[List[Dict[str, Any]]], threshold: float = 0.8) -> List[List[Dict[str, Any]]]:
     filtered = []
     for group in groups:
         if not group:
@@ -33,7 +37,7 @@ def filter_by_score(groups, threshold=0.8):
     return filtered
 
 
-def get_infra(af, proto, name, no=1, attempt=0, sample=False):
+def get_infra(af: int, proto: int, name: str, no: int = 1, attempt: int = 0, sample: bool = False) -> List[Any]:
     af_str = ".IPv4" if af == IP4 else ".IPv6"
     proto_str = ".UDP" if proto == UDP else ".TCP"
     name = name + af_str + proto_str

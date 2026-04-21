@@ -1,9 +1,11 @@
 import asyncio
 import threading
 from asyncio import events, coroutines, tasks
+from typing import Any, Optional, Type
 from ...utility.cleanup import cancel_all_tasks
 
-def patch_asyncio_backports(loop_cls=None):
+
+def patch_asyncio_backports(loop_cls: Optional[Type[Any]] = None) -> None:
     from concurrent.futures import ThreadPoolExecutor
 
     # Default to whatever class is passed, or fall back to the base event loop
@@ -29,7 +31,7 @@ def patch_asyncio_backports(loop_cls=None):
                 executor.shutdown(wait=True)
         loop_cls.shutdown_default_executor = _shutdown_default_executor
 
-def async_run(main, *, debug=False):
+def async_run(main: Any, *, debug: bool = False) -> Any:
     """Execute the coroutine and return the result.
 
     This function runs the passed coroutine, taking care of

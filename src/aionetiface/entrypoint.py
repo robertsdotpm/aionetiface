@@ -2,9 +2,11 @@ import asyncio
 import multiprocessing
 import socket
 import sys
+from typing import Any, Optional
 from .settings import *
 from .servers import get_infra
 from .utility.utils import *
+from .net.net_defs import AF_ANY, IP4, IP6, UDP
 from .net.asyncio.event_loop import *
 from .net.asyncio.async_run import *
 from .net.asyncio.asyncio_patches import *
@@ -42,7 +44,7 @@ similar stuff on Github. May be something to add in the future.
 Otherwise -- the nix and BSD versions happily accept the regular
 netifaces module from pypi which doesn't need deps to work.
 """
-async def aionetiface_setup_netifaces():
+async def aionetiface_setup_netifaces() -> Any:
     global ENABLE_UDP
     global ENABLE_STUN
     global _cached_netifaces
@@ -125,7 +127,7 @@ async def aionetiface_setup_netifaces():
         _cached_netifaces = netifaces
         return netifaces
 
-def aionetiface_setup_event_loop():
+def aionetiface_setup_event_loop() -> None:
     # -----------------------------
     # Patch logic based on Python version
     # -----------------------------
@@ -168,7 +170,7 @@ def aionetiface_setup_event_loop():
 
 aionetiface_setup_event_loop()
 
-async def entrypoint_test():
+async def entrypoint_test() -> None:
     out = await aionetiface_setup_netifaces()
     print(out)
 

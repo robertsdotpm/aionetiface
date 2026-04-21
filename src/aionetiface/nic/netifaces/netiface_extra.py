@@ -1,10 +1,17 @@
+import asyncio
+import platform
 import re
-from ...net.net_utils import *
-from ...net.ip_range import *
-from ...utility.cmd_tools import *
-from ...net.bind.bind_rules import *
+import socket
+from typing import Any, Dict, List, Optional
+from ...utility.utils import fstr, log, log_exception
+from ...utility.cmd_tools import cmd
+from ...net.net_defs import AF_ANY, INTERFACE_UNKNOWN, IP4, IP6, TCP, VALID_AFS
+from ...net.net_utils import af_bitlen, mac_norm
+from ...net.ip_range import IPRange
+from ...net.bind.bind_rules import binder_async
 
-async def get_mac_mixed(if_name):
+
+async def get_mac_mixed(if_name: str) -> Optional[str]:
     mac_p = r"((?:[0-9a-fA-F]{2}[\s:-]*){6})"
     win_p = r"[0-9]+\s*[.]+([^.]+)\s*[.]+"
     grep_p = "egrep 'lladdr|ether|link'"
@@ -64,7 +71,7 @@ async def get_mac_mixed(if_name):
             return None
 
 # Netifaces apparently doesn't use their own values...
-def af_to_netiface(af):
+def af_to_netiface(af: int) -> int:
     if af == IP4:
         return int(IP4)
         return netifaces.AF_INET
@@ -75,7 +82,7 @@ def af_to_netiface(af):
 
     return af
 
-def netiface_to_af(af, netifaces):
+def netiface_to_af(af: int, netifaces: Any) -> int:
     if af == netifaces.AF_INET:
         return IP4
 
@@ -84,11 +91,11 @@ def netiface_to_af(af, netifaces):
 
     return af
 
-def is_af_routable(af, netifaces):
+def is_af_routable(af: int, netifaces: Any) -> bool:
     af = af_to_netiface(af)
     return af in netifaces.gateways()
 
-async def get_mac_address(name, netifaces):
+async def get_mac_address(name: str, netifaces: Any) -> Optional[str]:
     if not hasattr(netifaces.ifaddresses(name), "AF_LINK"):
         try:
             mac = await get_mac_mixed(name)
@@ -102,7 +109,7 @@ async def get_mac_address(name, netifaces):
     return mac_norm(mac)
     
 # Note: Discards subnet for single addresses.
-async def netiface_addr_to_ipr(af, nic_id, info):
+async def netiface_addr_to_ipr(af: int, nic_id: Any, info: Dict[str, str]) -> Optional[Any]:
     # Some interfaces might not have valid information set.
     if "addr" not in info:
         return None
@@ -181,7 +188,7 @@ async def netiface_addr_to_ipr(af, nic_id, info):
 
     return nic_ipr
 
-async def get_nic_private_ips(interface, af, netifaces, loop=None):
+async def get_nic_private_ips(interface: Any, af: int, netifaces: Any, loop: Optional[Any] = None) -> List[Any]:
     loop = loop or asyncio.get_event_loop()
     nic_iprs = []
     if_name = interface.name
@@ -205,7 +212,7 @@ async def get_nic_private_ips(interface, af, netifaces, loop=None):
 Netifaces doesn't return the right default interface
 on android. Need a patch for this.
 """
-def netiface_gateways(netifaces, get_interface_type, preference=AF_ANY):
+def netiface_gateways(netifaces: Any, get_interface_type: Any, preference: int = AF_ANY) -> Dict[str, Any]:
     gws = netifaces.gateways()
     gateway = None
     iface = None

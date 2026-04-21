@@ -1,7 +1,9 @@
 import asyncio
 import socket
 
-def patch():
+from typing import Any, List, Optional
+
+def patch() -> None:
     """Patch selectors.SelectSelector to fix WinError 10038 in Windows
 
     Ref: https://bugs.python.org/issue33350
@@ -10,7 +12,7 @@ def patch():
     import select
     from selectors import SelectSelector
 
-    def _select(self, r, w, _, timeout=None):
+    def _select(self: Any, r: Any, w: Any, _: Any, timeout: Optional[float] = None) -> Any:
         try:
             r, w, x = select.select(r, w, w, timeout)
         except OSError as e:
@@ -25,12 +27,12 @@ def patch():
 
 class MyProtocol(asyncio.Protocol):
 
-    def connection_made(self, transport):
+    def connection_made(self, transport: Any) -> None:
         transport.write(b'123')   # just in case a write is needed
 
 port = 6666
 
-async def connect_and_recv(loop, sock):
+async def connect_and_recv(loop: Any, sock: Any) -> None:
     try:
         await loop.sock_connect(sock, ('127.0.0.1', port))
         while True:
@@ -40,7 +42,7 @@ async def connect_and_recv(loop, sock):
         sock.close()
 
 
-async def main(loop):
+async def main(loop: Any) -> None:
     server = await loop.create_server(MyProtocol, '127.0.0.1', port)
     sock = socket.socket()
     sock.setblocking(False)
