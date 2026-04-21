@@ -37,14 +37,11 @@ async def gather_or_cancel(tasks, timeout):
         for task in tasks:
             task.cancel()
         cancelled = asyncio.gather(*tasks, return_exceptions=True)
-        try:
-            await cancelled
-        except Exception:
-            pass
+        await cancelled
         await asyncio.sleep(0)
     except asyncio.CancelledError:
         return []
-    except Exception:
+    except (RuntimeError, asyncio.InvalidStateError):
         log_exception()
         return []
 

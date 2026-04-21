@@ -31,7 +31,7 @@ async def concurrent_first_agree_or_best(min_agree, tasks, timeout, wait_all=Fal
             for t in done:
                 try:
                     winner = check_consensus(t.result())
-                except Exception:
+                except (Exception, asyncio.CancelledError):
                     pass
                 if winner is not None:
                     break
@@ -41,7 +41,7 @@ async def concurrent_first_agree_or_best(min_agree, tasks, timeout, wait_all=Fal
                     try:
                         result = await fut
                         winner = check_consensus(result)
-                    except Exception:
+                    except (Exception, asyncio.CancelledError):
                         pass
                     if winner is not None:
                         break

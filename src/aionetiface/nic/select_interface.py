@@ -175,12 +175,12 @@ async def list_interfaces(netifaces=None):
                 try:
                     if load_nat:
                         await interface.load_nat()
-                except Exception:
+                except (OSError, asyncio.TimeoutError):
                     log("Failed to load nat for interface.")
                     # Just use the default NAT info.
 
                 if_list.append(interface)
-            except Exception:
+            except (OSError, asyncio.TimeoutError):
                 log_exception()
                 return
 

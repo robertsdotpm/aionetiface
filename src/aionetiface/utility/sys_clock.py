@@ -19,8 +19,7 @@ https://datatracker.ietf.org/doc/html/rfc5905#section-6
 """
 
 import time
-import random
-from decimal import Decimal as Dec
+
 from ..net.address import *
 from ..vendor.ntp_client import NTPClient
 from ..settings import *
@@ -46,7 +45,7 @@ async def get_ntp(af, interface, server=None, retry=NTP_RETRY):
                 return response.tx_time
     except asyncio.CancelledError:
         raise
-    except Exception:
+    except (OSError, ConnectionError, asyncio.TimeoutError):
         log_exception()
     return None
 
@@ -66,7 +65,7 @@ async def get_ntp_from_dest(af, nic, dest, retry=NTP_RETRY):
             return ntp
     except asyncio.CancelledError:
         raise
-    except Exception as e:
+    except (OSError, ConnectionError, asyncio.TimeoutError):
         log_exception()
         return None
 

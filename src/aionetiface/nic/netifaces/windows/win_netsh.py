@@ -157,7 +157,7 @@ class NetshParse():
                         gw = ip_strip_if(gws[offset])
                         gw_ipr = IPRange(ip=gw)
                         af_gws[gw_ipr.af] = gw
-                    except Exception:
+                    except (ValueError, OSError):
                         continue
                     success = True
 
@@ -277,7 +277,7 @@ def win_con_name_lookup():
                         sub_key,
                         guid=sub_name
                     )
-            except Exception:
+            except OSError:
                 pass
             finally:
                 if sub_key is not None:
@@ -306,7 +306,7 @@ def win_con_name_lookup():
             sub_key = winreg.OpenKey(root_key, sub_name)
             found_guid = winreg.QueryValueEx(sub_key, "ServiceName")[0]
             found_if_name = winreg.QueryValueEx(sub_key, "Description")[0]
-        except Exception:
+        except OSError:
             pass
         finally:
             if sub_key is not None:

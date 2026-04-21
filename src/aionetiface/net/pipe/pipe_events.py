@@ -364,7 +364,7 @@ class PipeEvents(BaseACKProto):
                 data,
                 client_tup
             )
-        except Exception:
+        except (OSError, ConnectionError):
             log_exception()
 
     async def close(self, force=False, keep_clients=False):

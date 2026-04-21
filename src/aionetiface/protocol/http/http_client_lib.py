@@ -150,7 +150,7 @@ async def do_web_req(addr, http_buf, do_close, route, conf=NET_CONF):
     p = None
     try:
         p = await Pipe(TCP, addr, route, conf=conf).connect()
-    except Exception:
+    except (OSError, ConnectionError, asyncio.TimeoutError):
         log_exception()
         p = None
 
@@ -160,7 +160,7 @@ async def do_web_req(addr, http_buf, do_close, route, conf=NET_CONF):
     try:
         p.subscribe(SUB_ALL)
         await p.send(http_buf, addr)
-    except Exception as e:
+    except (OSError, ConnectionError):
         log_exception()
         await p.close()
         return None, None

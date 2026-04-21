@@ -197,7 +197,7 @@ class PipeClient(ACKUDP):
             else:
                 # Return only the data portion.
                 return ret[1]
-        except Exception as e:
+        except (OSError, ConnectionError, asyncio.TimeoutError):
             return None
 
     async def recv_n(self, n, sub=SUB_ALL):
@@ -280,7 +280,7 @@ class PipeClient(ACKUDP):
                 return 1
 
             return 0
-        except Exception as e:
+        except (OSError, ConnectionError):
             log(fstr(" send error {0}", (self.handle,)))
             log_exception()
             return 0

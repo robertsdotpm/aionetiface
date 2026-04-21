@@ -57,7 +57,7 @@ def reconcile_infra(old_infra, new_infra):
                         old_infra[name][af_str][proto_str],
                         new_infra[name][af_str][proto_str]
                     )
-                except Exception:
+                except (KeyError, TypeError):
                     log_exception()
 
 async def update_server_list(nic, sys_clock=time, init_infra_buf=INFRA_BUF, init_infra=INFRA):
@@ -82,7 +82,7 @@ async def update_server_list(nic, sys_clock=time, init_infra_buf=INFRA_BUF, init
                 with open(servers_path, 'r') as fp:
                     stored_json = fp.read()
                 stored_infra = json.loads(stored_json)
-            except Exception:
+            except (OSError, ValueError):
                 # Corrupted or truncated file; keep the built-in list.
                 log("Stored server file unreadable; using built-in list.")
                 log_exception()
@@ -109,7 +109,7 @@ async def update_server_list(nic, sys_clock=time, init_infra_buf=INFRA_BUF, init
                 infra_buf = resp_buf
                 infra = resp_infra
                 update_req = True
-        except Exception:
+        except (OSError, ConnectionError, asyncio.TimeoutError):
             log("Cannot fetch new server list.")
             log_exception()
 

@@ -50,16 +50,16 @@ async def get_mac_mixed(if_name):
                 continue
 
             return out
-        except Exception:
+        except (ValueError, AttributeError):
             log_exception()
-    
+
     if os_name not in ["Darwin", "Windows"]:
         try:
             import pyroute2
             with pyroute2.NDB() as ndb:
                 with ndb.interfaces[if_name] as interface:
                     return interface["address"]
-        except Exception:
+        except (ImportError, OSError):
             log_exception()
             return None
 
@@ -94,7 +94,7 @@ async def get_mac_address(name, netifaces):
             mac = await get_mac_mixed(name)
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except (OSError, asyncio.TimeoutError):
             log_exception()
             return None
 
@@ -134,7 +134,7 @@ async def netiface_addr_to_ipr(af, nic_id, info):
     # interfaces sometimes return unusual netmask strings).
     try:
         probe = IPRange(info["addr"], netmask=info["netmask"])
-    except Exception:
+    except ValueError:
         probe = None
 
     if probe is not None and probe.i_host == 0:
@@ -163,7 +163,7 @@ async def netiface_addr_to_ipr(af, nic_id, info):
                 s = socket.socket(af, TCP)
                 try:
                     s.bind(bind_tup)
-                except Exception:
+                except OSError:
                     log_exception()
                     log(fstr("af = {0}, bind_ip = {1}", (af, bind_ip,)))
                     log(fstr("{0}", (bind_tup,)))
@@ -172,7 +172,7 @@ async def netiface_addr_to_ipr(af, nic_id, info):
                 finally:
                     s.close()
                     break
-        except Exception:
+        except OSError:
             pass
 
         # Don't add this address to any route.

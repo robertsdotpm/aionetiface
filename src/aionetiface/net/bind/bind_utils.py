@@ -64,7 +64,7 @@ async def get_high_port_socket(route, socket_factory, sock_type=TCP):
                 sock_type=sock_type,
                 conf=conf
             )
-        except Exception:
+        except (OSError, asyncio.TimeoutError):
             continue
 
         return s, n
@@ -155,7 +155,7 @@ def match_bind_rule(ip, af, plat, bind_rule, rule_type):
                 ipr = ip_f(ip)
                 if not ipr.is_private:
                     return
-            except Exception:
+            except ValueError:
                 pass
 
     return bind_rule

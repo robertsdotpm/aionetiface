@@ -55,7 +55,7 @@ async def is_serv_listening(proto, listen_route):
         pipe = await Pipe(proto, dest, route).connect()
         await pipe.close()
         return True
-    except Exception:
+    except (OSError, ConnectionError, asyncio.TimeoutError):
         return False
 
 def get_serv_lock(af, proto, serv_port, serv_ip, install_path):
@@ -72,7 +72,7 @@ def get_serv_lock(af, proto, serv_port, serv_ip, install_path):
     # Make install dir if needed.
     try:
         pathlib.Path(install_path).mkdir(parents=True, exist_ok=True)
-    except Exception:
+    except OSError:
         log_exception()
 
     # Main path files.
@@ -101,7 +101,7 @@ def get_serv_lock(af, proto, serv_port, serv_ip, install_path):
     try:
         from ..vendor.fasteners import InterProcessLock
         return InterProcessLock(pidfile_path)
-    except Exception:
+    except (ImportError, OSError):
         return None
 
 async def for_server_in_daemon(daemon, func):
@@ -218,7 +218,7 @@ class Daemon():
         if not bind_port:
             try:
                 _, port = pipe.sock.getsockname()
-            except Exception:
+            except OSError:
                 log_exception()
                 raise
 
@@ -363,7 +363,7 @@ class Daemon():
         async def func(server):
             try:
                 await server.close()
-            except Exception:
+            except (OSError, asyncio.TimeoutError):
                 pass
 
         await for_server_in_daemon(self, func)

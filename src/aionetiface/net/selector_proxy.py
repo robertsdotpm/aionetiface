@@ -112,7 +112,7 @@ def selector_proxy(socket_p, destination, stop_reader):
                         close_pair(sock, peers, selector, buffers)
                         if socket_p not in peers: break
 
-    except Exception:
+    except (OSError, ConnectionError):
         log_exception()
 
     finally:

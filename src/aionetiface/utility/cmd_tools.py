@@ -73,7 +73,7 @@ def nt_is_admin():
         return False
     try:
         return ctypes.windll.shell32.IsUserAnAdmin()
-    except Exception:
+    except (OSError, AttributeError):
         return False
 
 # Surrounds with DOUBLE quotes.

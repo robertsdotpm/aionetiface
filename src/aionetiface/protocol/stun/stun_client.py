@@ -196,7 +196,7 @@ class STUNClient():
             if not caller_supplied_pipe:
                 try:
                     await pipe.close()
-                except Exception:
+                except (OSError, asyncio.TimeoutError):
                     pass
             raise
 
@@ -229,7 +229,7 @@ def get_stun_clients(af, max_agree, interface, mode, proto=UDP, servs=None, conf
 
             if stun_client:
                 stun_clients.append(stun_client)
-        except Exception:
+        except (ValueError, KeyError):
             log_exception()
             log("unexpected exception in get_stun_client helper")
         
@@ -255,7 +255,7 @@ async def get_n_stun_clients(af, n, interface, mode, proto=UDP, limit=5, conf=NE
                 return stun
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except (OSError, ConnectionError, asyncio.TimeoutError):
             log_exception()
         return None
 
@@ -322,7 +322,7 @@ async def get_n_stun_clients(af, n, interface, mode, proto=UDP, limit=5, conf=NE
                         if result is not None:
                             winner = result
                             break
-                    except Exception:
+                    except (Exception, asyncio.CancelledError):
                         pass
         return winner
 

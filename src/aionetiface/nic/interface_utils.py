@@ -34,7 +34,7 @@ def get_default_nic_ip(af):
             name = s.getsockname()[0]
             s.close()
             return name
-    except Exception:
+    except OSError:
         log_exception()
         return ""
 
@@ -157,7 +157,7 @@ def is_nic_default(nic, af, gws=None):
     try:
         ret = try_sock_trick(af) or try_netiface_check(af, gws)
         return ret
-    except Exception:
+    except (OSError, KeyError, AttributeError):
         log_exception()
         return False
 
@@ -268,7 +268,7 @@ assuming immediate execution.
             nics.append(nic)
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except (OSError, asyncio.TimeoutError, InterfaceNotFound, InterfaceInvalidAF):
             log_exception()
 
     return nics

@@ -72,7 +72,7 @@ if not hasattr(unittest, "IsolatedAsyncioTestCase"):
             loop.set_debug(False)
 
         unittest.IsolatedAsyncioTestCase.get_event_loop = safe_run_patch
-    except Exception:
+    except (ImportError, AttributeError):
         pass
 
 
@@ -521,7 +521,7 @@ async def safe_run(f, args=None):
     try:
         tasks = asyncio.Task.all_tasks()
         cur_task = asyncio.Task.current_task()
-    except Exception:
+    except (AttributeError, RuntimeError):
         tasks = asyncio.all_tasks()
         cur_task = asyncio.current_task()
 

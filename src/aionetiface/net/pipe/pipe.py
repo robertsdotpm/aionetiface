@@ -464,7 +464,7 @@ class Pipe:
         if self.owns_socket and self.sock:
             try:
                 self.sock.close()
-            except Exception:
+            except OSError:
                 log_exception()
             if self.sock in aionetiface_fds:
                 aionetiface_fds.discard(self.sock)

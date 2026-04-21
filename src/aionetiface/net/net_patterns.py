@@ -6,9 +6,7 @@ async def proto_recv(pipe):
     for _ in range(0, n):
         try:
             return await pipe.recv()
-        except asyncio.CancelledError:
-            raise
-        except Exception:
+        except (OSError, ConnectionError, asyncio.TimeoutError):
             continue
 
 async def proto_send(pipe, buf):
@@ -18,7 +16,7 @@ async def proto_send(pipe, buf):
             await pipe.send(buf)
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except (OSError, ConnectionError):
             pass
 
         # Space out UDP retries; no delay after the final attempt.
@@ -39,7 +37,7 @@ async def send_recv_loop(dest, pipe, buf, sub=SUB_ALL):
         except asyncio.TimeoutError:
             log_exception()
             continue
-        except Exception:
+        except (OSError, ConnectionError):
             # Broken socket, connection reset, etc. — retry.
             log_exception()
             continue

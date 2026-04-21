@@ -239,7 +239,7 @@ async def get_default_gw_by_if_index(af, if_index):
     # Execute the command.
     try:
         out = await cmd(cmd_str, timeout=CMD_TIMEOUT)
-    except Exception:
+    except (OSError, asyncio.TimeoutError):
         return None
 
 
@@ -251,7 +251,7 @@ async def get_default_gw_by_if_index(af, if_index):
     try:
         ip_f(out)
         return out
-    except Exception:
+    except ValueError:
         log(out)
         return None
 
@@ -261,7 +261,7 @@ async def get_addr_info_by_if_index(if_index):
     cmd_str = cmd_str.format(if_index)
     try:
         out = await cmd(cmd_str, timeout=CMD_TIMEOUT)
-    except Exception:
+    except (OSError, asyncio.TimeoutError):
         return addr
 
     try:
@@ -284,7 +284,7 @@ async def get_addr_info_by_if_index(if_index):
                 "host_limit": host_limit,
                 "netmask": cidr_to_netmask(host_limit, af)
             })
-    except Exception:
+    except (ValueError, re.error):
         log_exception()
         return addr
 
@@ -302,7 +302,7 @@ async def get_default_iface_by_af(af):
     cmd_buf = cmd_buf.format(dest_ip)
     try:
         out = await cmd(cmd_buf, timeout=CMD_TIMEOUT)
-    except Exception:
+    except (OSError, asyncio.TimeoutError):
         return None
 
     try:
@@ -313,14 +313,14 @@ async def get_default_iface_by_af(af):
             # If an AF is not support an error is thrown
             # and the pattern above won't match anything.
             return None
-    except Exception:
+    except (ValueError, re.error):
         log_exception()
         return None
 
 def extract_if_fields(ifs_str):
     results = []
     try:
-        if_info_matches = re.findall(r"InterfaceDescription\s*:\s([^\r\n]*?)[\r\n]+ifIndex\s*:\s*([0-9]+)\s*InterfaceGuid\s*:\s*([^\r\n]+)\s*MacAddress\s*:\s*([^\s]+)\s*", ifs_str)
+        if_info_matches = re.findall(r"InterfaceDescription\s*:\s([^\r\n]*?)[\r\n]+ifIndex\s*:\s*([0-9]+)\s*InterfaceGuid\s*:\s*([^\r\n]+)\s*MacAddress\s*:\s*([^\s]+)\s*", ifs_str)  # noqa
         if len(if_info_matches):
             for if_info_match in if_info_matches:
                 if_desc, if_index, guid, mac_addr = if_info_match
@@ -336,7 +336,7 @@ def extract_if_fields(ifs_str):
                     "gws": { IP4: None, IP6: None },
                     "defaults": None
                 })
-    except Exception:
+    except (ValueError, re.error, AttributeError):
         log_exception()
         return results
 
@@ -359,7 +359,7 @@ async def get_ifaces():
         )
         if "InterfaceDescription" not in out:
             raise Exception("Get net adapter error.")
-    except Exception:
+    except (OSError, asyncio.TimeoutError):
         log_exception()
         out = ""
 
@@ -430,7 +430,7 @@ async def win_load_interface_state(if_results):
                 ]
                 for task in sub_tasks:
                     await task
-            except Exception:
+            except (OSError, asyncio.TimeoutError):
                 log_exception()
                 return
 
@@ -519,7 +519,7 @@ class Netifaces():
                     continue
                     
                 break
-            except Exception:
+            except (OSError, asyncio.TimeoutError):
                 log_exception()
 
         self.by_guid_index = {}

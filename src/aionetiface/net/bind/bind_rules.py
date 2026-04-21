@@ -120,7 +120,7 @@ async def binder_async(af, ip="", port=0, nic_id=None, plat=platform.system()):
     loop = asyncio.get_event_loop()
     try:
         addr_infos = await asyncio.wait_for(loop.getaddrinfo(ip, port), timeout=2.0)
-    except Exception:
+    except (OSError, asyncio.TimeoutError):
         addr_infos = []
     
     # Fail gracefully if lookup failed (or handle as per original logic)
@@ -144,7 +144,7 @@ def binder_sync(af, ip="", port=0, nic_id=None, plat=platform.system()):
     # 2. Lookup correct bind tuples to use (Sync)
     try:
         addr_infos = socket.getaddrinfo(ip, port)
-    except Exception:
+    except OSError:
         addr_infos = []
 
     # Fail gracefully if lookup failed (or handle as per original logic)

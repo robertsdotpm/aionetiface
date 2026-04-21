@@ -111,7 +111,7 @@ async def aionetiface_setup_netifaces():
             sock.sendto(b'testing UDP. disregard this sorry.', 0, dest)
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except (OSError, ConnectionError):
             """
             Maybe in the future I write code as a fail-safe but for
             now I don't have time. It's better to show a clear reason

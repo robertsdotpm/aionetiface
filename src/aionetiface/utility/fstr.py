@@ -10,7 +10,7 @@ def fstr(expr, params=()):
         index = int(match.group(1))
         try:
             return str(params[index])
-        except Exception as e:
+        except (IndexError, TypeError) as e:
             raise ValueError("Error evaluating expression " + str(index) + str(e))
     out = re.sub(r'\{([^}]*)\}', replacer, expr)
     return out

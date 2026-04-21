@@ -74,7 +74,7 @@ async def lookup_wan_ip_for_nic_ip(src_ip, min_agree, stun_clients, timeout):
                     nic_ipr.is_public = True
                 return (src_ip, Route(af, [nic_ipr], [ext_ipr], interface))
 
-        except Exception:
+        except (OSError, ConnectionError, asyncio.TimeoutError):
             log_exception()
 
         if attempt == 0:

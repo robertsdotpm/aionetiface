@@ -140,7 +140,7 @@ class Address():
                 self.v6_ipr = ipr
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except (ValueError, OSError):
             # Resolve domain to IP.
             try:
                 # Uses a manual DNS req to resolve a domain.
@@ -155,7 +155,7 @@ class Address():
                     raise Exception("Using fallback DNS")
             except asyncio.CancelledError:
                 raise
-            except Exception:
+            except (OSError, asyncio.TimeoutError, ValueError, ImportError):
                 # If that fails -- fallback to getaddrinfo.
                 results = await asyncio.wait_for(
                     sock_res_domain(host, route),
@@ -194,7 +194,7 @@ async def resolv_dest(af, dest, nic):
             # An IP -- already resolved.
             IPRange(dest[0], bitlen=0)
             return dest
-        except Exception:
+        except ValueError:
             dest = await Address(*dest, nic)
     
     if isinstance(dest, Address):

@@ -158,7 +158,7 @@ def is_socket_closed(sock):
         return False  # socket is open and reading from it would block
     except ConnectionResetError:
         return True  # socket was closed for some other reason
-    except Exception as e:
+    except OSError:
         log("unexpected exception when checking if a socket is closed")
         return False
     return False
@@ -198,7 +198,7 @@ def avoid_time_wait(pipe):
             socket.SO_LINGER,
             linger
         )
-    except Exception:
+    except OSError:
         # Not guaranteed on windows.
         log_exception()
 

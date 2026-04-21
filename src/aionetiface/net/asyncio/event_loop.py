@@ -97,7 +97,7 @@ class CustomEventLoop(asyncio.SelectorEventLoop):
                 if not fut.done():
                     try:
                         fut.set_result(True)
-                    except Exception:
+                    except asyncio.InvalidStateError:
                         pass
             CLOSE_FUTURES.pop(fd, None)
         super().close()

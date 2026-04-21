@@ -173,7 +173,7 @@ async def rest_service(msg, client_tup, pipe, api_closure=api_closure):
     # Parse http request.
     try:
         req = ParseHTTPRequest(msg)
-    except Exception:
+    except ValueError:
         log_exception()
         return None
 
@@ -412,7 +412,7 @@ class RESTD(Daemon):
             # Capture any exceptions in the reply.
             try:
                 resp = await best_matching_api(v, pipe)
-            except Exception as e:
+            except (OSError, ValueError, RuntimeError) as e:
                 resp = {
                     "error": "Exception",
                     "msg": str(e),
