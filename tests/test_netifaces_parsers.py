@@ -713,5 +713,1072 @@ class TestGroupPubIPRsByNetCidr(unittest.TestCase):
         self.assertEqual(len(individuals), 1)
 
 
+# ---------------------------------------------------------------------------
+# get_mac_mixed regex tests (cross-platform MAC extraction)
+# ---------------------------------------------------------------------------
+
+class TestGetMacMixedRegex(unittest.TestCase):
+    """
+    Tests the MAC extraction regexes used by get_mac_mixed without running
+    actual OS commands.  Each OS path has its own lambda/regex; we exercise
+    those directly against realistic CLI output samples.
+    """
+
+    MAC_P = r"((?:[0-9a-fA-F]{2}[\s:-]*){6})"
+    IFCONFIG_P = r"\s+[a-zA-Z]+\s+([^\s]+)"
+
+    def _extract_mac_ip_addr(self, output):
+        import re
+        matches = re.findall(self.MAC_P, output)
+        return matches[0].strip() if matches else None
+
+    def _extract_mac_ifconfig(self, output):
+        import re
+        matches = re.findall(self.IFCONFIG_P, output)
+        return matches[0].strip() if matches else None
+
+    # --- Linux: ip addr show eth0 | egrep 'lladdr|ether|link' ---
+
+    # Ubuntu 18.04 / Debian – plain link/ether line
+    LINUX_IP_ADDR_UBUNTU = "    link/ether 52:54:00:12:34:56 brd ff:ff:ff:ff:ff:ff\n"
+
+    def test_linux_ip_addr_ubuntu(self):
+        mac = self._extract_mac_ip_addr(self.LINUX_IP_ADDR_UBUNTU)
+        self.assertIsNotNone(mac)
+        self.assertIn("52", mac)
+
+    # RHEL/CentOS 7 – capital hex digits, trailing link-netnsid
+    LINUX_IP_ADDR_RHEL = (
+        "    link/ether 00:1A:4B:C8:D3:F2 brd ff:ff:ff:ff:ff:ff link-netnsid 0\n"
+    )
+
+    def test_linux_ip_addr_rhel_link_netnsid(self):
+        mac = self._extract_mac_ip_addr(self.LINUX_IP_ADDR_RHEL)
+        self.assertIsNotNone(mac)
+        self.assertIn("1A", mac.upper())
+
+    # Alpine Linux / Docker – minimal output, no broadcast line
+    LINUX_IP_ADDR_ALPINE = "    link/ether aa:bb:cc:dd:ee:ff brd ff:ff:ff:ff:ff:ff\n"
+
+    def test_linux_ip_addr_alpine(self):
+        mac = self._extract_mac_ip_addr(self.LINUX_IP_ADDR_ALPINE)
+        self.assertIsNotNone(mac)
+
+    # Raspberry Pi – MAC with Raspberry Pi OUI (b8:27:eb)
+    LINUX_IP_ADDR_RPI = (
+        "    link/ether b8:27:eb:12:34:56 brd ff:ff:ff:ff:ff:ff\n"
+    )
+
+    def test_linux_ip_addr_rpi(self):
+        mac = self._extract_mac_ip_addr(self.LINUX_IP_ADDR_RPI)
+        self.assertIsNotNone(mac)
+        self.assertIn("b8", mac.lower())
+
+    # Linux with altname line also present in grep output
+    LINUX_IP_ADDR_WITH_ALTNAME = (
+        "    link/ether 00:0c:29:57:d0:5c brd ff:ff:ff:ff:ff:ff\n"
+        "    altname enp3s0\n"
+    )
+
+    def test_linux_ip_addr_with_altname(self):
+        mac = self._extract_mac_ip_addr(self.LINUX_IP_ADDR_WITH_ALTNAME)
+        self.assertIsNotNone(mac)
+        self.assertIn("00:0c:29", mac.lower())
+
+    # Linux – VLAN interface (ether appears same way)
+    LINUX_IP_ADDR_VLAN = (
+        "    link/ether 00:11:22:33:44:55 brd ff:ff:ff:ff:ff:ff\n"
+    )
+
+    def test_linux_ip_addr_vlan(self):
+        mac = self._extract_mac_ip_addr(self.LINUX_IP_ADDR_VLAN)
+        self.assertIsNotNone(mac)
+
+    # OpenWrt – compact format, no trailing spaces
+    LINUX_IP_ADDR_OPENWRT = "    link/ether dc:ef:09:ab:cd:ef brd ff:ff:ff:ff:ff:ff\n"
+
+    def test_linux_ip_addr_openwrt(self):
+        mac = self._extract_mac_ip_addr(self.LINUX_IP_ADDR_OPENWRT)
+        self.assertIsNotNone(mac)
+        self.assertIn("dc", mac.lower())
+
+    # --- OpenBSD/FreeBSD: ifconfig em0 | egrep 'lladdr|ether|link' ---
+
+    # OpenBSD 7.x – uses "lladdr"
+    OPENBSD_IFCONFIG_LLADDR = "        lladdr 00:0c:29:57:d0:5c\n"
+
+    def test_openbsd_ifconfig_lladdr(self):
+        mac = self._extract_mac_ifconfig(self.OPENBSD_IFCONFIG_LLADDR)
+        self.assertIsNotNone(mac)
+        self.assertEqual(mac, "00:0c:29:57:d0:5c")
+
+    # FreeBSD 13 – uses "ether" keyword
+    FREEBSD_IFCONFIG_ETHER = "        ether 00:19:d1:ab:cd:ef\n"
+
+    def test_freebsd_ifconfig_ether(self):
+        mac = self._extract_mac_ifconfig(self.FREEBSD_IFCONFIG_ETHER)
+        self.assertIsNotNone(mac)
+        self.assertEqual(mac, "00:19:d1:ab:cd:ef")
+
+    # macOS 12 Monterey – "ether" with trailing space
+    MACOS_IFCONFIG_ETHER = "        ether 8c:85:90:12:34:56 \n"
+
+    def test_macos_ifconfig_ether(self):
+        mac = self._extract_mac_ifconfig(self.MACOS_IFCONFIG_ETHER)
+        self.assertIsNotNone(mac)
+        self.assertEqual(mac, "8c:85:90:12:34:56")
+
+    # macOS – Apple Silicon OUI (f8:ff:c2)
+    MACOS_IFCONFIG_M1 = "        ether f8:ff:c2:ab:cd:ef\n"
+
+    def test_macos_ifconfig_m1(self):
+        mac = self._extract_mac_ifconfig(self.MACOS_IFCONFIG_M1)
+        self.assertIsNotNone(mac)
+        self.assertIn("f8", mac.lower())
+
+    # NetBSD – "ether" like FreeBSD
+    NETBSD_IFCONFIG = "        ether 52:54:00:de:ad:be\n"
+
+    def test_netbsd_ifconfig(self):
+        mac = self._extract_mac_ifconfig(self.NETBSD_IFCONFIG)
+        self.assertIsNotNone(mac)
+
+    # OpenBSD – WiFi interface uses same lladdr format
+    OPENBSD_IFCONFIG_WIFI = "        lladdr a4:c3:f0:12:34:56\n"
+
+    def test_openbsd_ifconfig_wifi(self):
+        mac = self._extract_mac_ifconfig(self.OPENBSD_IFCONFIG_WIFI)
+        self.assertIsNotNone(mac)
+        self.assertEqual(mac, "a4:c3:f0:12:34:56")
+
+    # --- Windows: route print (MAC via win_p + if_name anchor) ---
+
+    WIN_P = r"[0-9]+\s*[.]+([^.]+)\s*[.]+"
+
+    def _extract_win_mac(self, output, if_name):
+        import re
+        matches = re.findall(self.WIN_P + re.escape(if_name), output)
+        if not matches:
+            return None
+        mac = matches[0].strip().lower().replace(" ", "-")
+        return mac
+
+    # Windows 7 – standard single interface
+    WIN7_ROUTE_PRINT = (
+        "Interface List\r\n"
+        " 12...aa bb cc dd ee ff ......Ethernet\r\n"
+        "===========================================================================\r\n"
+    )
+
+    def test_win7_route_print_ethernet(self):
+        mac = self._extract_win_mac(self.WIN7_ROUTE_PRINT, "Ethernet")
+        self.assertIsNotNone(mac)
+        self.assertEqual(mac, "aa-bb-cc-dd-ee-ff")
+
+    # Windows 10 – two adapters, select by name
+    WIN10_ROUTE_PRINT = (
+        "Interface List\r\n"
+        "  1...........................Software Loopback Interface 1\r\n"
+        " 12...aa bb cc dd ee ff ......Intel(R) Ethernet Connection I219-V\r\n"
+        " 14...11 22 33 44 55 66 ......Intel(R) Wi-Fi 6 AX200 160MHz\r\n"
+        " 16...00 50 56 c0 00 08 ......VMware Virtual Ethernet Adapter for VMnet8\r\n"
+    )
+
+    def test_win10_route_print_wifi(self):
+        mac = self._extract_win_mac(
+            self.WIN10_ROUTE_PRINT, "Intel(R) Wi-Fi 6 AX200 160MHz"
+        )
+        self.assertIsNotNone(mac)
+        self.assertEqual(mac, "11-22-33-44-55-66")
+
+    def test_win10_route_print_ethernet(self):
+        mac = self._extract_win_mac(
+            self.WIN10_ROUTE_PRINT, "Intel(R) Ethernet Connection I219-V"
+        )
+        self.assertIsNotNone(mac)
+        self.assertEqual(mac, "aa-bb-cc-dd-ee-ff")
+
+    def test_win10_route_print_vmware(self):
+        mac = self._extract_win_mac(
+            self.WIN10_ROUTE_PRINT, "VMware Virtual Ethernet Adapter for VMnet8"
+        )
+        self.assertIsNotNone(mac)
+        self.assertEqual(mac, "00-50-56-c0-00-08")
+
+    # Windows Server 2019 – multiple NICs, large indexes
+    WIN_SERVER_ROUTE_PRINT = (
+        "Interface List\r\n"
+        "  1...........................Software Loopback Interface 1\r\n"
+        "  4...de ad be ef ca fe ......Hyper-V Virtual Ethernet Adapter\r\n"
+        "  6...00 15 5d 12 34 56 ......Hyper-V Virtual Ethernet Adapter #2\r\n"
+        " 10...00 0c 29 ab cd ef ......Intel(R) 82574L Gigabit Network Connection\r\n"
+    )
+
+    def test_win_server_route_print_hyperv(self):
+        mac = self._extract_win_mac(
+            self.WIN_SERVER_ROUTE_PRINT, "Hyper-V Virtual Ethernet Adapter"
+        )
+        self.assertIsNotNone(mac)
+        self.assertEqual(mac, "de-ad-be-ef-ca-fe")
+
+    def test_win_server_route_print_hyperv2(self):
+        mac = self._extract_win_mac(
+            self.WIN_SERVER_ROUTE_PRINT, "Hyper-V Virtual Ethernet Adapter #2"
+        )
+        self.assertIsNotNone(mac)
+        self.assertEqual(mac, "00-15-5d-12-34-56")
+
+
+# ---------------------------------------------------------------------------
+# Extended netsh parser tests – more real-world output variants
+# ---------------------------------------------------------------------------
+
+class TestNetshParsersExtended(unittest.TestCase):
+    """Additional real-world output samples for NetshParse."""
+
+    def setUp(self):
+        from aionetiface.nic.netifaces.windows.win_netsh import NetshParse
+        self.parser = NetshParse()
+
+    # -----------------------------------------------------------------------
+    # show_interfaces – 5+ real-world variants
+    # -----------------------------------------------------------------------
+
+    # Windows Vista / Server 2008 – two-digit indexes, "Local Area Connection"
+    IFACES_VISTA = (
+        "Idx     Met         MTU          State                Name\r\n"
+        "---  ----------  ----------  ------------  ---------------------------\r\n"
+        "  1          50  4294967295  connected     Loopback Pseudo-Interface 1\r\n"
+        "  2          20        1500  connected     Local Area Connection\r\n"
+        "  3          25        1500  disconnected  Wireless Network Connection\r\n"
+    )
+
+    def test_show_interfaces_vista(self):
+        af, key, data = self.parser.show_interfaces(IP4, self.IFACES_VISTA)
+        self.assertIn("2", data)
+        self.assertEqual(data["2"]["con_name"], "Local Area Connection")
+        self.assertEqual(data["3"]["state"], "disconnected")
+
+    # Windows 7 – Teredo tunnel (MTU 1280), disconnected wireless
+    IFACES_WIN7 = (
+        "Idx     Met         MTU          State                Name\r\n"
+        "---  ----------  ----------  ------------  ---------------------------\r\n"
+        "  1          50  4294967295  connected     Loopback Pseudo-Interface 1\r\n"
+        " 11          10        1500  connected     Local Area Connection\r\n"
+        " 13          25        1500  disconnected  Wireless Network Connection 2\r\n"
+        " 15          35        1280  connected     Teredo Tunneling Pseudo-Interface\r\n"
+    )
+
+    def test_show_interfaces_win7_teredo(self):
+        af, key, data = self.parser.show_interfaces(IP4, self.IFACES_WIN7)
+        self.assertIn("15", data)
+        self.assertEqual(data["15"]["mtu"], "1280")
+        self.assertIn("Teredo", data["15"]["con_name"])
+
+    # Windows 10 – Bluetooth adapter present
+    IFACES_WIN10 = (
+        "Idx     Met         MTU          State                Name\r\n"
+        "---  ----------  ----------  ------------  ---------------------------\r\n"
+        "  1          75  4294967295  connected     Loopback Pseudo-Interface 1\r\n"
+        " 15          25        1500  connected     Ethernet\r\n"
+        " 17          35        1500  connected     Wi-Fi\r\n"
+        " 19          65        1500  connected     Bluetooth Network Connection\r\n"
+        " 21          15        1280  connected     Teredo Tunneling Pseudo-Interface\r\n"
+    )
+
+    def test_show_interfaces_win10_multi(self):
+        af, key, data = self.parser.show_interfaces(IP4, self.IFACES_WIN10)
+        self.assertIn("17", data)
+        self.assertEqual(data["17"]["con_name"], "Wi-Fi")
+        self.assertIn("19", data)
+        self.assertIn("Bluetooth", data["19"]["con_name"])
+
+    # Windows Server 2012 R2 – numeric Ethernet names
+    IFACES_SERVER2012 = (
+        "Idx     Met         MTU          State                Name\r\n"
+        "---  ----------  ----------  ------------  ---------------------------\r\n"
+        "  1          75  4294967295  connected     Loopback Pseudo-Interface 1\r\n"
+        "  4          20        1500  connected     Ethernet0\r\n"
+        "  5          25        1500  connected     Ethernet1\r\n"
+        "  6          30        1500  disconnected  Ethernet2\r\n"
+    )
+
+    def test_show_interfaces_server2012(self):
+        af, key, data = self.parser.show_interfaces(IP4, self.IFACES_SERVER2012)
+        self.assertIn("4", data)
+        self.assertEqual(data["4"]["con_name"], "Ethernet0")
+        self.assertIn("6", data)
+        self.assertEqual(data["6"]["state"], "disconnected")
+
+    # Windows 11 – Hyper-V virtual switches with large indexes
+    IFACES_WIN11 = (
+        "Idx     Met         MTU          State                Name\r\n"
+        "---  ----------  ----------  ------------  ---------------------------\r\n"
+        "  1          75  4294967295  connected     Loopback Pseudo-Interface 1\r\n"
+        " 14          25        1500  connected     Ethernet\r\n"
+        " 16          35        1500  connected     Wi-Fi\r\n"
+        " 40           5        1500  connected     vEthernet\r\n"
+    )
+
+    def test_show_interfaces_win11_vethernet(self):
+        af, key, data = self.parser.show_interfaces(IP4, self.IFACES_WIN11)
+        self.assertIn("40", data)
+        self.assertEqual(data["40"]["metric"], "5")
+
+    # Windows Server 2019 – LBFO team, large interface count
+    IFACES_SERVER2019 = (
+        "Idx     Met         MTU          State                Name\r\n"
+        "---  ----------  ----------  ------------  ---------------------------\r\n"
+        "  1          75  4294967295  connected     Loopback Pseudo-Interface 1\r\n"
+        "  2           5        9000  connected     Team\r\n"
+        "  3          10        9000  connected     NIC1\r\n"
+        "  4          10        9000  connected     NIC2\r\n"
+        "100          20        1500  connected     Management\r\n"
+    )
+
+    def test_show_interfaces_server2019_team(self):
+        af, key, data = self.parser.show_interfaces(IP4, self.IFACES_SERVER2019)
+        self.assertIn("2", data)
+        self.assertEqual(data["2"]["mtu"], "9000")
+        self.assertIn("100", data)
+
+    # -----------------------------------------------------------------------
+    # show_addresses – 5+ variants including Vista format & block assignments
+    # -----------------------------------------------------------------------
+
+    # Windows Vista/7 – "Manual" addr_type for static addresses
+    ADDRS_VISTA_STATIC = (
+        "Interface 2\r\n"
+        "Address Type  DAD State  Valid Life Pref. Life Address\r\n"
+        "-----------  -----------  ----------  ---------- ---------------------------\r\n"
+        "Manual       Manual     infinite   infinite   192.168.0.100\r\n"
+    )
+
+    def test_show_addresses_vista_static(self):
+        af, key, data = self.parser.show_addresses(IP4, self.ADDRS_VISTA_STATIC)
+        self.assertIn("2", data)
+        self.assertEqual(data["2"][0]["addr"], "192.168.0.100")
+        self.assertEqual(data["2"][0]["addr_type"], "Manual")
+
+    # Windows 10 – DHCP with finite valid lifetime (seconds notation)
+    ADDRS_WIN10_DHCP = (
+        "Interface 15\r\n"
+        "Addr Type  DAD State  Valid Life Pref. Life Address\r\n"
+        "---------  ----------  ----------  ---------- ---------------------------\r\n"
+        "Dhcp       Preferred  86399s     86399s     10.0.1.76\r\n"
+    )
+
+    def test_show_addresses_win10_dhcp_lifetime(self):
+        af, key, data = self.parser.show_addresses(IP4, self.ADDRS_WIN10_DHCP)
+        self.assertIn("15", data)
+        self.assertEqual(data["15"][0]["addr"], "10.0.1.76")
+        self.assertEqual(data["15"][0]["dad_state"], "Preferred")
+        self.assertEqual(data["15"][0]["valid_life"], "86399s")
+
+    # Block IP assignment – network address (203.0.113.0) assigned to NIC
+    ADDRS_BLOCK_ASSIGNMENT = (
+        "Interface 12\r\n"
+        "Addr Type  DAD State  Valid Life Pref. Life Address\r\n"
+        "---------  ----------  ----------  ---------- ---------------------------\r\n"
+        "Other      Preferred  infinite   infinite   203.0.113.0\r\n"
+    )
+
+    def test_show_addresses_block_assignment(self):
+        """A /27 network address assigned directly to an interface (ISP block)."""
+        af, key, data = self.parser.show_addresses(IP4, self.ADDRS_BLOCK_ASSIGNMENT)
+        self.assertIn("12", data)
+        self.assertEqual(data["12"][0]["addr"], "203.0.113.0")
+
+    # IPv6 – multiple addresses including deprecated temporary
+    ADDRS_V6_MULTI = (
+        "Interface 15\r\n"
+        "Addr Type  DAD State  Valid Life Pref. Life Address\r\n"
+        "---------  ----------  ----------  ---------- ---------------------------\r\n"
+        "Other      Preferred  29d23h59m  13d23h59m  2400:a842:d1b4:0:20c:29ff:fe57:d05c\r\n"
+        "Other      Deprecated 29d23h59m  0s         2400:a842:d1b4:0:7f81:feef:9bb1:101e\r\n"
+        "Other      Preferred  infinite   infinite   fe80::20c:29ff:fe57:d05c\r\n"
+    )
+
+    def test_show_addresses_v6_multi_including_deprecated(self):
+        af, key, data = self.parser.show_addresses(IP6, self.ADDRS_V6_MULTI)
+        self.assertIn("15", data)
+        addrs = [e["addr"] for e in data["15"]]
+        self.assertIn("2400:a842:d1b4:0:20c:29ff:fe57:d05c", addrs)
+        self.assertIn("fe80::20c:29ff:fe57:d05c", addrs)
+
+    # IPv6 – interface with /48 block (delegated prefix on router)
+    ADDRS_V6_BLOCK = (
+        "Interface 4\r\n"
+        "Addr Type  DAD State  Valid Life Pref. Life Address\r\n"
+        "---------  ----------  ----------  ---------- ---------------------------\r\n"
+        "Other      Preferred  infinite   infinite   2001:db8::\r\n"
+    )
+
+    def test_show_addresses_v6_block(self):
+        """Network address of a /48 block assigned to an interface."""
+        af, key, data = self.parser.show_addresses(IP6, self.ADDRS_V6_BLOCK)
+        self.assertIn("4", data)
+        self.assertEqual(data["4"][0]["addr"], "2001:db8::")
+
+    # Multiple interfaces in one output
+    ADDRS_MULTI_IF = (
+        "Interface 12\r\n"
+        "Addr Type  DAD State  Valid Life Pref. Life Address\r\n"
+        "---------  ----------  ----------  ---------- ---------------------------\r\n"
+        "Other      Preferred  infinite   infinite   192.168.1.100\r\n"
+        "\r\n"
+        "Interface 14\r\n"
+        "Addr Type  DAD State  Valid Life Pref. Life Address\r\n"
+        "---------  ----------  ----------  ---------- ---------------------------\r\n"
+        "Other      Preferred  infinite   infinite   10.0.0.50\r\n"
+        "Other      Preferred  infinite   infinite   10.0.0.51\r\n"
+    )
+
+    def test_show_addresses_multi_interface(self):
+        af, key, data = self.parser.show_addresses(IP4, self.ADDRS_MULTI_IF)
+        self.assertIn("12", data)
+        self.assertIn("14", data)
+        self.assertEqual(len(data["14"]), 2)
+
+    # -----------------------------------------------------------------------
+    # show_route – 5+ variants with more prefix types
+    # -----------------------------------------------------------------------
+
+    # Windows 10 IPv4 – default + connected + static manual route
+    ROUTES_V4_FULL = (
+        "No  Type    Met  Prefix          Idx  Name\r\n"
+        "--- ------  ---  --------------- ---  --------\r\n"
+        "No  System   0  0.0.0.0/0        12  Ethernet\r\n"
+        "No  System  10  192.168.1.0/24   12  Ethernet\r\n"
+        "No  System  20  10.0.0.0/8       14  Wi-Fi\r\n"
+        "Yes Manual   5  172.16.0.0/12    12  Ethernet\r\n"
+    )
+
+    def test_show_route_v4_manual(self):
+        af, key, data = self.parser.show_route(IP4, self.ROUTES_V4_FULL)
+        self.assertIn("12", data)
+        prefixes = [r["prefix"] for r in data["12"]]
+        self.assertIn("0.0.0.0/0", prefixes)
+        self.assertIn("172.16.0.0/12", prefixes)
+        manual = next(r for r in data["12"] if r["prefix"] == "172.16.0.0/12")
+        self.assertEqual(manual["publish"], "Yes")
+        self.assertEqual(manual["rtype"], "Manual")
+
+    # IPv4 – /32 host route (VPN split-tunnel)
+    ROUTES_V4_HOST = (
+        "No  Type    Met  Prefix          Idx  Name\r\n"
+        "--- ------  ---  --------------- ---  --------\r\n"
+        "No  System   1  8.8.8.8/32       15  VPN\r\n"
+        "No  System   1  1.1.1.1/32       15  VPN\r\n"
+        "No  System   0  0.0.0.0/0        12  Ethernet\r\n"
+    )
+
+    def test_show_route_v4_host_routes(self):
+        af, key, data = self.parser.show_route(IP4, self.ROUTES_V4_HOST)
+        self.assertIn("15", data)
+        prefixes = [r["prefix"] for r in data["15"]]
+        self.assertIn("8.8.8.8/32", prefixes)
+        self.assertIn("1.1.1.1/32", prefixes)
+
+    # IPv6 – /32, /48, /56, /64, /128 in one table
+    ROUTES_V6_FULL = (
+        "No  Type    Met  Prefix                         Idx  Name\r\n"
+        "--- ------  ---  ------------------------------ ---  --------\r\n"
+        "No  System   0  ::/0                            12  Ethernet\r\n"
+        "No  System  10  2001:db8::/32                   12  Ethernet\r\n"
+        "No  System  10  2001:db8:1::/48                 12  Ethernet\r\n"
+        "No  System  20  2001:db8:1:2::/64               12  Ethernet\r\n"
+        "No  System  30  2001:db8:1:2::1/128             12  Ethernet\r\n"
+        "No  System  30  fe80::/64                       12  Ethernet\r\n"
+        "No  System  30  ::1/128                         12  Ethernet\r\n"
+    )
+
+    def test_show_route_v6_prefix_lengths(self):
+        af, key, data = self.parser.show_route(IP6, self.ROUTES_V6_FULL)
+        self.assertIn("12", data)
+        prefixes = [r["prefix"] for r in data["12"]]
+        self.assertIn("2001:db8::/32", prefixes)
+        self.assertIn("2001:db8:1::/48", prefixes)
+        self.assertIn("2001:db8:1:2::/64", prefixes)
+        self.assertIn("2001:db8:1:2::1/128", prefixes)
+        self.assertIn("::1/128", prefixes)
+
+    # IPv6 – link-local /64 and global /64 on same interface
+    ROUTES_V6_MIXED = (
+        "No  Type    Met  Prefix                         Idx  Name\r\n"
+        "--- ------  ---  ------------------------------ ---  --------\r\n"
+        "No  System  10  fe80::/64                       14  Wi-Fi\r\n"
+        "No  System  10  2400:a842:d1b4::/64             14  Wi-Fi\r\n"
+        "No  System   0  ::/0                            14  Wi-Fi\r\n"
+    )
+
+    def test_show_route_v6_link_local_and_global(self):
+        af, key, data = self.parser.show_route(IP6, self.ROUTES_V6_MIXED)
+        self.assertIn("14", data)
+        prefixes = [r["prefix"] for r in data["14"]]
+        self.assertIn("fe80::/64", prefixes)
+        self.assertIn("2400:a842:d1b4::/64", prefixes)
+
+    # IPv4 multiple interfaces – each interface gets its own routes list
+    ROUTES_V4_MULTI_IF = (
+        "No  Type    Met  Prefix          Idx  Name\r\n"
+        "--- ------  ---  --------------- ---  --------\r\n"
+        "No  System   0  0.0.0.0/0        12  Ethernet\r\n"
+        "No  System  10  192.168.1.0/24   12  Ethernet\r\n"
+        "No  System  20  10.0.0.0/8       14  Wi-Fi\r\n"
+        "No  System  10  10.0.0.0/24      14  Wi-Fi\r\n"
+    )
+
+    def test_show_route_v4_multi_interface(self):
+        af, key, data = self.parser.show_route(IP4, self.ROUTES_V4_MULTI_IF)
+        self.assertIn("12", data)
+        self.assertIn("14", data)
+        self.assertEqual(len(data["14"]), 2)
+        prefixes_14 = [r["prefix"] for r in data["14"]]
+        self.assertIn("10.0.0.0/8", prefixes_14)
+        self.assertIn("10.0.0.0/24", prefixes_14)
+
+    # -----------------------------------------------------------------------
+    # show_mac (route print) – 5+ variants
+    # -----------------------------------------------------------------------
+
+    # Windows 7 – two physical NICs + VMware adapter
+    ROUTE_PRINT_WIN7 = (
+        "Interface List\r\n"
+        "  1...........................Software Loopback Interface 1\r\n"
+        " 12...aa bb cc dd ee ff ......Intel(R) 82579LM Gigabit Network Connection\r\n"
+        " 14...11 22 33 44 55 66 ......Intel(R) Centrino Advanced-N 6205\r\n"
+        " 16...00 50 56 c0 00 08 ......VMware Virtual Ethernet Adapter for VMnet8\r\n"
+        "\r\n"
+        "IPv4 Route Table\r\n"
+        "===========================================================================\r\n"
+        "Active Routes:\r\n"
+        "Network Destination        Netmask          Gateway       Interface  Metric\r\n"
+        "          0.0.0.0          0.0.0.0      192.168.1.1   192.168.1.100      25\r\n"
+        "===========================================================================\r\n"
+    )
+
+    def test_show_mac_win7(self):
+        af, key, data = self.parser.show_mac(IP4, self.ROUTE_PRINT_WIN7)
+        self.assertEqual(key, "macs")
+        self.assertIn("12", data)
+        self.assertEqual(data["12"]["mac"], "aa-bb-cc-dd-ee-ff")
+        self.assertIn("14", data)
+        self.assertEqual(data["14"]["mac"], "11-22-33-44-55-66")
+        self.assertIsNotNone(data["default"][IP4])
+        self.assertEqual(data["default"][IP4]["gw_ip"], "192.168.1.1")
+
+    # Windows 10 – dual-stack, default route for both IPv4 and IPv6
+    ROUTE_PRINT_WIN10_DUAL = (
+        "Interface List\r\n"
+        "  1...........................Software Loopback Interface 1\r\n"
+        " 15...aa bb cc dd ee ff ......Intel(R) Ethernet Connection I219-V\r\n"
+        "\r\n"
+        "IPv4 Route Table\r\n"
+        "Active Routes:\r\n"
+        "Network Destination        Netmask          Gateway       Interface  Metric\r\n"
+        "          0.0.0.0          0.0.0.0      192.168.1.1   192.168.1.100      25\r\n"
+        "\r\n"
+        "IPv6 Route Table\r\n"
+        "Active Routes:\r\n"
+        " If  Met  Prefix                       Next Hop\r\n"
+        " 15    5  ::/0                         fe80::1\r\n"
+    )
+
+    def test_show_mac_win10_dual_stack(self):
+        af, key, data = self.parser.show_mac(IP4, self.ROUTE_PRINT_WIN10_DUAL)
+        self.assertIsNotNone(data["default"][IP4])
+        self.assertEqual(data["default"][IP4]["gw_ip"], "192.168.1.1")
+        self.assertIsNotNone(data["default"][IP6])
+        self.assertEqual(data["default"][IP6]["gw_ip"], "fe80::1")
+
+    # Server – no default IPv4 route (directly connected)
+    ROUTE_PRINT_NO_DEFAULT = (
+        "Interface List\r\n"
+        "  1...........................Software Loopback Interface 1\r\n"
+        "  4...00 0c 29 ab cd ef ......vmxnet3 Ethernet Adapter\r\n"
+        "\r\n"
+        "IPv4 Route Table\r\n"
+        "Active Routes:\r\n"
+        "Network Destination        Netmask          Gateway       Interface  Metric\r\n"
+        "      203.0.113.0    255.255.255.0         On-link      203.0.113.1      10\r\n"
+    )
+
+    def test_show_mac_no_default_route(self):
+        af, key, data = self.parser.show_mac(IP4, self.ROUTE_PRINT_NO_DEFAULT)
+        # Default route entry should be absent (None)
+        self.assertIsNone(data["default"][IP4])
+        self.assertIn("4", data)
+        self.assertEqual(data["4"]["mac"], "00-0c-29-ab-cd-ef")
+
+    # Windows Server 2019 – Hyper-V virtual switch NIC
+    ROUTE_PRINT_HYPERV = (
+        "Interface List\r\n"
+        "  1...........................Software Loopback Interface 1\r\n"
+        "  4...00 15 5d 12 34 56 ......Hyper-V Virtual Ethernet Adapter\r\n"
+        "  6...de ad be ef 00 01 ......Hyper-V Virtual Ethernet Adapter #2\r\n"
+        "\r\n"
+        "IPv4 Route Table\r\n"
+        "Active Routes:\r\n"
+        "Network Destination        Netmask          Gateway       Interface  Metric\r\n"
+        "          0.0.0.0          0.0.0.0       10.0.0.1        10.0.0.50      20\r\n"
+    )
+
+    def test_show_mac_hyperv(self):
+        af, key, data = self.parser.show_mac(IP4, self.ROUTE_PRINT_HYPERV)
+        self.assertIn("4", data)
+        self.assertEqual(data["4"]["mac"], "00-15-5d-12-34-56")
+        self.assertIn("6", data)
+        self.assertEqual(data["6"]["mac"], "de-ad-be-ef-00-01")
+
+    # Windows 11 – WiFi + Ethernet + two default IPv6 routes
+    ROUTE_PRINT_WIN11 = (
+        "Interface List\r\n"
+        "  1...........................Software Loopback Interface 1\r\n"
+        " 14...aa bb cc dd ee ff ......Intel(R) Wi-Fi 6E AX211 160MHz\r\n"
+        " 16...00 11 22 33 44 55 ......Intel(R) Ethernet Connection I225-V\r\n"
+        "\r\n"
+        "IPv4 Route Table\r\n"
+        "Active Routes:\r\n"
+        "Network Destination        Netmask          Gateway       Interface  Metric\r\n"
+        "          0.0.0.0          0.0.0.0        10.0.1.1       10.0.1.50      20\r\n"
+        "\r\n"
+        "IPv6 Route Table\r\n"
+        "Active Routes:\r\n"
+        " If  Met  Prefix                       Next Hop\r\n"
+        " 14    5  ::/0                         fe80::1\r\n"
+    )
+
+    def test_show_mac_win11(self):
+        af, key, data = self.parser.show_mac(IP4, self.ROUTE_PRINT_WIN11)
+        self.assertIn("14", data)
+        self.assertEqual(data["14"]["mac"], "aa-bb-cc-dd-ee-ff")
+        self.assertEqual(data["default"][IP4]["if_ip"], "10.0.1.50")
+
+    # -----------------------------------------------------------------------
+    # show_gws (ipconfig /all) – 5+ variants
+    # -----------------------------------------------------------------------
+
+    # Windows XP style – Physical Address spacing different (dots not dashes)
+    IPCONFIG_XP = (
+        "Windows IP Configuration\r\n"
+        "\r\n"
+        "Ethernet adapter Local Area Connection:\r\n"
+        "\r\n"
+        "   Physical Address. . . . . . . . . : AA-BB-CC-DD-EE-FF\r\n"
+        "   Default Gateway . . . . . . . . . : 192.168.0.1\r\n"
+    )
+
+    def test_show_gws_xp(self):
+        af, key, data = self.parser.show_gws(IP4, self.IPCONFIG_XP)
+        self.assertEqual(key, "gws")
+        self.assertIn("aa-bb-cc-dd-ee-ff", data)
+        self.assertEqual(data["aa-bb-cc-dd-ee-ff"][IP4], "192.168.0.1")
+
+    # Windows 7 – dual-stack gateway (IPv4 + IPv6 link-local)
+    IPCONFIG_WIN7_DUAL = (
+        "Ethernet adapter Local Area Connection:\r\n"
+        "\r\n"
+        "   Physical Address. . . . . . . . . : AA-BB-CC-DD-EE-FF\r\n"
+        "   Default Gateway . . . . . . . . . : 192.168.1.1\r\n"
+        "                                        fe80::1\r\n"
+    )
+
+    def test_show_gws_win7_dual_stack(self):
+        af, key, data = self.parser.show_gws(IP4, self.IPCONFIG_WIN7_DUAL)
+        mac = "aa-bb-cc-dd-ee-ff"
+        self.assertIn(mac, data)
+        self.assertEqual(data[mac][IP4], "192.168.1.1")
+        self.assertEqual(data[mac][IP6], "fe80::1")
+
+    # Windows 10 – adapter with no gateway (virtual NIC / host-only)
+    IPCONFIG_NO_GW = (
+        "Ethernet adapter vEthernet (Default Switch):\r\n"
+        "\r\n"
+        "   Physical Address. . . . . . . . . : 00-15-5D-12-34-56\r\n"
+        "   Default Gateway . . . . . . . . . :\r\n"
+    )
+
+    def test_show_gws_no_gateway_skipped(self):
+        """Interface with no gateway should not appear in results (no valid IP)."""
+        af, key, data = self.parser.show_gws(IP4, self.IPCONFIG_NO_GW)
+        self.assertNotIn("00-15-5d-12-34-56", data)
+
+    # Windows Server – multiple adapters in one ipconfig output
+    IPCONFIG_MULTI = (
+        "Ethernet adapter Ethernet0:\r\n"
+        "\r\n"
+        "   Physical Address. . . . . . . . . : AA-BB-CC-DD-EE-FF\r\n"
+        "   Default Gateway . . . . . . . . . : 10.0.0.1\r\n"
+        "\r\n\r\n"
+        "Ethernet adapter Ethernet1:\r\n"
+        "\r\n"
+        "   Physical Address. . . . . . . . . : 11-22-33-44-55-66\r\n"
+        "   Default Gateway . . . . . . . . . : 172.16.0.1\r\n"
+    )
+
+    def test_show_gws_multi_adapter(self):
+        af, key, data = self.parser.show_gws(IP4, self.IPCONFIG_MULTI)
+        self.assertIn("aa-bb-cc-dd-ee-ff", data)
+        self.assertEqual(data["aa-bb-cc-dd-ee-ff"][IP4], "10.0.0.1")
+        self.assertIn("11-22-33-44-55-66", data)
+        self.assertEqual(data["11-22-33-44-55-66"][IP4], "172.16.0.1")
+
+    # Windows 11 – IPv6-only gateway (no IPv4 gateway)
+    IPCONFIG_IPV6_ONLY_GW = (
+        "Ethernet adapter Ethernet:\r\n"
+        "\r\n"
+        "   Physical Address. . . . . . . . . : AA-BB-CC-DD-EE-FF\r\n"
+        "   Default Gateway . . . . . . . . . : fe80::1\r\n"
+    )
+
+    def test_show_gws_ipv6_only_gateway(self):
+        af, key, data = self.parser.show_gws(IP4, self.IPCONFIG_IPV6_ONLY_GW)
+        mac = "aa-bb-cc-dd-ee-ff"
+        self.assertIn(mac, data)
+        self.assertIsNone(data[mac][IP4])
+        self.assertEqual(data[mac][IP6], "fe80::1")
+
+    # -----------------------------------------------------------------------
+    # get_host_limit_from_route_infos – additional prefix lengths
+    # -----------------------------------------------------------------------
+
+    def test_host_limit_ipv6_slash48(self):
+        from aionetiface.nic.netifaces.windows.win_netsh import get_host_limit_from_route_infos
+        route_infos = [
+            {"prefix": "::/0"},
+            {"prefix": "2001:db8::/32"},
+            {"prefix": "2001:db8:1::/48"},
+        ]
+        host_limit, _ = get_host_limit_from_route_infos("2001:db8:1::1", route_infos)
+        self.assertEqual(host_limit, 48)
+
+    def test_host_limit_ipv6_slash56(self):
+        from aionetiface.nic.netifaces.windows.win_netsh import get_host_limit_from_route_infos
+        route_infos = [
+            {"prefix": "2001:db8::/32"},
+            {"prefix": "2001:db8:1::/48"},
+            {"prefix": "2001:db8:1:200::/56"},
+        ]
+        host_limit, _ = get_host_limit_from_route_infos(
+            "2001:db8:1:200::1", route_infos
+        )
+        self.assertEqual(host_limit, 56)
+
+    def test_host_limit_ipv6_slash128(self):
+        """Host route /128 is the most specific possible match."""
+        from aionetiface.nic.netifaces.windows.win_netsh import get_host_limit_from_route_infos
+        route_infos = [
+            {"prefix": "2001:db8::/32"},
+            {"prefix": "2001:db8:1:2::/64"},
+            {"prefix": "2001:db8:1:2::5/128"},
+        ]
+        host_limit, _ = get_host_limit_from_route_infos(
+            "2001:db8:1:2::5", route_infos
+        )
+        self.assertEqual(host_limit, 128)
+
+    def test_host_limit_ipv4_slash30(self):
+        """Point-to-point /30 link: two host bits."""
+        from aionetiface.nic.netifaces.windows.win_netsh import get_host_limit_from_route_infos
+        route_infos = [
+            {"prefix": "0.0.0.0/0"},
+            {"prefix": "10.0.0.0/30"},
+        ]
+        host_limit, netmask = get_host_limit_from_route_infos("10.0.0.1", route_infos)
+        self.assertEqual(host_limit, 30)
+        self.assertEqual(netmask, "255.255.255.252")
+
+    def test_host_limit_no_match_returns_zero(self):
+        """IP not covered by any route → host_limit=0, netmask=None."""
+        from aionetiface.nic.netifaces.windows.win_netsh import get_host_limit_from_route_infos
+        route_infos = [{"prefix": "10.0.0.0/24"}]
+        host_limit, netmask = get_host_limit_from_route_infos("192.168.1.1", route_infos)
+        self.assertEqual(host_limit, 0)
+        self.assertIsNone(netmask)
+
+
+# ---------------------------------------------------------------------------
+# Extended netiface_addr_to_ipr: block IP assignments across OS netmask formats
+# ---------------------------------------------------------------------------
+
+class TestNetiaceAddrToIPRBlocks(unittest.IsolatedAsyncioTestCase):
+    """
+    Tests netiface_addr_to_ipr with block IP assignments (i_host == 0),
+    covering IPv4 and IPv6, common prefix lengths, and cross-OS netmask formats.
+    """
+
+    async def _to_ipr(self, af, addr, netmask, nic_id=0):
+        from aionetiface.nic.netifaces.netiface_extra import netiface_addr_to_ipr
+        info = {"addr": addr, "netmask": netmask}
+        return await netiface_addr_to_ipr(af, nic_id, info)
+
+    # --- IPv4 block assignments ---
+
+    async def test_ipv4_block_slash24(self):
+        """/24 block: 198.51.100.0/24 with 255 usable hosts."""
+        ipr = await self._to_ipr(IP4, "198.51.100.0", "255.255.255.0")
+        self.assertIsNotNone(ipr)
+        self.assertEqual(ipr.bitlen, 8)         # 8 host bits
+        self.assertEqual(ipr.host_limit, 255)   # 2^8 - 1
+        self.assertEqual(ipr.subnet, 24)
+        self.assertEqual(ipr.i_host, 0)
+
+    async def test_ipv4_block_slash25(self):
+        """/25 block: 192.168.1.128/25 – upper half of a /24."""
+        ipr = await self._to_ipr(IP4, "192.168.1.128", "255.255.255.128")
+        self.assertIsNotNone(ipr)
+        self.assertEqual(ipr.bitlen, 7)         # 7 host bits
+        self.assertEqual(ipr.host_limit, 127)   # 2^7 - 1
+        self.assertEqual(ipr.subnet, 25)
+        self.assertEqual(ipr.i_host, 0)
+
+    async def test_ipv4_block_slash28(self):
+        """/28 block: 203.0.113.16/28 – 14 usable hosts."""
+        ipr = await self._to_ipr(IP4, "203.0.113.16", "255.255.255.240")
+        self.assertIsNotNone(ipr)
+        self.assertEqual(ipr.bitlen, 4)         # 4 host bits
+        self.assertEqual(ipr.host_limit, 15)    # 2^4 - 1
+        self.assertEqual(ipr.subnet, 28)
+        self.assertEqual(ipr.i_host, 0)
+
+    async def test_ipv4_block_slash30(self):
+        """/30 point-to-point link: 10.0.0.0/30 – 3 usable IPs."""
+        ipr = await self._to_ipr(IP4, "10.0.0.0", "255.255.255.252")
+        self.assertIsNotNone(ipr)
+        self.assertEqual(ipr.bitlen, 2)         # 2 host bits
+        self.assertEqual(ipr.host_limit, 3)     # 2^2 - 1
+        self.assertEqual(ipr.subnet, 30)
+        self.assertEqual(ipr.i_host, 0)
+
+    async def test_ipv4_block_slash16(self):
+        """/16 block: 172.16.0.0/16 – 65535 usable hosts."""
+        ipr = await self._to_ipr(IP4, "172.16.0.0", "255.255.0.0")
+        self.assertIsNotNone(ipr)
+        self.assertEqual(ipr.bitlen, 16)
+        self.assertEqual(ipr.host_limit, 65535)
+        self.assertEqual(ipr.subnet, 16)
+        self.assertEqual(ipr.i_host, 0)
+
+    async def test_ipv4_host_inside_block_is_single(self):
+        """A host IP inside a /24 subnet → collapsed to single-host range."""
+        ipr = await self._to_ipr(IP4, "198.51.100.5", "255.255.255.0")
+        self.assertIsNotNone(ipr)
+        self.assertEqual(ipr.bitlen, 0)    # single host
+        self.assertEqual(ipr.subnet, 24)  # OS prefix still stored
+
+    # --- IPv6 block assignments ---
+
+    async def test_ipv6_block_slash64_network_addr(self):
+        """/64 block: 2001:db8:: assigned directly (network address on interface)."""
+        ipr = await self._to_ipr(
+            IP6, "2001:db8::", "ffff:ffff:ffff:ffff::"
+        )
+        self.assertIsNotNone(ipr)
+        self.assertEqual(ipr.bitlen, 64)             # 64 host bits
+        self.assertEqual(ipr.host_limit, (2**64) - 1)
+        self.assertEqual(ipr.subnet, 64)
+        self.assertEqual(ipr.i_host, 0)
+
+    async def test_ipv6_block_slash48(self):
+        """/48 block: 2001:db8:: assigned as a /48 (router prefix delegation)."""
+        ipr = await self._to_ipr(
+            IP6, "2001:db8::", "ffff:ffff:ffff::"
+        )
+        self.assertIsNotNone(ipr)
+        self.assertEqual(ipr.bitlen, 80)             # 80 host bits
+        self.assertEqual(ipr.subnet, 48)
+        self.assertEqual(ipr.i_host, 0)
+
+    async def test_ipv6_block_slash56(self):
+        """/56 block: 2001:db8:1:200:: – common ISP delegation size."""
+        ipr = await self._to_ipr(
+            IP6, "2001:db8:1:200::", "ffff:ffff:ffff:ff00::"
+        )
+        self.assertIsNotNone(ipr)
+        self.assertEqual(ipr.bitlen, 72)   # 72 host bits
+        self.assertEqual(ipr.subnet, 56)
+        self.assertEqual(ipr.i_host, 0)
+
+    async def test_ipv6_host_inside_slash64_is_single(self):
+        """A host inside a /64 → single-host IPRange with subnet=64."""
+        ipr = await self._to_ipr(
+            IP6,
+            "2001:db8::1",
+            "ffff:ffff:ffff:ffff::/64"
+        )
+        self.assertIsNotNone(ipr)
+        self.assertEqual(ipr.bitlen, 0)    # single host
+        self.assertEqual(ipr.subnet, 64)
+
+    async def test_ipv6_link_local_host_inside_slash64(self):
+        """Link-local address in /64 → single-host, subnet=64."""
+        ipr = await self._to_ipr(
+            IP6,
+            "fe80::1",
+            "ffff:ffff:ffff:ffff::"
+        )
+        self.assertIsNotNone(ipr)
+        self.assertEqual(ipr.bitlen, 0)
+        self.assertEqual(ipr.subnet, 64)
+
+    # --- Netmask format variations from different OSes ---
+
+    async def test_netmask_with_cidr_suffix_stripped(self):
+        """netifaces on some systems returns 'ffff:ffff:ffff:ffff::/64' – /N stripped."""
+        ipr = await self._to_ipr(
+            IP6,
+            "2400:a842:d1b4:0:20c:29ff:fe57:d05c",
+            "ffff:ffff:ffff:ffff::/64"
+        )
+        self.assertIsNotNone(ipr)
+        self.assertEqual(ipr.subnet, 64)
+
+    async def test_netmask_ipv4_with_peer_field(self):
+        """ppp/tun interfaces sometimes set addr == peer; treat as single host."""
+        ipr = await self._to_ipr(IP4, "10.10.0.1", "255.255.255.255")
+        self.assertIsNotNone(ipr)
+        self.assertEqual(ipr.bitlen, 0)
+        self.assertEqual(ipr.subnet, 32)
+
+    async def test_ipv4_block_slash27_first_ipr_is_correct(self):
+        """/27 block: ipr[0] is the first usable host (network+1)."""
+        ipr = await self._to_ipr(IP4, "203.0.113.0", "255.255.255.224")
+        self.assertIsNotNone(ipr)
+        self.assertEqual(str(ipr[0]), "203.0.113.1")
+        self.assertEqual(str(ipr[-1]), "203.0.113.31")
+
+    async def test_ipv6_block_slash64_first_ipr_is_correct(self):
+        """/64 block: ipr[0] is ::1, ipr[-1] is all-1s in lower 64 bits."""
+        ipr = await self._to_ipr(IP6, "2001:db8::", "ffff:ffff:ffff:ffff::")
+        self.assertIsNotNone(ipr)
+        self.assertEqual(str(ipr[0]), "2001:db8::1")
+        self.assertEqual(str(ipr[-1]), "2001:db8::ffff:ffff:ffff:ffff")
+
+
+# ---------------------------------------------------------------------------
+# Extended Get-NetIPAddress output parsing variants
+# ---------------------------------------------------------------------------
+
+class TestGetAddrInfoParsingExtended(unittest.TestCase):
+    """More real-world Get-NetIPAddress output samples."""
+
+    def _parse(self, out):
+        import re
+        from aionetiface.net.net_utils import cidr_to_netmask
+        addr = {IP4: [], IP6: []}
+        for ip_val, af_family, host_limit in re.findall(
+            r"IPAddress\s*:\s*([^\s]*)[\s\S]*?AddressFamily\s*:\s*([^\s]+)[\s\S]*?PrefixLength\s*:\s([0-9]+)",
+            out
+        ):
+            host_limit = int(host_limit)
+            af = IP4 if af_family == "IPv4" else IP6
+            addr[af].append({
+                "addr": ip_val,
+                "af": af,
+                "host_limit": host_limit,
+                "netmask": cidr_to_netmask(host_limit, af)
+            })
+        return addr
+
+    # Windows Server – multiple IPs on one adapter (multi-homed)
+    PS_MULTIHOMED = """\
+IPAddress      : 192.168.1.100
+AddressFamily  : IPv4
+PrefixLength   : 24
+
+IPAddress      : 192.168.2.200
+AddressFamily  : IPv4
+PrefixLength   : 24
+
+IPAddress      : 10.0.0.5
+AddressFamily  : IPv4
+PrefixLength   : 8
+"""
+
+    def test_multihomed_ipv4(self):
+        result = self._parse(self.PS_MULTIHOMED)
+        self.assertEqual(len(result[IP4]), 3)
+        addrs = [a["addr"] for a in result[IP4]]
+        self.assertIn("192.168.1.100", addrs)
+        self.assertIn("10.0.0.5", addrs)
+        ten = next(a for a in result[IP4] if a["addr"] == "10.0.0.5")
+        self.assertEqual(ten["host_limit"], 8)
+        self.assertEqual(ten["netmask"], "255.0.0.0")
+
+    # Windows 10 – dual-stack with privacy extensions
+    PS_DUAL_STACK = """\
+IPAddress      : 192.168.1.100
+AddressFamily  : IPv4
+PrefixLength   : 24
+
+IPAddress      : 2400:a842:d1b4:0:20c:29ff:fe57:d05c
+AddressFamily  : IPv6
+PrefixLength   : 64
+
+IPAddress      : 2400:a842:d1b4:0:7f81:feef:9bb1:101e
+AddressFamily  : IPv6
+PrefixLength   : 64
+
+IPAddress      : fe80::20c:29ff:fe57:d05c
+AddressFamily  : IPv6
+PrefixLength   : 64
+"""
+
+    def test_dual_stack_with_privacy(self):
+        result = self._parse(self.PS_DUAL_STACK)
+        self.assertEqual(len(result[IP4]), 1)
+        self.assertEqual(len(result[IP6]), 3)
+        ipv6_addrs = [a["addr"] for a in result[IP6]]
+        self.assertIn("fe80::20c:29ff:fe57:d05c", ipv6_addrs)
+
+    # Server with /32 and /128 host routes
+    PS_HOST_ROUTES = """\
+IPAddress      : 8.8.8.8
+AddressFamily  : IPv4
+PrefixLength   : 32
+
+IPAddress      : 2001:db8::1
+AddressFamily  : IPv6
+PrefixLength   : 128
+"""
+
+    def test_host_routes(self):
+        result = self._parse(self.PS_HOST_ROUTES)
+        self.assertEqual(result[IP4][0]["host_limit"], 32)
+        self.assertEqual(result[IP6][0]["host_limit"], 128)
+
+    # Delegated /48 prefix on a router interface
+    PS_DELEGATED_PREFIX = """\
+IPAddress      : 2001:db8::
+AddressFamily  : IPv6
+PrefixLength   : 48
+"""
+
+    def test_delegated_slash48(self):
+        result = self._parse(self.PS_DELEGATED_PREFIX)
+        self.assertEqual(len(result[IP6]), 1)
+        self.assertEqual(result[IP6][0]["host_limit"], 48)
+        self.assertEqual(result[IP6][0]["addr"], "2001:db8::")
+
+    # Loopback addresses
+    PS_LOOPBACK = """\
+IPAddress      : 127.0.0.1
+AddressFamily  : IPv4
+PrefixLength   : 8
+
+IPAddress      : ::1
+AddressFamily  : IPv6
+PrefixLength   : 128
+"""
+
+    def test_loopback_addresses(self):
+        result = self._parse(self.PS_LOOPBACK)
+        self.assertEqual(result[IP4][0]["addr"], "127.0.0.1")
+        self.assertEqual(result[IP4][0]["host_limit"], 8)
+        self.assertEqual(result[IP6][0]["addr"], "::1")
+        self.assertEqual(result[IP6][0]["host_limit"], 128)
+
+
 if __name__ == '__main__':
     main()

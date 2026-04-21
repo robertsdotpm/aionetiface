@@ -138,7 +138,7 @@ class NetshParse():
     # mac: {ip4: ..., IP6: ...}
     @staticmethod
     def show_gws(af, msg):
-        p = r"[pP]hysical[ ]+[aA]ddress[^:]+:([^\r\n]+)[\r\n][\s\S]+?[dD]efault[ ]+[gG]ateway[^:]+:((?:\s*[a-fA-F0-9:.%]+[\r\n])(?:\s*[a-fA-F0-9:.%]+[\r\n])?)"
+        p = r"[pP]hysical[ ]+[aA]ddress[^:]+:([^\r\n]+)[\r\n][\s\S]+?[dD]efault[ ]+[gG]ateway[^:]+:((?:\s*[a-fA-F0-9:.%]+[\r\n]?)(?:\s*[a-fA-F0-9:.%]+[\r\n])?)"
         sections = msg.split("\r\n\r\n")
 
         results = {}

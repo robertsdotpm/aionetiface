@@ -16,20 +16,18 @@ def fstr(expr, params=()):
     return out
 
 class fstr2(object):
-    """String formatter based on Python 3.6 'f' strings
+    """Legacy string formatter that uses eval() to expand {expr} placeholders.
 
-    `F` will automatically format anything between two
-    braces (ie: {{ ... }}) when printed. The original
-    representation of the string is kept as well and
-    printed with `print(repr(f_string))`.
+    DEPRECATED — do not use in new code.  Use Python f-strings or fstr()
+    instead.  This class is retained only for backward compatibility with
+    any existing callers.
 
-    There is also a stand alone method which takes a
-    `regex` and a `string` for input and returns the
-    string with all pattern matches replaced.
+    Security note: _clean_and_eval() calls eval() against the caller's local
+    and global namespaces.  Never pass untrusted input to this class.
 
     Attributes:
-        _string: the string to be formatted
-        text: the newly formatted string
+        _string: the original template string.
+        text: the formatted string with all {expr} placeholders expanded.
     """
     _regex = re.compile(r"\{([^{}]+)\}", re.S)
 

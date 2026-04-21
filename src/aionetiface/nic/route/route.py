@@ -98,22 +98,28 @@ from ...net.bind.bind import *
 @total_ordering
 class Route(Bind):
     def __init__(self, af, nic_ips, ext_ips, interface=None, ext_check=1):
-        # Sanity tests.
-        assert(af in VALID_AFS)
-        assert(isinstance(nic_ips, list))
-        assert(isinstance(ext_ips, list))
-        assert(len(ext_ips))
-        assert(len(nic_ips))
+        if af not in VALID_AFS:
+            raise ValueError(f"af {af!r} is not a supported address family")
+        if not isinstance(nic_ips, list):
+            raise TypeError("nic_ips must be a list")
+        if not isinstance(ext_ips, list):
+            raise TypeError("ext_ips must be a list")
+        if not ext_ips:
+            raise ValueError("ext_ips must not be empty")
+        if not nic_ips:
+            raise ValueError("nic_ips must not be empty")
+        if not isinstance(ext_ips[0], IPRange):
+            raise TypeError("ext_ips[0] must be an IPRange")
+        if not ext_ips[0].i_ip:
+            raise ValueError("ext_ips[0] IP must not be 0.0.0.0 / ::")
+        if ext_ips[0].af != af:
+            raise ValueError(f"ext_ips[0].af {ext_ips[0].af} != af {af}")
 
-        # Check value and type of ext_ip.
-        assert(isinstance(ext_ips[0], IPRange))
-        assert(ext_ips[0].i_ip) # IP must not be 0.
-        assert(ext_ips[0].af == af)
-
-        # Check NIC values.
         for nic_ipr in nic_ips:
-            assert(isinstance(nic_ipr, IPRange))
-            assert(nic_ipr.af == af)
+            if not isinstance(nic_ipr, IPRange):
+                raise TypeError(f"nic_ips entry {nic_ipr!r} must be an IPRange")
+            if nic_ipr.af != af:
+                raise ValueError(f"nic_ipr.af {nic_ipr.af} != af {af}")
 
         # Allow ext to be private if check is disabled.
         # Needed to allow for conversion from a Bind to a Route.
