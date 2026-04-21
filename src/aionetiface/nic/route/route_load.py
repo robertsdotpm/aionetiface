@@ -282,7 +282,7 @@ async def discover_nic_wan_ips(af, min_agree, enable_default, interface, stun_cl
             head_is_direct = (int(head_route.nic_ips[0]) == int(head_route.ext_ips[0]))
             for extra_ipr in rest_iprs:
                 if head_is_direct:
-                    ext_ipr = IPRange(ip_norm(str(extra_ipr[0])), bitlen=af_bitlen(af))
+                    ext_ipr = IPRange(ip_norm(str(extra_ipr[0])), bitlen=0)
                     ext_iprs = [ext_ipr]
                 else:
                     ext_iprs = copy.deepcopy(head_route.ext_ips)

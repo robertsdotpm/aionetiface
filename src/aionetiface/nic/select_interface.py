@@ -9,11 +9,7 @@ def get_if_by_nic_ipr(nic_ipr, netifaces):
                 continue
 
             for info in addr_infos[af]:
-                host_limit = af_bitlen(
-                    netiface_to_af(af, netifaces)
-                )
-
-                needle_ipr = IPRange(info["addr"], bitlen=host_limit)
+                needle_ipr = IPRange(info["addr"], bitlen=0)
                 if needle_ipr == nic_ipr:
                     i = Interface(if_name)
                     i.netifaces = netifaces

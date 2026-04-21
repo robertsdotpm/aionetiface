@@ -170,7 +170,7 @@ class IPRange():
     def to_dict(self):
         d = {
             "ip": self.ip,
-            "bitlen": self.bitlen,
+            "host_limit": self.host_no,
             "af": int(self.af)
         }
         if self.subnet is not None:
@@ -179,7 +179,10 @@ class IPRange():
 
     @staticmethod
     def from_dict(d):
-        ipr = IPRange(ip=d["ip"], bitlen=d["bitlen"])
+        import math
+        host_limit = d["host_limit"]
+        bitlen = 0 if host_limit <= 1 else math.ceil(math.log2(host_limit + 1))
+        ipr = IPRange(ip=d["ip"], bitlen=bitlen)
         if "subnet" in d:
             ipr.subnet = d["subnet"]
         return ipr
