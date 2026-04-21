@@ -550,13 +550,13 @@ class TestNetiaceAddrToIPR(unittest.IsolatedAsyncioTestCase):
     async def test_ipv4_host_with_slash24_netmask(self):
         ipr = await self._to_ipr(IP4, "192.168.1.100", "255.255.255.0")
         self.assertIsNotNone(ipr)
-        self.assertEqual(ipr.host_limit, 32)     # single-host range
+        self.assertEqual(ipr.bitlen, 0)      # single-host range
         self.assertEqual(ipr.subnet, 24) # OS prefix stored separately
 
     async def test_ipv4_host_with_full_netmask(self):
         ipr = await self._to_ipr(IP4, "8.8.8.8", "255.255.255.255")
         self.assertIsNotNone(ipr)
-        self.assertEqual(ipr.host_limit, 32)
+        self.assertEqual(ipr.bitlen, 0)
         self.assertEqual(ipr.subnet, 32)
 
     async def test_ipv4_missing_addr(self):
@@ -576,7 +576,7 @@ class TestNetiaceAddrToIPR(unittest.IsolatedAsyncioTestCase):
             "ffff:ffff:ffff:ffff::/64"
         )
         self.assertIsNotNone(ipr)
-        self.assertEqual(ipr.host_limit, 128)    # single-host
+        self.assertEqual(ipr.bitlen, 0)      # single-host
         self.assertEqual(ipr.subnet, 64) # OS /64 prefix
 
     async def test_ipv6_host_with_full_netmask(self):
@@ -586,7 +586,7 @@ class TestNetiaceAddrToIPR(unittest.IsolatedAsyncioTestCase):
             "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
         )
         self.assertIsNotNone(ipr)
-        self.assertEqual(ipr.host_limit, 128)
+        self.assertEqual(ipr.bitlen, 0)
         self.assertEqual(ipr.subnet, 128)
 
     async def test_ipv6_link_local_with_slash64(self):
@@ -596,7 +596,7 @@ class TestNetiaceAddrToIPR(unittest.IsolatedAsyncioTestCase):
             "ffff:ffff:ffff:ffff::/64"
         )
         self.assertIsNotNone(ipr)
-        self.assertEqual(ipr.host_limit, 128)
+        self.assertEqual(ipr.bitlen, 0)
         self.assertEqual(ipr.subnet, 64)
 
     async def test_ipv6_link_local_with_interface_suffix(self):
@@ -614,10 +614,11 @@ class TestNetiaceAddrToIPR(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(ipr)
 
     async def test_ipv4_block_assignment(self):
-        """Network address assigned to interface (i_host==0) → block IPRange with host_limit=27."""
+        """Network address assigned to interface (i_host==0) → block IPRange with bitlen=5 (5 host bits = /27)."""
         ipr = await self._to_ipr(IP4, "203.0.113.0", "255.255.255.224")
         self.assertIsNotNone(ipr)
-        self.assertEqual(ipr.host_limit, 27)
+        self.assertEqual(ipr.bitlen, 5)
+        self.assertEqual(ipr.host_limit, 31)  # 2^5 - 1 usable hosts in /27
         self.assertEqual(ipr.subnet, 27)
         self.assertEqual(ipr.i_host, 0)
 
@@ -640,8 +641,7 @@ class TestGroupPubIPRsByNetCidr(unittest.TestCase):
 
     def _make_ipr(self, ip, subnet, af=IP4):
         from aionetiface.net.ip_range import IPRange
-        max_bits = 128 if af == IP6 else 32
-        ipr = IPRange(ip, host_limit=max_bits)
+        ipr = IPRange(ip, bitlen=0)
         ipr.subnet = subnet
         return ipr
 

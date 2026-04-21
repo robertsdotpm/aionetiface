@@ -13,7 +13,7 @@ def get_if_by_nic_ipr(nic_ipr, netifaces):
                     netiface_to_af(af, netifaces)
                 )
 
-                needle_ipr = IPRange(info["addr"], host_limit=host_limit)
+                needle_ipr = IPRange(info["addr"], bitlen=host_limit)
                 if needle_ipr == nic_ipr:
                     i = Interface(if_name)
                     i.netifaces = netifaces
@@ -37,15 +37,15 @@ async def select_if_by_dest(af, src_index, dest_ip, interface, ifs=[]):
     internet -- use original interface if the dest_ip
     is a public address.
     """
-    host_limit = af_bitlen(af)
-    dest_ipr = IPRange(dest_ip, host_limit=host_limit)
+    host_limit = 0
+    dest_ipr = IPRange(dest_ip, bitlen=host_limit)
     if dest_ipr.is_public:
         return interface, src_index
     
     # Simply connects a non-blocking socket to the dest_ip
     # and checks the local IP used to select an Interface.
     bind_ip = determine_if_path(af, dest_ip)
-    bind_ipr = IPRange(bind_ip, host_limit=host_limit)
+    bind_ipr = IPRange(bind_ip, bitlen=host_limit)
     bind_interface = get_if_by_nic_ipr(
         bind_ipr,
         interface.netifaces,

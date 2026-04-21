@@ -332,12 +332,15 @@ def get_host_limit_from_route_infos(needle_ip, route_infos):
         if not prefix_cidr:
             continue
 
-        prefix_ipr = IPRange(prefix_ip, host_limit=prefix_cidr)
+        import ipaddress as _ipa
+        _max_bits = 128 if _ipa.ip_address(prefix_ip).version == 6 else 32
+        _host_bits = _max_bits - prefix_cidr
+        prefix_ipr = IPRange(prefix_ip, bitlen=_host_bits)
         masked_needle_net = toggle_host_bits(
             prefix_ipr.netmask,
             needle_ip
         )
-        masked_needle_ipr = IPRange(masked_needle_net, host_limit=prefix_cidr)
+        masked_needle_ipr = IPRange(masked_needle_net, bitlen=_host_bits)
 
         if prefix_ipr == masked_needle_ipr:
             if prefix_cidr >= host_limit:

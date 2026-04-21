@@ -192,7 +192,7 @@ async def resolv_dest(af, dest, nic):
     if isinstance(dest, tuple):
         try:
             # An IP -- already resolved.
-            IPRange(dest[0], host_limit=af_bitlen(af))
+            IPRange(dest[0], bitlen=0)
             return dest
         except Exception:
             dest = await Address(*dest, nic)

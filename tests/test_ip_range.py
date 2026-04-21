@@ -3,12 +3,12 @@ from aionetiface import *
 
 class TestIPRange(unittest.IsolatedAsyncioTestCase):
     async def test_private_for_single_host_v6(self):
-        ipr = IPRange("::1", host_limit=128)
+        ipr = IPRange("::1", bitlen=0)
         self.assertTrue(ipr.is_private)
 
 
     async def test_ip_range_iter(self):
-        ipr = IPRange("192.168.0.0", host_limit=16)
+        ipr = IPRange("192.168.0.0", bitlen=16)
 
         # Test iterating the range.
         i = 0
@@ -22,7 +22,7 @@ class TestIPRange(unittest.IsolatedAsyncioTestCase):
         ipr = IPRange(ip)
         self.assertEqual(len(ipr), 1)
         self.assertEqual(str(ipr[0]), ip)
-        self.assertEqual(ipr.host_limit, 32)
+        self.assertEqual(ipr.bitlen, 0)
         self.assertTrue(ipr.is_private)
         self.assertFalse(ipr.is_public)
 
@@ -39,30 +39,30 @@ class TestIPRange(unittest.IsolatedAsyncioTestCase):
         ipr = IPRange(ip)
         self.assertEqual(str(ipr[0]), ip)
         self.assertEqual(len(ipr), 1)
-        self.assertEqual(ipr.host_limit, 128)
+        self.assertEqual(ipr.bitlen, 0)
 
     async def test_single_v6_link_local(self):
         ip = "fe80::ae1f:6bff:fe94:531a"
         ipr = IPRange(ip)
         self.assertEqual(str(ipr[0]), ip)
         self.assertEqual(len(ipr), 1)
-        self.assertEqual(ipr.host_limit, 128)
+        self.assertEqual(ipr.bitlen, 0)
         self.assertTrue(ipr.is_private)
         self.assertFalse(ipr.is_public)
 
     async def test_single_v4_broadcast(self):
-        ip = "255.255.255.255"  
+        ip = "255.255.255.255"
         ipr = IPRange(ip)
         self.assertEqual(str(ipr[0]), ip)
         self.assertEqual(len(ipr), 1)
-        self.assertEqual(ipr.host_limit, 32)
+        self.assertEqual(ipr.bitlen, 0)
         self.assertTrue(ipr.is_private)
         self.assertFalse(ipr.is_public)
 
     async def test_block_v6_public(self):
         ip = "2402:1f00:8101:83f::"  
-        host_limit = 64
-        ipr = IPRange(ip, netmask=None, host_limit=host_limit)
+        bitlen = 64
+        ipr = IPRange(ip, netmask=None, bitlen=bitlen)
         self.assertEqual(ipr.host_no, (2 ** 64) - 1)
 
         # First host in that block.
@@ -79,8 +79,8 @@ class TestIPRange(unittest.IsolatedAsyncioTestCase):
         # Test > sys.maxsize = memory addr overflow.
         # Len is expected to overflow.
         ip = "2402:1f00:8101::"
-        host_limit = 48
-        ipr = IPRange(ip, netmask=None, host_limit=host_limit)
+        bitlen = 80
+        ipr = IPRange(ip, netmask=None, bitlen=bitlen)
         self.assertEqual(ipr.host_no, (2 ** 80) - 1)
 
         # include 0 in range = -1, start counting from 0 = -1 so -2
@@ -89,9 +89,9 @@ class TestIPRange(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(ipr.is_private)
 
     async def test_block_v4_public(self):
-        ipr = IPRange("8.8.8.0", host_limit=24)
+        ipr = IPRange("8.8.8.0", bitlen=8)
         self.assertEqual(str(ipr[0]), "8.8.8.1")
-        ipr = IPRange("8.8.8.4", host_limit=24)
+        ipr = IPRange("8.8.8.4", bitlen=8)
         self.assertEqual(str(ipr[-1]), "8.8.8.255")
         self.assertEqual(str(ipr[256]), "8.8.8.1")
 

@@ -139,10 +139,10 @@ async def netiface_addr_to_ipr(af, nic_id, info):
 
     if probe is not None and probe.i_host == 0:
         nic_ipr = probe
-        nic_ipr.subnet = probe.host_limit
+        nic_ipr.subnet = af_bitlen(af) - probe.bitlen
     else:
-        nic_ipr = IPRange(info["addr"], host_limit=af_bitlen(af))
-        nic_ipr.subnet = probe.host_limit if probe is not None else af_bitlen(af)
+        nic_ipr = IPRange(info["addr"], bitlen=0)
+        nic_ipr.subnet = af_bitlen(af) - probe.bitlen if probe is not None else af_bitlen(af)
 
     """
     If a range is detected test that the range is valid by

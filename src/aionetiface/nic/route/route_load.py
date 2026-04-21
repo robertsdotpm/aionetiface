@@ -63,9 +63,9 @@ async def lookup_wan_ip_for_nic_ip(src_ip, min_agree, stun_clients, timeout):
             )
 
             if wan_ip is not None:
-                host_limit = af_bitlen(af)
-                ext_ipr = IPRange(wan_ip, host_limit=host_limit)
-                nic_ipr = IPRange(src_ip, host_limit=host_limit)
+                host_limit = 0
+                ext_ipr = IPRange(wan_ip, bitlen=host_limit)
+                nic_ipr = IPRange(src_ip, bitlen=host_limit)
                 if nic_ipr.is_private or src_ip != wan_ip:
                     nic_ipr.is_private = True
                     nic_ipr.is_public = False
@@ -178,7 +178,7 @@ async def discover_nic_wan_ips(af, min_agree, enable_default, interface, stun_cl
 
     # Determine the OS-preferred source address before grouping so we can
     # promote it to group head (it's the most reliable address for STUN).
-    host_limit = af_bitlen(af)
+    host_limit = 0
     af_default_nic_ip = ""
     if enable_default:
         dest = "8.8.8.8" if af == IP4 else "2001:4860:4860::8888"
@@ -282,7 +282,7 @@ async def discover_nic_wan_ips(af, min_agree, enable_default, interface, stun_cl
             head_is_direct = (int(head_route.nic_ips[0]) == int(head_route.ext_ips[0]))
             for extra_ipr in rest_iprs:
                 if head_is_direct:
-                    ext_ipr = IPRange(ip_norm(str(extra_ipr[0])), host_limit=af_bitlen(af))
+                    ext_ipr = IPRange(ip_norm(str(extra_ipr[0])), bitlen=af_bitlen(af))
                     ext_iprs = [ext_ipr]
                 else:
                     ext_iprs = copy.deepcopy(head_route.ext_ips)
@@ -302,7 +302,7 @@ async def discover_nic_wan_ips(af, min_agree, enable_default, interface, stun_cl
         is not in the NIC IPs for this interface then
         don't enable the use of the default route.
         """
-        af_default_nic_ipr = IPRange(af_default_nic_ip, host_limit=host_limit)
+        af_default_nic_ipr = IPRange(af_default_nic_ip, bitlen=host_limit)
         if af_default_nic_ipr not in nic_iprs:
             default_route = None
             log(fstr("Route error {0} disabling default route.", (af,)))

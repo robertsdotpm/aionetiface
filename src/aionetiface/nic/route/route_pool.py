@@ -163,7 +163,7 @@ class RoutePool():
         rel_host_offset = rel_host_offset % self.wan_hosts
         
         # Build a route corrosponding to these offsets.
-        wan_ip = IPRange(str(wan_ipr[rel_host_offset]), host_limit=BITLEN_FULL)
+        wan_ip = IPRange(str(wan_ipr[rel_host_offset]), bitlen=0)
         new_route = Route(
             af=route.af,
             nic_ips=copy.deepcopy(route.nic_ips),

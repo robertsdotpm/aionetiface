@@ -6,9 +6,6 @@ import copy
 from functools import total_ordering
 from .net_utils import *
 
-# Sentinel CIDR value meaning "use the full address width" (i.e. a single host).
-BITLEN_FULL = 1000
-
 class IPRangeIter():
     def __init__(self, ipr, reverse=False):
         self.ipr = ipr
@@ -32,10 +29,11 @@ class IPRangeIter():
 
 """
 Represents a block of distinct IP assignments.
-host_limit is the bit-width of the block (e.g. 27 for a /27 block, 32 for a
-single IPv4 host, 128 for a single IPv6 host). subnet separately stores the
-OS-assigned network prefix when known (e.g. subnet=64 for an address inside a
-/64, even when host_limit=128 for a single-host range).
+bitlen is the number of host bits in the block — the counterpart to netmask.
+Both describe the same thing: bitlen=8 and netmask="255.255.255.0" both mean
+a /24 block with 255 usable hosts. A single host has bitlen=0 (no host bits).
+subnet separately stores the OS-assigned network prefix when known (e.g.
+subnet=64 for an address inside a /64, even when bitlen=0 for a single host).
 
 Accepts str, int, bytes for IP and netmask.
 Can be converted to str, int, or bytes.
@@ -43,20 +41,24 @@ Iterable and sliceable -- returns ip_addr objs.
 """
 @total_ordering
 class IPRange():
-    def __init__(self, ip, netmask=None, host_limit=BITLEN_FULL, af=None):
+    def __init__(self, ip, netmask=None, bitlen=None, af=None):
         self.route = None
-        self.subnet = None  # OS network prefix length; does not affect host_no or host_limit semantics
+        self.subnet = None
 
-        # Set full bit mask based on af.
-        if af:
-            host_limit = af_bitlen(af)
+        # When AF is forced but no bitlen given, default to single host.
+        if af and bitlen is None:
+            bitlen = 0
 
-        # Prefer netmask over host_limit when both are supplied.
-        if netmask is not None and host_limit is not None:
-            host_limit = None
+        # Netmask takes precedence; suppress bitlen so only one path runs.
+        if netmask is not None:
+            bitlen = None
+
+        # Default: single host (no host bits).
+        if bitlen is None and netmask is None:
+            bitlen = 0
 
         # Sanity check.
-        assert(netmask is not None or host_limit is not None)
+        assert(netmask is not None or bitlen is not None)
         assert(ip != netmask)
 
         # Normalise netmask: remove /n, %iface, and/or explode compressed IPv6.
@@ -67,7 +69,7 @@ class IPRange():
         else:
             self.netmask = netmask
             if netmask in (32, 128):
-                log("Netmask value looks like a CIDR prefix length — did you mean host_limit= instead?")
+                log("Netmask value looks like a bit-length — did you mean bitlen= instead?")
 
         # Determine address family (IPv4 vs IPv6) and check for ambiguity.
         self.af = None
@@ -95,36 +97,22 @@ class IPRange():
             self.ipa_ip = ipaddress.ip_address(self.ip)
             self.af = v_to_af(self.ipa_ip.version)
 
-        # Set netmask from host_limit if host_limit set.
-        if host_limit is not None:
-            if host_limit:
-                if host_limit == BITLEN_FULL:
-                    host_limit = af_bitlen(self.af)
-
-                self.netmask = cidr_to_netmask(host_limit, self.af)
-
-            self.host_limit = host_limit
+        # Derive netmask from bitlen (host bit count), or bitlen from netmask.
+        max_bits = af_bitlen(self.af)
+        if bitlen is not None:
+            self.netmask = cidr_to_netmask(max_bits - bitlen, self.af)
+            self.bitlen = bitlen
         else:
-            # Convert netmask to CIDR with fast binary operations.
-            if netmask is not None:
-                ipa_netmask = ipaddress.ip_address(self.netmask)
-                self.host_limit = hamming_weight(int(ipa_netmask))
-
-        # Blank network portion.
-        if not self.host_limit:
-            if self.af == IP4:
-                self.netmask = ZERO_NETMASK_IP4
-            else:
-                self.netmask = ZERO_NETMASK_IP6
+            ipa_netmask = ipaddress.ip_address(self.netmask)
+            self.bitlen = max_bits - hamming_weight(int(ipa_netmask))
 
         # Parse IP information.
-        max_host_bit_len = af_bitlen(self.af)
-        assert(self.host_limit <= max_host_bit_len)
-        host_bit_len = max_host_bit_len - self.host_limit
+        assert(self.bitlen <= max_bits)
+        host_bit_len = self.bitlen
 
         # IP is network portion + host portion.
         self.i_ip = int(self.ipa_ip)
-    
+
         # Blank out the host segment of i_ip so that offset calculations
         # work against the network portion only.  i_host holds the original
         # host portion (max value the host bits can represent), and i_ip
@@ -134,7 +122,7 @@ class IPRange():
             self.i_ip -= self.i_host
             self.host_no = 1
         else:
-            # CIDR equals the full address width — no host bits exist.
+            # bitlen=0: no host bits — this is a single host address.
             self.i_host = 0
             self.host_no = 1
             self.i_nw = self.i_ip
@@ -143,7 +131,7 @@ class IPRange():
         # That is - it is a network.
         if host_bit_len:
             self.i_nw = self.i_ip
-            if host_bit_len != max_host_bit_len:
+            if host_bit_len != max_bits:
                 self.host_no = (2 ** host_bit_len) - 1
 
         # IP may have a blank host portion but the set bits
@@ -159,12 +147,16 @@ class IPRange():
             self.is_private = False
 
         # Used for range comparisons.
-        if self.host_limit == af_bitlen(self.af):
+        if self.bitlen == 0:
             self.r = [self.i_nw, self.i_nw]
         else:
             self.r = [self.i_nw, self.i_nw + self.host_no]
 
         assert(self.host_no)
+
+    @property
+    def host_limit(self):
+        return self.host_no
 
     def len(self):
         return self.host_no
@@ -178,7 +170,7 @@ class IPRange():
     def to_dict(self):
         d = {
             "ip": self.ip,
-            "host_limit": self.host_limit,
+            "bitlen": self.bitlen,
             "af": int(self.af)
         }
         if self.subnet is not None:
@@ -187,7 +179,7 @@ class IPRange():
 
     @staticmethod
     def from_dict(d):
-        ipr = IPRange(ip=d["ip"], host_limit=d["host_limit"])
+        ipr = IPRange(ip=d["ip"], bitlen=d["bitlen"])
         if "subnet" in d:
             ipr.subnet = d["subnet"]
         return ipr
@@ -204,7 +196,7 @@ class IPRange():
     def __deepcopy__(self, memo):
         ip = self.ip
         netmask = self.netmask
-        params = (ip, netmask, copy.deepcopy(self.host_limit))
+        params = (ip, netmask, copy.deepcopy(self.bitlen))
         new_ipr = IPRange(*params)
         new_ipr.subnet = self.subnet
         return new_ipr
@@ -246,8 +238,8 @@ class IPRange():
           for non-negative indexes (the or-1 guard handles the edge case where
           the subnet has a blank host portion that would otherwise yield 0).
         """
-        # A full-width CIDR means this is a single host — index always returns it.
-        if self.host_limit == af_bitlen(self.af):
+        # bitlen=0 means single host — index always returns the address itself.
+        if self.bitlen == 0:
             return self.ip_f(self.i_nw)
 
         # Negative index: use as-is to wrap backwards.
@@ -284,11 +276,11 @@ class IPRange():
     def _convert_other(self, other):
         if isinstance(other, (int, bytes, str)):
             ipa = ipaddress.ip_address(other)
-            return IPRange(ipa, host_limit=BITLEN_FULL)
+            return IPRange(ipa)
         elif isinstance(other, IPRange):
             return other
         elif isinstance(other, IPA_TYPES):
-            return IPRange(other, host_limit=BITLEN_FULL)
+            return IPRange(other)
         else:
             raise NotImplementedError("IPRange comparison is not implemented for that type.")
 
@@ -346,14 +338,14 @@ def ipr_in_interfaces(needle_ipr, if_list, mode=IP_PUBLIC):
 def ipr_norm(ipr):
     return ip_norm(str(ipr[0]))
 
-def IPR(ip, af=None, host_limit=BITLEN_FULL):
+def IPR(ip, af=None, bitlen=0):
     af = af or IP6 if ":" in ip else IP4
-    return IPRange(ip, af=af, host_limit=host_limit)
+    return IPRange(ip, af=af, bitlen=bitlen)
 
 def ensure_ip_is_public(ip):
     ip = ip_norm(ip)
     af = IP4 if "." in ip else IP6
-    ipr = IPRange(ip, host_limit=af_bitlen(af))
+    ipr = IPRange(ip)
     if ipr.is_private:
         raise Exception("IP must be public.")
 
@@ -362,10 +354,6 @@ def ensure_ip_is_public(ip):
 if __name__ == "__main__": # pragma: no cover
     # Blank host = range.
     x = IPRange("192.168.1.0", "255.255.255.0")
-
-    #print(str(x[0]))
-    #print(str(x[-1]))
-    #exit()
 
     assert(str(x[0]) == "192.168.1.1")
     assert(str(x[1]) == "192.168.1.2")
@@ -379,7 +367,6 @@ if __name__ == "__main__": # pragma: no cover
     assert(str(y[1]) == "192.168.1.179")
     assert(str(y[-1]) == "192.168.1.179")
     assert(str(y[-2]) == "192.168.1.179")
-    #assert(str(x[0]) == "192.168.1.1")
     assert(y.host_no == 1)
 
     # Single host (with full net mask). Also not a range.
@@ -405,8 +392,6 @@ if __name__ == "__main__": # pragma: no cover
     assert(b < e) # Compare end value of ranges.
     assert(e > b)
 
-    #print(len(f))
-    #print(len(e))
     assert(f > e) # Range compare is based on host no, not ip value
 
     l = [a, c, e]
@@ -415,6 +400,6 @@ if __name__ == "__main__": # pragma: no cover
     assert(g not in l)
     assert(h in l)
     x = IPRange("fe80::9acb:c90e:7bf6:a093%enp3s0", "ffff:ffff:ffff:ffff::/64")
-    assert(x.host_limit == 64)
+    assert(x.bitlen == 64)  # 64 host bits in a /64
 
     print("Self-tests passed.")
