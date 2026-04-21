@@ -37,7 +37,9 @@ class ObjCollection():
 
     # Get n new objs using obj factory.
     # An optional function can be provided to select the server.
-    async def get_n(self, n, kv={}):
+    async def get_n(self, n, kv=None):
+        if kv is None:
+            kv = {}
         # If func is defined for getting dest server
         # build a list of servers to use for connection.
         if self.select_servers:

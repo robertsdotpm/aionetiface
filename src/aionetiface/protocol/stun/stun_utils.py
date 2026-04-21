@@ -50,7 +50,7 @@ def stun_proto(buf, af):
 
 # Handles making a STUN request to a server.
 # Pipe also accepts route and its upgraded to a pipe.
-async def get_stun_reply(mode, dest_addr, reply_addr, pipe, attrs=[]):
+async def get_stun_reply(mode, dest_addr, reply_addr, pipe, attrs=None):
     """
     The function uses subscriptions to the TXID so that even
     on unordered protocols like UDP the right reply is returned.
@@ -58,6 +58,8 @@ async def get_stun_reply(mode, dest_addr, reply_addr, pipe, attrs=[]):
     elegant way to validate responses from change requests
     which will otherwise timeout on incorrect addresses.
     """
+    if attrs is None:
+        attrs = []
     # Build the STUN message.
     msg = STUNMsg(mode=mode)
     for attr in attrs:

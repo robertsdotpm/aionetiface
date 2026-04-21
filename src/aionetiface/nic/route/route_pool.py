@@ -28,7 +28,7 @@ class RoutePoolIter():
             raise StopIteration
 
         # Offset used for absolute position of WAN host.
-        if self.reverse == False:
+        if not self.reverse:
             host_offset = self.host_p
         else:
             host_offset = (len(self.rp) - 1) - self.host_p
@@ -41,7 +41,7 @@ class RoutePoolIter():
 
         # Adjust position of pointers.
         self.host_p += 1
-        if self.reverse == False:
+        if not self.reverse:
             if self.host_p >= self.rp.len_list[self.route_offset]:
                 if self.route_offset < len(self.rp.routes) - 1:
                     self.route_offset += 1

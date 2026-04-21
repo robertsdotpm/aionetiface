@@ -63,7 +63,7 @@ class Pipe:
         if self._opened:
             return self
 
-        do_connect = self.sock == None
+        do_connect = self.sock is None
         try:
             await self.resolve_route_and_dest()
             await self.create_or_use_socket()

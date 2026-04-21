@@ -45,7 +45,7 @@ class NetshParse():
         # Build a table of all address info for each interface.
         # The table is indexed by interface no / if_index.
         results = {}
-        while 1:
+        while True:
             # Find a valid address line for an interface
             addr_infos = re.findall(p, msg)
             if not len(addr_infos):
@@ -270,7 +270,7 @@ def win_con_name_lookup():
                     con_name = winreg.QueryValueEx(sub_key, "Name")[0]
                     results.append([con_name, guid])
                 else:
-                    if re.match(r"{[^{}]+}", sub_name) == None:
+                    if re.match(r"{[^{}]+}", sub_name) is None:
                         continue
 
                     results += recurse_search(

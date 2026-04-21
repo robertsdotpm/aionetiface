@@ -132,8 +132,12 @@ async def url_res(route, url, timeout=3):
 
 
 # Web payload decorators
-def Payload(f, url={}, body=b""):
-    async def wrapper(path, hdrs=[]):
+def Payload(f, url=None, body=b""):
+    if url is None:
+        url = {}
+    async def wrapper(path, hdrs=None):
+        if hdrs is None:
+            hdrs = []
         return await f(path=path, hdrs=hdrs, url=url, body=body)
 
     return wrapper
@@ -226,11 +230,11 @@ class WebCurl():
         resp.out    # raw response body bytes
         resp.info   # parsed ParseHTTPResponse object
     """
-    def __init__(self, addr, route, throttle=0, do_close=1, hdrs=[]):
+    def __init__(self, addr, route, throttle=0, do_close=1, hdrs=None):
         self.addr = addr
         self.route = route
         self.url_params = {}
-        self.hdrs = hdrs
+        self.hdrs = hdrs if hdrs is not None else []
         self.body = b""
         self.req_buf = self.out = None
         self.path = self.info = None
@@ -252,9 +256,11 @@ class WebCurl():
         client.do_close = self.do_close
         return client
 
-    def vars(self, url_params={}, body=b""):
+    def vars(self, url_params=None, body=b""):
         # Avoid race conditions.
         client = self.copy()
+        if url_params is None:
+            url_params = {}
 
         # Url encode url params if set.
         if len(url_params):
@@ -330,11 +336,11 @@ class WebCurl():
 
         return client
 
-    async def get(self, path, hdrs=[], conf=NET_CONF):
-        return await self.api("GET", path, hdrs, conf)
+    async def get(self, path, hdrs=None, conf=NET_CONF):
+        return await self.api("GET", path, hdrs or [], conf)
 
-    async def post(self, path, hdrs=[], conf=NET_CONF):
-        return await self.api("POST", path, hdrs, conf)
+    async def post(self, path, hdrs=None, conf=NET_CONF):
+        return await self.api("POST", path, hdrs or [], conf)
 
-    async def delete(self, path, hdrs=[], conf=NET_CONF):
-        return await self.api("DELETE", path, hdrs, conf)
+    async def delete(self, path, hdrs=None, conf=NET_CONF):
+        return await self.api("DELETE", path, hdrs or [], conf)

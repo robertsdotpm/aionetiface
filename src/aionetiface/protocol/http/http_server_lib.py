@@ -19,7 +19,7 @@ aionetiface_MIME = [
 # Ex: /timeout/10/sub/all -> {'timeout': '10', 'sub': 'all'}
 def get_params(field_names, url_path):
     # Return empty.
-    if field_names == []:
+    if not field_names:
         return {}
 
     # Build regex match string.
@@ -63,7 +63,11 @@ def get_params(field_names, url_path):
 def api_closure(url_path):
     # Fields list names a p result and is in a fixed order.
     # Get names matches named values and is in a variable order.
-    def api(p, field_names=[], get_names=[]): 
+    def api(p, field_names=None, get_names=None):
+        if field_names is None:
+            field_names = []
+        if get_names is None:
+            get_names = []
         out = re.findall(p, url_path)
         as_dict = {}
         if len(out):

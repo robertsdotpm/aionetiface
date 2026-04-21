@@ -61,7 +61,7 @@ if __name__ == "__main__": # pragma: no cover
             echo_route
         )
 
-        while 1:
+        while True:
             await asyncio.sleep(1)
 
     async_run(echo_main())

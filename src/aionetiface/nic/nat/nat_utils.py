@@ -77,7 +77,9 @@ async def delta_test(stun_clients, test_no=8, threshold=5, concurrency=True):
       - Ports run from start_port to start_port + (test_no * port_dist) - 1.
     """
     assert(len(stun_clients) >= test_no)
-    def get_start_port(port_dist, range_info=[]):
+    def get_start_port(port_dist, range_info=None):
+        if range_info is None:
+            range_info = []
         # Random port skipping reserved and max ports.
         rand_start_port = lambda: random.randrange(
             4000, MAX_PORT - (test_no * port_dist)

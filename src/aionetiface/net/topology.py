@@ -81,20 +81,20 @@ def parse_node_addr(addr):
                         raise Exception("Invalid type.")
                     else:
                         parts[j] = translate[j](part)
-            except Exception:
+            except (ValueError, TypeError, IndexError):
                 continue
 
             # Is it a valid IP?
             try:
                 IPRange(to_s(parts[2]))
-            except Exception:
+            except ValueError:
                 log("p2p addr: ip invalid.")
                 continue
 
             # Is it a valid IP?
             try:
                 IPRange(to_s(parts[3]))
-            except Exception:
+            except ValueError:
                 log("p2p addr: ip invalid.")
                 continue
                     

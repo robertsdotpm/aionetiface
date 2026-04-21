@@ -33,6 +33,12 @@ class fstr2(object):
 
     def __init__(self, s, regex=None):
         """Init `F` with string `s`"""
+        import warnings
+        warnings.warn(
+            "fstr2 is deprecated and uses eval() — use f-strings or fstr() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.regex = regex or self._regex
         self._string = s
         self.f_locals = self.original_caller.f_locals
@@ -50,7 +56,7 @@ class fstr2(object):
                 name = frame.f_code.co_name
                 names.append(name)
                 frames.append(frame)
-            except Exception:
+            except AttributeError:
                 break
         return frames[-2]
 

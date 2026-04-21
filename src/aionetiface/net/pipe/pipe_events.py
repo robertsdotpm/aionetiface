@@ -137,7 +137,7 @@ class PipeEvents(BaseACKProto):
             # Try use remote peer info if it exists.
             try:
                 client_tup = self.sock.getpeername()
-            except Exception:
+            except OSError:
                 pass
 
         return client_tup

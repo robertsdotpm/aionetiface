@@ -23,11 +23,11 @@ def close_pair(sock, peers, selector, buffers):
             continue
         try:
             selector.unregister(s)
-        except Exception:
+        except OSError:
             pass
         try:
             s.close()
-        except Exception:
+        except OSError:
             pass
         buffers.pop(s, None)
 
@@ -122,11 +122,11 @@ def selector_proxy(socket_p, destination, stop_reader):
                 try:
                     # Double check if still registered before closing
                     selector.unregister(s)
-                except Exception:
+                except OSError:
                     pass
                 try:
                     s.close()
-                except Exception:
+                except OSError:
                     pass
         selector.close()
 

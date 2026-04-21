@@ -508,12 +508,14 @@ def get_running_loop():
     except RuntimeError:
         return None
 
-async def safe_run(f, args=[]):
+async def safe_run(f, args=None):
     """
     Run f(*args), then wait for all remaining tasks in the event loop to finish.
 
     Used as a wrapper in test harnesses on older Python versions.
     """
+    if args is None:
+        args = []
     await f(*args)
 
     try:
@@ -575,7 +577,7 @@ async def async_wrap_errors(coro, timeout=None, logging=True):
             log("async_wrap_errors: exception caught")
             log_exception()
 
-def sync_wrap_errors(f, args=[]):
+def sync_wrap_errors(f, args=None):
     """
     Call f(*args) synchronously, logging any exception without re-raising.
 
@@ -826,7 +828,7 @@ def recover_verify_key(msg_b, sig_b, vk_b=None, curve=NIST192p, hashfunc=hashlib
         try:
             vk.verify(sig_b, msg_b)
             return vk
-        except Exception:
+        except ecdsa.BadSignatureError:
             continue
 
     raise Exception("recover_verify_key: no recovered key could verify the signature.")
@@ -929,8 +931,8 @@ def ensure_resolved(targets):
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":  # pragma: no cover
-    assert range_intersects([1, 1], [2, 2]) == False
-    assert range_intersects([1, 2], [2, 2]) == True
-    assert range_intersects([1, 2], [1, 2]) == True
-    assert range_intersects([1, 10], [5, 20]) == True
+    assert not range_intersects([1, 1], [2, 2])
+    assert range_intersects([1, 2], [2, 2])
+    assert range_intersects([1, 2], [1, 2])
+    assert range_intersects([1, 10], [5, 20])
     print("Self-tests passed.")

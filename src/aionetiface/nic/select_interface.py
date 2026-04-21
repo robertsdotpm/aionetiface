@@ -27,12 +27,14 @@ correspond to a certain network interface which
 can be double-checked against what interface is
 intended as the source for a connection.
 """
-async def select_if_by_dest(af, src_index, dest_ip, interface, ifs=[]):
+async def select_if_by_dest(af, src_index, dest_ip, interface, ifs=None):
     """
     All valid interfaces for the software can reach
     internet -- use original interface if the dest_ip
     is a public address.
     """
+    if ifs is None:
+        ifs = []
     host_limit = 0
     dest_ipr = IPRange(dest_ip, bitlen=host_limit)
     if dest_ipr.is_public:
