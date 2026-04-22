@@ -21,13 +21,94 @@ from .do_imports import *  # noqa: E402
 
 
 class AsyncIOInteractiveConsole(code.InteractiveConsole):
-    """Interactive console; supports top-level await on Python 3.8+."""
+    """Interactive console; supports top-level await on all Python 3.5+.
+
+    On 3.8+ the compiler flag PyCF_ALLOW_TOP_LEVEL_AWAIT handles everything.
+    On 3.5-3.7 runsource detects await-containing input, wraps it in an
+    async def, runs the coroutine on the event loop, and merges any new
+    local variables back into the console namespace.
+    """
 
     def __init__(self, locals, loop):
         super().__init__(locals)
         if SUPPORTS_TOP_LEVEL_AWAIT:
             self.compile.compiler.flags |= ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
         self.loop = loop
+
+    def runsource(self, source, filename="<input>", symbol="single"):
+        if SUPPORTS_TOP_LEVEL_AWAIT:
+            return super().runsource(source, filename, symbol)
+        # Python < 3.8: try normal compilation first.
+        try:
+            code_obj = self.compile(source, filename, symbol)
+        except (OverflowError, SyntaxError, ValueError) as exc:
+            if "await" not in source and "async " not in source:
+                self.showsyntaxerror(filename)
+                return False
+            # Source has await/async — distinguish incomplete from invalid.
+            err = str(exc)
+            if "EOF" in err or "expected an indented block" in err:
+                return True  # Need more input.
+            return self._run_as_async(source, filename)
+        if code_obj is None:
+            return True  # Incomplete input.
+        self.runcode(code_obj)
+        return False
+
+    def _run_as_async(self, source, filename):
+        """Wrap source in an async def, run it on the loop, merge locals back."""
+        import textwrap
+        ns = "_repl_ns_a7c2"
+        indented = textwrap.indent(source.rstrip(), "    ")
+        wrapper = (
+            "async def _repl_coro_a7c2({ns}):\n"
+            "{body}\n"
+            "    {ns}.update({{k: v for k, v in locals().items() if k != '{ns}'}})\n"
+        ).format(ns=ns, body=indented)
+        try:
+            code_obj = compile(wrapper, filename, "exec")
+        except SyntaxError:
+            self.showsyntaxerror(filename)
+            return False
+        captured = {}
+        try:
+            exec(code_obj, self.locals)
+        except Exception:
+            self.showtraceback()
+            return False
+        coro_func = self.locals.pop("_repl_coro_a7c2", None)
+        if coro_func is None:
+            return False
+        future = concurrent.futures.Future()
+
+        def callback():
+            global repl_future, repl_future_interrupted
+            repl_future = None
+            repl_future_interrupted = False
+            try:
+                coro = coro_func(captured)
+            except BaseException as exc:
+                future.set_exception(exc)
+                return
+            try:
+                repl_future = loop.create_task(coro)
+                futures._chain_future(repl_future, future)
+            except BaseException as exc:
+                future.set_exception(exc)
+
+        loop.call_soon_threadsafe(callback)
+        try:
+            future.result()
+        except SystemExit:
+            raise
+        except BaseException:
+            if repl_future_interrupted:
+                self.write("\nKeyboardInterrupt\n")
+            else:
+                self.showtraceback()
+            return False
+        self.locals.update(captured)
+        return False
 
     def runcode(self, code: Any) -> None:
         """Compile and run a code object, scheduling any coroutine result on the event loop."""

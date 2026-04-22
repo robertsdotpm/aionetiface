@@ -37,7 +37,7 @@ async def get_ntp(
     if server is None:
         groups = get_infra(af, UDP, "NTP", no=1)
         if not groups:
-            raise RuntimeError("Can't find compatible NTP server.")
+            raise OSError("Can't find compatible NTP server.")
         server = groups[0][0]
 
     dest = (server["ip"], server["port"])

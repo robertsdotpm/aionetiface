@@ -210,7 +210,7 @@ class Route(Bind):
     def _check_extended(self) -> None:
         """Raise an exception if this route has not been linked to a RoutePool."""
         if self.route_pool is None:
-            raise RuntimeError("e = route_pool not linked.")
+            raise AssertionError("e = route_pool not linked.")
 
     @staticmethod
     def _convert_other(other: Any) -> Any:

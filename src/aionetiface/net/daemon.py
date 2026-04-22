@@ -214,7 +214,7 @@ class Daemon:
                             bind_str(route),
                         ),
                     )
-                    raise RuntimeError(error)
+                    raise OSError(error)
 
             # A simple TCP con is made to TCP servers to check if it's
             # still listening before binding.
@@ -229,7 +229,7 @@ class Daemon:
                         bind_str(route),
                     ),
                 )
-                raise RuntimeError(error)
+                raise OSError(error)
 
         # Start a new server listening.
         pipe = await Pipe(proto, None, route, conf=self.conf).connect(

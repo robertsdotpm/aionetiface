@@ -109,7 +109,7 @@ async def aionetiface_setup_netifaces() -> Any:
         except (OSError, ConnectionError):
             # It's better to show a clear reason why the library won't work
             # than to silently fail.
-            raise RuntimeError("Error this library needs UDP support to work.") from None
+            raise OSError("Error this library needs UDP support to work.") from None
         finally:
             if sock is not None:
                 sock.close()

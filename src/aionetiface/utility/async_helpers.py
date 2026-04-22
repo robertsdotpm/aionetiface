@@ -223,7 +223,7 @@ def async_to_sync(
     loop = loop or get_running_loop()
 
     if loop is None:
-        raise RuntimeError(
+        raise AssertionError(
             "async_to_sync: no event loop available. "
             "Pass loop= explicitly or call from inside a running loop."
         )

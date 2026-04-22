@@ -27,3 +27,18 @@ Never remove or comment out `print()` calls. They are intentional debugging and 
 - Do not use `RuntimeError` as a catch-all for invariant violations.
 - At network/IO boundaries, catch specific exceptions (`OSError`, `ConnectionError`, `asyncio.TimeoutError`) rather than broad `Exception` sweeps.
 - Pick one error idiom per function: either return a sentinel value or raise — not both.
+
+## Off-limits files
+
+**Never modify any file under `src/aionetiface/net/asyncio/`** — these files patch CPython asyncio internals for Python 3.5 backwards compatibility and are extremely sensitive to change. This includes:
+
+- `asyncio_patches.py`
+- `async_run.py`
+- `event_loop.py`
+- `create_udp_fallback.py`
+
+## Leading-underscore backwards-compatibility exceptions
+
+Some methods and module-level names predate the no-leading-underscore convention and cannot be renamed because external code already calls them by their `_foo` names. These are **grandfathered** — do not rename them and do not add new ones:
+
+- All names in `net/asyncio/` (off-limits anyway)

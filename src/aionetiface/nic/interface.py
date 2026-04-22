@@ -166,7 +166,7 @@ class Interface:
                 raise ValueError("interface is not resolved")
 
         if self.stack == UNKNOWN_STACK:
-            raise RuntimeError("Unknown stack")
+            raise ValueError("Unknown stack")
 
         if self.stack == DUEL_STACK:
             return sorted([IP4, IP6])

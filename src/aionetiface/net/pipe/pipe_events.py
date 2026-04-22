@@ -193,7 +193,7 @@ class PipeEvents(BaseACKProto):
                 # Await on the future at the head of the futures.
                 return await self.client_futures[cur_p_get]
 
-            raise RuntimeError("Could not find awaitable future accept().")
+            raise AssertionError("Could not find awaitable future accept().")
         else:
             # TCP con -> one pipe so no reason to await it.
             # UDP server or con -> multiplex so one pipe for everything.
