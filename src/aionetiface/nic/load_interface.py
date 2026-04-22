@@ -27,6 +27,7 @@ _infra_lock = asyncio.Lock()
 
 # Load mac, nic_no, and process name.
 def load_if_info(nic: Any) -> Any:
+    """Resolve the interface name, index, type, and NIC number from the OS and store them on nic."""
     # Assume its an AF.
     if isinstance(nic.name, int):
         if nic.name not in [IP4, IP6, AF_ANY]:
@@ -91,6 +92,7 @@ def load_if_info(nic: Any) -> Any:
 async def load_interface(
     nic: Any, netifaces: Optional[Any], min_agree: int, max_agree: int, timeout: int
 ) -> Any:
+    """Fully resolve a NIC object by discovering its WAN IPs via STUN and setting its routes and stack type."""
     global INFRA_BUF
     global INFRA
 

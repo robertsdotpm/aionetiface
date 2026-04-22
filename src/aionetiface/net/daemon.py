@@ -148,6 +148,8 @@ async def for_server_in_daemon(daemon: "Daemon", func: Any) -> None:
 
 
 class Daemon:
+    """Manages one or more listening server pipes and routes incoming messages to callbacks."""
+
     def __init__(self, conf: Any = DAEMON_CONF) -> None:
         # Special net conf for daemon servers.
         self.conf = conf
@@ -163,6 +165,7 @@ class Daemon:
 
     # On message received (placeholder.)
     async def msg_cb(self, msg: Any, client_tup: Any, pipe: Any) -> None:
+        """Default message handler that echoes received data back to the sender."""
         print("Specify your own msg_cb in a child class.")
         print(
             fstr(
@@ -179,6 +182,7 @@ class Daemon:
     # Ran when a connection is first created for a client.
     # Just like connection_made in protocol classes.
     def up_cb(self, msg: Any, client_tup: Any, pipe: Any) -> None:
+        """Default connection-established handler; override in subclasses to react to new clients."""
         pass
 
     async def add_listener(self, proto: int, route: Any) -> Any:
@@ -211,7 +215,7 @@ class Daemon:
                             bind_str(route),
                         ),
                     )
-                    raise Exception(error)
+                    raise RuntimeError(error)
 
             # A simple TCP con is made to TCP servers to check if it's
             # still listening before binding.
@@ -226,7 +230,7 @@ class Daemon:
                         bind_str(route),
                     ),
                 )
-                raise Exception(error)
+                raise RuntimeError(error)
 
         # Start a new server listening.
         pipe = await Pipe(proto, None, route, conf=self.conf).connect(
@@ -380,7 +384,9 @@ class Daemon:
         return asyncio.create_task(for_server_in_daemon(self, func))
 
     async def close(self) -> None:
+        """Close all server pipes managed by this daemon."""
         async def func(server):
+            """Attempt to close a single server pipe, ignoring OS and timeout errors."""
             try:
                 await server.close()
             except (OSError, asyncio.TimeoutError):
@@ -397,6 +403,7 @@ class Daemon:
 
 
 async def daemon_rewrite_workspace() -> None:
+    """Development scratch function for testing daemon listen_local on a hard-coded interface."""
     nic = await Interface("wlx00c0cab5760d")
     async with Daemon() as serv:
         await serv.listen_local(TCP, 1337, nic)

@@ -39,10 +39,13 @@ from ..asyncio.event_loop import CustomEventLoop
 
 
 class PipeError(Exception):
+    """Raised when a pipe cannot be opened, connected, or used due to a configuration problem."""
     pass
 
 
 class Pipe:
+    """High-level abstraction over a TCP or UDP socket with async send/recv and lifecycle management."""
+
     def __init__(
         self,
         proto: int,
@@ -95,10 +98,12 @@ class Pipe:
         return self
 
     async def close(self, force: bool = False, keep_clients: bool = False) -> None:
+        """Close the underlying pipe_events transport and release associated resources."""
         if self.pipe_events is not None:
             await self.pipe_events.close(force=force, keep_clients=keep_clients)
 
     async def accept(self) -> Any:
+        """Wait for and return the next incoming TCP client pipe from a server socket."""
         if self.pipe_events is not None:
             return await self.pipe_events.make_awaitable()
 
@@ -136,6 +141,8 @@ class Pipe:
         pipe = self
 
         class _PipeAwaitableContext:
+            """Awaitable context manager returned by Pipe.session() to open and auto-close a pipe."""
+
             def __init__(self) -> None:
                 self._pipe = pipe
 
@@ -156,28 +163,28 @@ class Pipe:
     # Public helper methods
     # -----------------------------
     async def get_loop(self) -> Any:
+        """Return the running asyncio event loop, using conf['loop'] if provided."""
         if self.conf.get("loop") is not None:
             return self.conf["loop"]()
-        # get_running_loop() is preferred in async contexts (Python 3.7+).
-        if hasattr(asyncio, "get_running_loop"):
-            return asyncio.get_running_loop()
-        return asyncio.get_event_loop()
+        return get_running_loop()
 
     def set_nic_and_route(self, unknown: Any) -> None:
+        """Set self.nic and self.route from an Interface, a Route, or None (defaults to default NIC)."""
+        from ...nic.interface import Interface
+
         self.route = None
         self.nic = None
         if unknown:
-            if unknown.__name__ == "Interface":
+            if isinstance(unknown, Interface):
                 self.nic = unknown
             else:
                 self.nic = unknown.interface
                 self.route = unknown
         else:
-            from ...nic.interface import Interface
-
             self.nic = Interface("default")
 
     async def resolve_route_and_dest(self) -> None:
+        """Bind the route and resolve the destination address, updating self.route and self.dest."""
         self.route = await self.resolve_route(self.route)
 
         # By this point there's a route + nic.
@@ -488,6 +495,7 @@ class Pipe:
 
 
 async def sock_to_pipe(sock: Any, nic: Any) -> "Pipe":
+    """Wrap an already-connected socket in a Pipe by finding the matching route on nic."""
     # Useful variables from the socket.
     af = sock.family
     bind_tup = sock.getsockname()

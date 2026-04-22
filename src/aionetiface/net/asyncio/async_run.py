@@ -3,18 +3,17 @@ import asyncio
 from asyncio import events, coroutines
 from typing import Any, Optional, Type
 from ...utility.cleanup import cancel_all_tasks
+from ...utility.utils import get_running_loop
 
 
 def patch_asyncio_backports(loop_cls: Optional[Type[Any]] = None) -> None:
-
+    """Monkey-patch shutdown_asyncgens and shutdown_default_executor onto loop_cls when absent."""
     # Default to whatever class is passed, or fall back to the base event loop
     if loop_cls is None:
-        try:
-            if hasattr(asyncio, "get_running_loop"):
-                loop_cls = type(asyncio.get_running_loop())
-            else:
-                raise RuntimeError("no running loop")
-        except RuntimeError:
+        running = get_running_loop()
+        if running is not None:
+            loop_cls = type(running)
+        else:
             _tmp = asyncio.new_event_loop()
             loop_cls = type(_tmp)
             _tmp.close()
@@ -22,6 +21,7 @@ def patch_asyncio_backports(loop_cls: Optional[Type[Any]] = None) -> None:
     if not hasattr(loop_cls, "shutdown_asyncgens"):
 
         async def _noop(self):
+            """No-op coroutine used as a backport stub for shutdown_asyncgens."""
             pass
 
         loop_cls.shutdown_asyncgens = _noop
@@ -29,6 +29,7 @@ def patch_asyncio_backports(loop_cls: Optional[Type[Any]] = None) -> None:
     if not hasattr(loop_cls, "shutdown_default_executor"):
 
         async def _shutdown_default_executor(self):
+            """Backport stub that shuts down the default executor when the method is missing."""
             executor = getattr(self, "_default_executor", None)
             if executor is not None:
                 executor.shutdown(wait=True)

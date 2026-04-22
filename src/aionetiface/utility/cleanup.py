@@ -5,7 +5,7 @@ import asyncio
 import multiprocessing
 import signal as signal_mod
 from typing import Any, List, Optional
-from .utils import log, log_exception
+from .utils import log, log_exception, get_running_loop
 
 
 async def cancel_task(task: Optional[Any]) -> None:
@@ -98,7 +98,7 @@ def cancel_all_tasks(loop: Any) -> None:
 
 async def shutdown_executor_with_timeout(executor: Any, timeout: int = 3) -> None:
     """Shut down a concurrent.futures.Executor with a timeout."""
-    loop = asyncio.get_running_loop()
+    loop = get_running_loop()
     shutdown_future = loop.run_in_executor(None, executor.shutdown, True)
     try:
         await asyncio.wait_for(shutdown_future, timeout=timeout)
@@ -122,7 +122,7 @@ async def shutdown_proc_pool(proc_pool: Any) -> None:
         proc_pool.shutdown(wait=False)
 
     # Wait up to 3 seconds for worker processes to exit gracefully.
-    loop = asyncio.get_running_loop()
+    loop = get_running_loop()
     end = loop.time() + 3
     while True:
         active = multiprocessing.active_children()

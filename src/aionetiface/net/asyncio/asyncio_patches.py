@@ -85,7 +85,7 @@ async def create_datagram_endpoint(
     flags: int = 0,
     reuse_port: Optional[bool] = None,
     allow_broadcast: Optional[bool] = None,
-    sock: Optional[Any] = None,
+    sock: Optional[Any] = None
 ) -> Tuple[Any, Any]:
     """Create datagram connection."""
     if sock is not None:
@@ -262,11 +262,13 @@ async def create_datagram_endpoint(
 
 
 def _check_ssl_socket(sock: Any) -> None:
+    """Raise TypeError if sock is an SSLSocket, which is not allowed for datagram transports."""
     if ssl is not None and isinstance(sock, ssl.SSLSocket):
         raise TypeError("Socket cannot be of type SSLSocket")
 
 
 def _ensure_fd_no_transport(loop: Any, fd: Any) -> None:
+    """Raise RuntimeError if the file descriptor is already owned by a non-closing transport."""
     fileno = fd
     if not isinstance(fileno, int):
         try:

@@ -45,7 +45,7 @@ class TestServersData(unittest.TestCase):
 
     def test_infra_has_expected_top_level_keys(self):
         for key in ("STUN(see_ip)", "STUN(test_nat)", "MQTT", "TURN", "NTP"):
-            self.assertIn(key, INFRA, f"Missing key: {key}")
+            self.assertIn(key, INFRA, "Missing key: {}".format(key))
 
     def test_mqtt_has_ipv4_and_ipv6(self):
         mqtt = INFRA["MQTT"]

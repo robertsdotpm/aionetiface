@@ -5,6 +5,7 @@ from ..net_utils import *
 
 
 def tup_to_sub(dest_tup: Tuple[str, int]) -> Tuple[bytes, Tuple[str, int]]:
+    """Convert a (ip, port) destination tuple into a subscription tuple that matches any message from that peer."""
     dest_tup = client_tup_norm(dest_tup)
     return (
         b"",  # Any message.
@@ -13,6 +14,7 @@ def tup_to_sub(dest_tup: Tuple[str, int]) -> Tuple[bytes, Tuple[str, int]]:
 
 
 def norm_client_tup(client_tup: Tuple[Any, int]) -> Tuple[str, int]:
+    """Return a normalised (ip_string, port) tuple with the IP expanded to its canonical form."""
     ip = ip_norm(client_tup[0])
     return (ip, client_tup[1])
 
@@ -20,6 +22,7 @@ def norm_client_tup(client_tup: Tuple[Any, int]) -> Tuple[str, int]:
 async def close_all_clients(
     tcp_clients: List[Any], loop: Optional[Any] = None, timeout: float = 1.0
 ) -> None:
+    """Close all TCP client transports and await their OS-level socket release with an optional timeout."""
     if loop is None:
         loop = asyncio.get_event_loop()
 

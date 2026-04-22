@@ -10,6 +10,7 @@ from ..utility.utils import to_b, to_n, is_number, is_bytes, ensure_resolved
 
 
 def validate_node_addr(addr: Any) -> Optional[Any]:
+    """Validate all per-AF interface fields in a parsed node address dict and return it, or None on failure."""
     for af in VALID_AFS:
         for if_offset in addr[af]:
             if_info = addr[af][if_offset]
@@ -40,6 +41,7 @@ def validate_node_addr(addr: Any) -> Optional[Any]:
 
 
 def parse_node_addr(addr: Any) -> Optional[Any]:
+    """Decode a serialised node address byte string into a structured dict keyed by address family."""
     # Already passed.
     if isinstance(addr, dict):
         return addr
@@ -145,6 +147,7 @@ def node_addr_extract_exts(p2p_addr: Any) -> List[Any]:
 
 
 def is_node_addr_us(addr_bytes: Any, if_list: List[Any]) -> bool:
+    """Return True if any external IP in addr_bytes matches a route in the local interface list."""
     # Parse address bytes to address.
     addr = parse_node_addr(addr_bytes)
 

@@ -16,14 +16,17 @@ from .net_defs import *
 
 
 def af_to_v(af: int) -> int:
+    """Convert a socket address family constant to an IP version number (4 or 6)."""
     return 4 if af == IP4 else 6
 
 
 def v_to_af(v: int) -> int:
+    """Convert an IP version number (4 or 6) to the corresponding socket address family constant."""
     return IP4 if v == 4 else IP6
 
 
 def i_to_af(x: int) -> int:
+    """Convert the raw integer socket family value (2=IPv4, other=IPv6) to an AF constant."""
     return IP4 if x == 2 else IP6
 
 
@@ -33,6 +36,7 @@ def af_bitlen(af: int) -> int:
 
 
 def sock_has_data(sock: Any) -> bool:
+    """Return True if the socket has at least one byte available to read without blocking."""
     try:
         ready = sock.recv(1, socket.MSG_PEEK)
         if ready:
@@ -44,12 +48,14 @@ def sock_has_data(sock: Any) -> bool:
 
 
 def af_from_ip_s(ip_s: Union[str, bytes]) -> int:
+    """Determine the address family (IP4 or IP6) from an IP address string."""
     ip_s = to_s(ip_s)
     ip_obj = ip_f(ip_s)
     return v_to_af(ip_obj.version)
 
 
 def ip_str_to_int(ip_str: str) -> int:
+    """Convert a dotted-decimal or colon-separated IP address string to an integer."""
     ip_obj = ipaddress.ip_address(ip_str)
     if ip_obj.version == 4:
         pack_ip = socket.inet_aton(ip_str)
@@ -61,6 +67,7 @@ def ip_str_to_int(ip_str: str) -> int:
 
 
 def netmask_to_cidr(netmask: str) -> int:
+    """Convert a dotted-decimal netmask or /N string to a CIDR prefix length integer."""
     # Already a host_limit.
     if "/" in netmask:
         return int(netmask.replace("/", ""))
@@ -70,6 +77,7 @@ def netmask_to_cidr(netmask: str) -> int:
 
 
 def cidr_to_netmask(host_limit: int, af: int) -> str:
+    """Convert a CIDR prefix length to a dotted-decimal (IPv4) or exploded (IPv6) netmask string."""
     end = 32 if af == AF_INET else 128
     buf = "1" * host_limit
     buf += "0" * (end - host_limit)
@@ -81,6 +89,7 @@ def cidr_to_netmask(host_limit: int, af: int) -> str:
 
 
 def toggle_host_bits(netmask: str, ip_str: str, toggle: int = 0) -> str:
+    """Zero or set all host bits in ip_str according to the netmask (toggle=0 clears, toggle=1 sets)."""
     ip_obj = ipaddress.ip_address(ip_str)
     if "/" in netmask:
         host_limit = int(netmask.split("/")[-1])
@@ -103,6 +112,7 @@ def toggle_host_bits(netmask: str, ip_str: str, toggle: int = 0) -> str:
 
 
 def get_broadcast_ip(netmask: str, gw_ip: str) -> str:
+    """Return the broadcast address for the subnet defined by netmask and gw_ip."""
     return toggle_host_bits(netmask, gw_ip, toggle=1)
 
 
@@ -122,6 +132,7 @@ will give a false negative.
 
 
 def ipv6_norm(ip_val: Union[str, bytes, int]) -> str:
+    """Return the fully-exploded string form of an IPv6 address, or unchanged for IPv4."""
     ip_obj = ipaddress.ip_address(ip_val)
     if ip_obj.version == 6:
         return str(ip_obj.exploded)
@@ -130,6 +141,7 @@ def ipv6_norm(ip_val: Union[str, bytes, int]) -> str:
 
 
 def ip_strip_if(ip: Union[str, bytes]) -> Union[str, bytes]:
+    """Remove the interface scope identifier (e.g. %eth0) from an IPv6 address string."""
     if isinstance(ip, str):
         if "%" in ip:
             parts = ip.split("%")
@@ -139,6 +151,7 @@ def ip_strip_if(ip: Union[str, bytes]) -> Union[str, bytes]:
 
 
 def ip_strip_cidr(ip: Union[str, bytes]) -> Union[str, bytes]:
+    """Remove a CIDR suffix (e.g. /24) from an IP address string."""
     if isinstance(ip, str):
         if "/" in ip:
             ip = ip.split("/")[0]
@@ -147,6 +160,7 @@ def ip_strip_cidr(ip: Union[str, bytes]) -> Union[str, bytes]:
 
 
 def ip_norm(ip: Union[str, bytes]) -> str:
+    """Normalise an IP address by stripping scope IDs and CIDR, and exploding IPv6."""
     # Strip interface scope id.
     ip = ip_strip_if(ip)
 
@@ -161,12 +175,14 @@ def ip_norm(ip: Union[str, bytes]) -> str:
 
 
 def mac_norm(mac: str) -> str:
+    """Normalise a MAC address to a lowercase hex string with no separators."""
     parts = re.split("[:.-]", mac)
     parts = [part.zfill(2).lower() for part in parts]
     return "".join(parts)
 
 
 def client_tup_norm(client_tup: Optional[Tuple[Any, ...]]) -> Optional[Tuple[str, int]]:
+    """Return a (normalised_ip, port) tuple, or None if client_tup is None."""
     if client_tup is None:
         return None
 
@@ -175,6 +191,7 @@ def client_tup_norm(client_tup: Optional[Tuple[Any, ...]]) -> Optional[Tuple[str
 
 
 def is_socket_closed(sock: Any) -> bool:
+    """Return True if the socket appears to be closed or has received a connection reset."""
     try:
         # this will try to read bytes without blocking and also without removing them from buffer (peek only)
         data = sock.recv(16, socket.MSG_DONTWAIT | socket.MSG_PEEK)
@@ -201,6 +218,7 @@ def is_socket_closed(sock: Any) -> bool:
 # This makes p2p connections to LAN hosts and to services on the same machine
 # more robust.
 def determine_if_path(af: int, dest: str) -> Optional[str]:
+    """Use a zero-timeout UDP connect to ask the OS which local IP would be used to reach dest."""
     # Setup socket for connection.
     src_ip = None
     with socket.socket(af, UDP) as s:
@@ -218,6 +236,7 @@ def determine_if_path(af: int, dest: str) -> Optional[str]:
 
 
 def avoid_time_wait(pipe: Any) -> None:
+    """Set SO_LINGER=0 on the pipe's socket so the port is released immediately on close."""
     try:
         sock = pipe.sock
         linger = struct.pack("ii", 1, 0)
@@ -229,6 +248,7 @@ def avoid_time_wait(pipe: Any) -> None:
 
 # Not used presently but may be useful in future.
 async def safe_sock_connect(loop: Any, sock: Any, dest: Tuple[str, int]) -> bool:
+    """Attempt to connect sock to dest, returning True on success and False on refusal or OS error."""
     try:
         await loop.sock_connect(sock, dest)
         return True

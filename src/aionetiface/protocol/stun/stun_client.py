@@ -64,6 +64,8 @@ from ...nic.route.route import Route
 
 
 class STUNClient:
+    """Sends STUN requests to a single server and returns mapping, WAN IP, or change-address replies."""
+
     def __init__(
         self,
         af: int,
@@ -82,6 +84,7 @@ class STUNClient:
 
     # Boilerplate to get a pipe to the STUN server.
     async def _get_dest_pipe(self, unknown: Any) -> Any:
+        """Return an open Pipe to the STUN server, reusing an existing Pipe/Route or opening a new one."""
         # Already open pipe.
         if isinstance(unknown, Pipe):
             return unknown
@@ -109,6 +112,7 @@ class STUNClient:
     async def get_stun_reply(
         self, pipe: Optional[Any] = None, attrs: Optional[List[Any]] = None
     ) -> Any:
+        """Send a STUN binding request with optional attributes and return the parsed reply."""
         if attrs is None:
             attrs = []
         pipe = await self._get_dest_pipe(pipe)
@@ -149,6 +153,7 @@ class STUNClient:
     async def get_change_tup_reply(
         self, ctup: Tuple[str, int], pipe: Optional[Any] = None
     ) -> Any:
+        """Send an RFC 3489 change-IP-and-port request and return the reply from ctup."""
         # Sanity check against expectations.
         if self.mode != RFC3489:
             error = "STUN change port only supported in RFC3489 mode."
@@ -162,6 +167,7 @@ class STUNClient:
 
     # Return only your remote IP.
     async def get_wan_ip(self, pipe: Optional[Any] = None) -> Optional[str]:
+        """Return the normalised WAN IP string reported by the STUN server, or None on failure."""
         caller_pipe = pipe
         pipe = await self._get_dest_pipe(pipe)
         try:
@@ -181,6 +187,7 @@ class STUNClient:
     async def get_mapping(
         self, pipe: Optional[Any] = None
     ) -> Optional[Tuple[int, int, Any]]:
+        """Return (local_port, mapped_port, pipe) for this connection, leaving the pipe open for hole-punching."""
         caller_supplied_pipe = pipe is not None
         pipe = await self._get_dest_pipe(pipe)
         try:
@@ -215,6 +222,7 @@ def get_stun_clients(
     conf: Dict[str, Any] = NET_CONF,
     attempt: int = 0,
 ) -> List[Any]:
+    """Build and return up to max_agree STUNClient instances for the given AF, mode, and protocol."""
     # Copy random STUN servers to use.
     if servs is None:
         if mode == RFC3489:
@@ -241,8 +249,7 @@ def get_stun_clients(
                 conf=conf,
             )
 
-            if stun_client:
-                stun_clients.append(stun_client)
+            stun_clients.append(stun_client)
         except (ValueError, KeyError):
             log_exception()
             log("unexpected exception in get_stun_client helper")
@@ -267,8 +274,10 @@ async def get_n_stun_clients(
     limit: int = 5,
     conf: Dict[str, Any] = NET_CONF,
 ) -> List[Any]:
+    """Return n verified STUNClient instances that each successfully returned a mapping, using hedged probing."""
     # Try a single STUN candidate; close the probe pipe on success.
     async def try_one(stun):
+        """Probe a single STUNClient with get_mapping and return it on success, or None on failure."""
         try:
             out = await stun.get_mapping()
             if out is not None:
@@ -297,6 +306,7 @@ async def get_n_stun_clients(
     HEDGE_DELAY = 1.5 if af == IP6 else 0.5
 
     async def worker(attempt):
+        """Try STUN candidates in hedged order and return the first one that responds successfully."""
         candidates = get_stun_clients(
             af=af,
             max_agree=limit,

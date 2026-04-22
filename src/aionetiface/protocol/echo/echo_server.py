@@ -2,7 +2,7 @@
 import asyncio
 from typing import Any, Tuple
 from ...net.daemon import Daemon
-from ...utility.utils import async_wrap_errors
+from ...utility.utils import async_wrap_errors, get_running_loop
 from ...utility.fstr import fstr
 from ...net.asyncio.async_run import async_run
 
@@ -49,7 +49,7 @@ if __name__ == "__main__":  # pragma: no cover
         from aionetiface.src.aionetiface.net.net_utils import IP4, TCP
         from aionetiface.nic.interface import Interface
 
-        loop = asyncio.get_running_loop()
+        loop = get_running_loop()
         server = await loop.create_server(lambda: EchoProtocol(), "127.0.0.1", 3000)
 
         print("Echo server listening on 127.0.0.1:3000")

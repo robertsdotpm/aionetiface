@@ -10,6 +10,7 @@ async def socket_factory(
     sock_type: int = TCP,
     conf: Any = NET_CONF,
 ) -> Optional[Any]:
+    """Create, configure, and bind a socket for the given route and optional destination, returning it or None on failure."""
     # Check route is bound.
     if not route.resolved:
         raise Exception("You didn't bind the route!")

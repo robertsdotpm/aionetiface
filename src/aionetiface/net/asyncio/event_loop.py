@@ -107,6 +107,7 @@ class CustomEventLoop(asyncio.SelectorEventLoop):
 
     # Add your public API method back (using the global map from the proxy)
     def await_fd_close(self, sock: Any) -> Any:
+        """Return a Future that resolves once the selector unregisters this socket's file descriptor."""
         # Ensure we are not returning a coroutine
         fd = sock.fileno()
         if fd == -1:
@@ -125,6 +126,8 @@ class CustomEventLoop(asyncio.SelectorEventLoop):
 
 
 class CustomEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
+    """Asyncio event loop policy that installs CustomEventLoop and a structured exception handler."""
+
     @staticmethod
     def exception_handler(self: Any, context: Dict[str, Any]) -> None:
         """
@@ -176,6 +179,7 @@ class CustomEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
 
     @staticmethod
     def loop_setup(loop: Any) -> None:
+        """Apply standard debug and exception-handler settings to a freshly created loop."""
         loop.set_debug(False)
         loop.set_exception_handler(CustomEventLoopPolicy.exception_handler)
         # Note: do NOT assign to loop.default_exception_handler here.
@@ -185,6 +189,7 @@ class CustomEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
         # TypeError the first time the default handler is invoked directly.
 
     def new_event_loop(self) -> CustomEventLoop:
+        """Create, configure, and return a new CustomEventLoop with the ProxySelector installed."""
         selector = selectors.SelectSelector()
         loop = CustomEventLoop(selector)
         CustomEventLoopPolicy.loop_setup(loop)

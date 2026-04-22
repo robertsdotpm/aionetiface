@@ -65,10 +65,7 @@ async def aionetiface_setup_netifaces() -> Any:
             return _cached_netifaces
 
         # Setup event loop.
-        if hasattr(asyncio, "get_running_loop"):
-            loop = asyncio.get_running_loop()
-        else:
-            loop = asyncio.get_event_loop()
+        loop = get_running_loop()
         loop.set_debug(False)
         loop.set_exception_handler(CustomEventLoopPolicy.exception_handler)
 
@@ -166,6 +163,7 @@ aionetiface_setup_event_loop()
 
 
 async def entrypoint_test() -> None:
+    """Run aionetiface setup and print the netifaces instance to stdout."""
     out = await aionetiface_setup_netifaces()
     print(out)
 

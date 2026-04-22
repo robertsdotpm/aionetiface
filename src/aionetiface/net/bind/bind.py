@@ -13,6 +13,8 @@ It's code is also shitty for res. Routes have superseeded this.
 
 
 class Bind:
+    """Represents a socket bind configuration for a particular interface and address family."""
+
     def __init__(
         self,
         interface: Optional[Any],
@@ -39,14 +41,17 @@ class Bind:
         return self.bind().__await__()
 
     async def res(self) -> "Bind":
+        """Resolve the bind parameters by calling the internal bind closure."""
         return await self.bind()
 
     async def start(self) -> None:
+        """Trigger resolution of the bind configuration."""
         await self.res()
 
     def bind_tup(
         self, port: Optional[int] = None, flag: int = NIC_BIND
     ) -> Tuple[Any, ...]:
+        """Return the (ip, port) tuple to pass to socket.bind(), optionally overriding the port."""
         # Handle loopback support.
         if flag == LOOPBACK_BIND:
             if self.af == IP6:
@@ -74,4 +79,5 @@ class Bind:
         return tup
 
     def supported(self) -> List[int]:
+        """Return a one-element list with the address family this Bind was configured for."""
         return [self.af]

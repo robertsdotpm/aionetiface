@@ -37,6 +37,7 @@ def close_pair(
 def selector_proxy(
     socket_p: Any, destination: Tuple[str, int], stop_reader: Any
 ) -> None:
+    """Bidirectionally proxy data between socket_p and a new connection to destination, stopping when stop_reader has data."""
     selector = selectors.DefaultSelector()
     socket_r = None
     try:

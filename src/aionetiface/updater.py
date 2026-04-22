@@ -22,7 +22,9 @@ entries so this keeps existing servers in place.
 
 
 def reconcile_lists(old_list: List[Any], new_list: List[Any]) -> List[Any]:
+    """Merge new_list into old_list preserving existing offsets, zeroing ports for removed entries, and appending additions."""
     def get_id(x):
+        """Return the id field of the first element in a server group entry."""
         return x[0]["id"]
 
     new_by_id = {get_id(x): x for x in new_list}
@@ -66,6 +68,7 @@ TODO: just use a different address format for these.
 
 
 def reconcile_infra(old_infra: Dict[str, Any], new_infra: Dict[str, Any]) -> None:
+    """Update new_infra in-place by reconciling MQTT and TURN server lists from old_infra to preserve offsets."""
     names = (
         "MQTT",
         "TURN",
@@ -88,6 +91,7 @@ async def update_server_list(
     init_infra_buf: Any = INFRA_BUF,
     init_infra: Any = INFRA,
 ) -> Tuple[bool, Any, Any]:
+    """Check the age of the server list, fetch a fresh one if older than a month, save it, and return (update_req, buf, infra)."""
     copy_aionetiface_install_files_as_needed()
     install_root = get_aionetiface_install_root()
     servers_path = os.path.join(install_root, "servers.json")

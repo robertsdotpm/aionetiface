@@ -10,6 +10,8 @@ from .route import Route
 # were at their own index regardless of if they're in ranges.
 # Will be very slow if there's a lot of hosts.
 class RoutePoolIter:
+    """Iterator that traverses a RoutePool host-by-host, optionally in reverse order."""
+
     def __init__(self, rp: "RoutePool", reverse: bool = False) -> None:
         self.rp = rp
         self.reverse = reverse
@@ -53,6 +55,8 @@ class RoutePoolIter:
 
 
 class RoutePool:
+    """Ordered collection of Route objects that supports indexing across WAN host addresses."""
+
     def __init__(
         self,
         routes: Optional[List[Any]] = None,
@@ -94,6 +98,7 @@ class RoutePool:
         self.pop_pointer = 0
 
     def to_dict(self) -> List[Dict[str, Any]]:
+        """Serialise this pool to a list of route dicts suitable for JSON storage."""
         routes = []
         for route in self.routes:
             routes.append(route.to_dict())
@@ -102,6 +107,7 @@ class RoutePool:
 
     @staticmethod
     def from_dict(route_dicts: List[Dict[str, Any]]) -> "RoutePool":
+        """Reconstruct a RoutePool from a list of route dicts previously produced by to_dict."""
         routes = []
         for route_dict in route_dicts:
             routes.append(Route.from_dict(route_dict))
@@ -118,6 +124,7 @@ class RoutePool:
         self.__dict__ = o.__dict__
 
     def locate(self, other: Any) -> Optional[Any]:
+        """Return the first route in the pool equal to other, or None if not found."""
         for route in self.routes:
             if route == other:
                 return route
@@ -135,6 +142,7 @@ class RoutePool:
     # Simulate fetching a route off a stack of routes.
     # Just hides certain pointer offsets when indexing, lel.
     def pop(self) -> Any:
+        """Return the next route in traversal order, advancing the internal pop pointer."""
         if self.pop_pointer >= self.wan_hosts:
             raise Exception("No more routes.")
 
@@ -144,6 +152,7 @@ class RoutePool:
         return ret
 
     def get_route_info(self, route_offset: int, abs_host_offset: int) -> Any:
+        """Build and return a single-host Route for the WAN host at abs_host_offset within route_offset."""
         # Route to use for the WAN addresses.
         assert route_offset <= (len(self.routes) - 1)
         route = self.routes[route_offset]

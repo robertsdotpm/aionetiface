@@ -21,6 +21,8 @@ __all__ = [
 
 
 class IPRangeIter:
+    """Iterator over the host addresses within an IPRange, supporting forward and reverse traversal."""
+
     def __init__(self, ipr: "IPRange", reverse: bool = False) -> None:
         self.ipr = ipr
         self.reverse = reverse
@@ -58,6 +60,8 @@ Iterable and sliceable -- returns ip_addr objs.
 
 @total_ordering
 class IPRange:
+    """Represents a block of IP addresses described by a base address and a host-bit length."""
+
     def __init__(
         self,
         ip: Any,
@@ -80,9 +84,10 @@ class IPRange:
         if bitlen is None and netmask is None:
             bitlen = 0
 
-        # Sanity check.
-        assert netmask is not None or bitlen is not None
-        assert ip != netmask
+        if netmask is None and bitlen is None:
+            raise ValueError("Either netmask or bitlen must be provided")
+        if ip == netmask:
+            raise ValueError("ip and netmask must not be equal")
 
         # Normalise netmask: remove /n, %iface, and/or explode compressed IPv6.
         if isinstance(netmask, str):
@@ -133,8 +138,8 @@ class IPRange:
             ipa_netmask = ipaddress.ip_address(self.netmask)
             self.bitlen = max_bits - hamming_weight(int(ipa_netmask))
 
-        # Parse IP information.
-        assert self.bitlen <= max_bits
+        if self.bitlen > max_bits:
+            raise ValueError("bitlen {} exceeds max {} for AF".format(self.bitlen, max_bits))
         host_bit_len = self.bitlen
 
         # IP is network portion + host portion.
@@ -179,22 +184,26 @@ class IPRange:
         else:
             self.r = [self.i_nw, self.i_nw + self.host_no]
 
-        assert self.host_no
+        if not self.host_no:
+            raise ValueError("host_no must be non-zero")
 
     @property
     def host_limit(self) -> int:
         return self.host_no
 
     def len(self) -> int:
+        """Return the number of host addresses in this range."""
         return self.host_no
 
     def ip_f(self, n: int) -> Any:
+        """Return an IPv4Address or IPv6Address object for the integer address n."""
         if self.af == IP4:
             return ipaddress.IPv4Address(n)
         if self.af == IP6:
             return ipaddress.IPv6Address(n)
 
     def to_dict(self) -> Dict[str, Any]:
+        """Serialise this IPRange to a plain dict suitable for JSON or pickling."""
         d = {"ip": self.ip, "host_limit": self.host_no, "af": int(self.af)}
         if self.subnet is not None:
             d["subnet"] = self.subnet
@@ -202,6 +211,7 @@ class IPRange:
 
     @staticmethod
     def from_dict(d: Dict[str, Any]) -> "IPRange":
+        """Reconstruct an IPRange from a dict previously produced by to_dict."""
         import math
 
         host_limit = d["host_limit"]
@@ -301,6 +311,7 @@ class IPRange:
         return self - n
 
     def _convert_other(self, other: Any) -> "IPRange":
+        """Coerce other to an IPRange for comparison operations."""
         if isinstance(other, (int, bytes, str)):
             ipa = ipaddress.ip_address(other)
             return IPRange(ipa)
@@ -352,6 +363,7 @@ class IPRange:
 def ipr_in_interfaces(
     needle_ipr: "IPRange", if_list: List[Any], mode: int = IP_PUBLIC
 ) -> bool:
+    """Return True if needle_ipr matches any public (or private) IP in the given interface list."""
     af = needle_ipr.af
     for interface in if_list:
         routes = interface.rp[af].routes
@@ -369,15 +381,18 @@ def ipr_in_interfaces(
 
 
 def ipr_norm(ipr: "IPRange") -> str:
+    """Return the normalised string of the first (or only) host address in an IPRange."""
     return ip_norm(str(ipr[0]))
 
 
 def IPR(ip: Union[str, bytes], af: Optional[int] = None, bitlen: int = 0) -> "IPRange":
+    """Construct a single-host IPRange, inferring address family from the IP string when af is None."""
     af = af or IP6 if ":" in ip else IP4
     return IPRange(ip, af=af, bitlen=bitlen)
 
 
 def ensure_ip_is_public(ip: Union[str, bytes]) -> str:
+    """Normalise ip and raise if it is a private address; return the normalised IP on success."""
     ip = ip_norm(ip)
     ipr = IPRange(ip)
     if ipr.is_private:

@@ -32,19 +32,23 @@ from ...utility.utils import (
 # Convenience funcs.
 # delta, nat_type
 def f_is_open(n: int, d: Any) -> bool:
+    """Return True if nat type n represents an open internet connection or a symmetric UDP firewall."""
     return n in [OPEN_INTERNET, SYMMETRIC_UDP_FIREWALL]
 
 
 def f_can_predict(n: int, d: Any) -> bool:
+    """Return True if nat type n has predictable port mappings that enable hole-punching."""
     return n in PREDICTABLE_NATS
 
 
 def f_is_hard(n: int, d: Dict[str, Any]) -> bool:
+    """Return True if nat type n is not in the easy NAT set and its delta is neither preserving nor equal."""
     not_easy = n not in EASY_NATS
     return not_easy and d["type"] not in [PRESERV_DELTA, EQUAL_DELTA]
 
 
 def delta_info(delta_type: int, delta_value: int) -> Dict[str, Any]:
+    """Return a delta dict with the given type and value fields."""
     return {"type": delta_type, "value": delta_value}
 
 
@@ -53,6 +57,7 @@ def nat_info(
     delta: Optional[Dict[str, Any]] = None,
     map_range: Optional[List[int]] = None,
 ) -> Dict[str, Any]:
+    """Build and return a NAT descriptor dict with type, delta, port range, and derived capability flags."""
     # Defaults.
     delta = delta or delta_info(RANDOM_DELTA, 0)
     map_range = map_range or [1, MAX_PORT]
@@ -77,6 +82,7 @@ def nat_info(
 
 
 def valid_mappings_len(mappings: List[Any]) -> int:
+    """Return 1 if mappings has a valid non-empty length within MAX_MAP_NO, else 0."""
     if not len(mappings):
         return 0
 
@@ -120,9 +126,11 @@ async def delta_test(
     assert len(stun_clients) >= test_no
 
     def get_start_port(port_dist, range_info=None):
+        """Pick a random starting port that does not overlap any existing port-test ranges."""
         if range_info is None:
             range_info = []
         def rand_start_port() -> int:
+            """Return a random port number safely below the upper bound for the test range."""
             return random.randrange(4000, MAX_PORT - (test_no * port_dist))
 
         # Return if no other port range to check for conflicts.
@@ -151,6 +159,7 @@ async def delta_test(
 
     # Create a list of tasks to get a mapping for a port range.
     def get_port_tests(start_port, port_dist=1):
+        """Build a list of asyncio tasks that each send a STUN probe from a calculated source port."""
         # Return task list for tests.
         tasks = []
         for i in range(0, test_no):
@@ -163,6 +172,7 @@ async def delta_test(
 
             # Get the mapping using STUN.
             async def result_wrapper(src_port):
+                """Run one STUN mapping probe from src_port and return [local, mapped, socket] or None."""
                 # Make sure port isn't in the reserved range.
                 if src_port < 4000 and src_port != 0:
                     raise Exception("src less than 4k in mapping behavior.")
@@ -201,6 +211,7 @@ async def delta_test(
         return tasks
 
     def get_delta_value(delta_no, dist_no, local_dist, preserv_dist, results):
+        """Classify STUN mapping results into delta counters (equal, preserving, independent, dependent)."""
         if results is None:
             return
 

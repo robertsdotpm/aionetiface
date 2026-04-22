@@ -22,6 +22,8 @@ from .do_imports import *  # noqa: E402
 
 
 class AsyncIOInteractiveConsole(code.InteractiveConsole):
+    """Interactive console that allows top-level await expressions in a running asyncio loop."""
+
     def __init__(self, locals: Any, loop: Any) -> None:
         super().__init__(locals)
         self.compile.compiler.flags |= ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
@@ -29,9 +31,11 @@ class AsyncIOInteractiveConsole(code.InteractiveConsole):
         self.loop = loop
 
     def runcode(self, code: Any) -> None:
+        """Compile and run a code object, scheduling any coroutine result on the event loop."""
         future = concurrent.futures.Future()
 
         def callback():
+            """Schedule the compiled code object as a task on the asyncio loop."""
             global repl_future
             global repl_future_interrupted
 
@@ -75,7 +79,10 @@ class AsyncIOInteractiveConsole(code.InteractiveConsole):
 
 
 class REPLThread(threading.Thread):
+    """Background thread that drives the interactive REPL console."""
+
     def run(self) -> None:
+        """Start the interactive console banner and enter the REPL loop."""
         try:
             loop_policy = str(asyncio.get_event_loop_policy())
             if "elector" in loop_policy:

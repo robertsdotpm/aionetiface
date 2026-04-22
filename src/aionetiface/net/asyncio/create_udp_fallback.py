@@ -9,6 +9,8 @@ from typing import Any, List, Optional
 
 
 class PolledDatagramTransport:
+    """Polled datagram transport for platforms where asyncio UDP is unavailable."""
+
     def __init__(self, loop: Any, sock: Any, protocol: Any) -> None:
         self.loop = loop
         self.sock = sock
@@ -19,6 +21,7 @@ class PolledDatagramTransport:
         protocol.connection_made(self)
 
     def poll(self) -> None:
+        """Drain all pending datagrams from the socket and deliver them to the protocol."""
         if self.closing:
             return
 
@@ -32,6 +35,7 @@ class PolledDatagramTransport:
             self.protocol.error_received(e)
 
     def sendto(self, data: bytes, addr: Optional[Any] = None) -> None:
+        """Send a datagram to addr (or the connected remote if addr is None)."""
         if self.closing:
             return
 
@@ -45,6 +49,7 @@ class PolledDatagramTransport:
             self.protocol.error_received(e)
 
     def close(self) -> None:
+        """Mark transport as closing, close the socket, and notify the protocol."""
         if self.closing:
             return
         self.closing = True
@@ -52,22 +57,27 @@ class PolledDatagramTransport:
         self.protocol.connection_lost(None)
 
     def is_closing(self) -> bool:
+        """Return True if this transport has been closed or is in the process of closing."""
         return self.closing
 
     def get_extra_info(self, name: str, default: Optional[Any] = None) -> Any:
+        """Return transport-level metadata by name, or default if not available."""
         if name == "socket":
             return self.sock
         return default
 
 
 class UdpPoller:
+    """Periodically polls all registered PolledDatagramTransports and delivers received data."""
+
     def __init__(self, loop: Any) -> None:
         self.loop = loop
-        self.sockets: List[Any] = []
+        self.sockets = []
         self.interval = 0.01  # 10ms polling interval
         self.task = loop.create_task(self.poll_loop())
 
     def register(self, transport: Any) -> None:
+        """Add a PolledDatagramTransport to the set of sockets to be polled."""
         self.sockets.append(transport)
 
     def close(self) -> None:
@@ -86,6 +96,7 @@ class UdpPoller:
             self.task = None
 
     async def poll_loop(self) -> None:
+        """Run continuously, polling each registered transport at the configured interval."""
         while True:
             # Remove closed transports to avoid accumulation.
             self.sockets = [t for t in self.sockets if not t.is_closing()]

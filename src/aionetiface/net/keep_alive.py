@@ -54,6 +54,7 @@ def set_keepalive_win(
     interval_sec: Optional[int],
     max_fails: Optional[int],
 ) -> None:
+    """Configure TCP keepalive on an open socket using the Windows SIO_KEEPALIVE_VALS ioctl."""
     if after_idle_sec is not None and interval_sec is not None:
         sock.ioctl(
             socket.SIO_KEEPALIVE_VALS, (1, after_idle_sec * 1000, interval_sec * 1000)
@@ -63,6 +64,7 @@ def set_keepalive_win(
 def set_keep_alive(
     sock: Any, after_idle_sec: int = 60, interval_sec: int = 60, max_fails: int = 5
 ) -> None:
+    """Apply platform-appropriate TCP keepalive settings to an open socket."""
     try:
         plat = platform.system()
         if plat == "Windows":

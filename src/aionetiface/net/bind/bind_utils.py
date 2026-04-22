@@ -8,6 +8,7 @@ from ..ip_range import IPR
 
 
 def ip6_patch_bind_ip(bind_ip: str, nic_id: Any) -> str:
+    """Append the interface scope ID to a link-local IPv6 address for proper binding."""
     # Add interface descriptor if it's link local.
     if nic_id is None:
         return bind_ip
@@ -46,6 +47,7 @@ def patch_connect_ip(af: int, ip: str, nic_id: Any, ipr: Optional[Any] = None) -
 async def get_high_port_socket(
     route: Any, socket_factory: Any, sock_type: int = TCP
 ) -> Tuple[Any, int]:
+    """Bind a socket to a randomly chosen high-numbered port and return (socket, port)."""
     # Minimal config to pass socket factory.
     conf = {"broadcast": False, "linger": None, "sock_proto": 0, "reuse_addr": True}
 
@@ -75,6 +77,7 @@ But that's the API I wanted.
 
 
 def bind_closure(self: Any, binder: Any) -> Any:
+    """Return an async bind() method that resolves and stores the bind tuple on self."""
     async def bind(port=None, ips=None):
         if self.resolved:
             return
@@ -110,6 +113,8 @@ def bind_closure(self: Any, binder: Any) -> Any:
 
 # Convert compact bind rule list to named access.
 class BindRule:
+    """Wraps a compact bind-rule list in named attributes for convenient access."""
+
     def __init__(self, bind_rule: Any) -> None:
         self.platform = bind_rule[0]
         self.af = bind_rule[1]
@@ -123,6 +128,7 @@ class BindRule:
 def match_bind_rule(
     ip: str, af: int, plat: str, bind_rule: Any, rule_type: Any
 ) -> Optional["BindRule"]:
+    """Return a BindRule instance if the rule matches the given ip, af, platform, and type, else None."""
     bind_rule = BindRule(bind_rule)
 
     # Skip rule types we're not processing.

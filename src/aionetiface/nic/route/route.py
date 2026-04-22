@@ -101,6 +101,8 @@ from ...utility.utils import fstr
 
 @total_ordering
 class Route(Bind):
+    """Represents one network path: a set of local NIC IPs mapped to one or more external (WAN) IPs."""
+
     def __init__(
         self,
         af: int,
@@ -110,7 +112,7 @@ class Route(Bind):
         ext_check: int = 1,
     ) -> None:
         if af not in VALID_AFS:
-            raise ValueError(f"af {af!r} is not a supported address family")
+            raise ValueError(fstr("af {0} is not a supported address family", (repr(af),)))
         if not isinstance(nic_ips, list):
             raise TypeError("nic_ips must be a list")
         if not isinstance(ext_ips, list):
@@ -124,13 +126,13 @@ class Route(Bind):
         if not ext_ips[0].i_ip:
             raise ValueError("ext_ips[0] IP must not be 0.0.0.0 / ::")
         if ext_ips[0].af != af:
-            raise ValueError(f"ext_ips[0].af {ext_ips[0].af} != af {af}")
+            raise ValueError(fstr("ext_ips[0].af {0} != af {1}", (ext_ips[0].af, af)))
 
         for nic_ipr in nic_ips:
             if not isinstance(nic_ipr, IPRange):
-                raise TypeError(f"nic_ips entry {nic_ipr!r} must be an IPRange")
+                raise TypeError(fstr("nic_ips entry {0} must be an IPRange", (repr(nic_ipr),)))
             if nic_ipr.af != af:
-                raise ValueError(f"nic_ipr.af {nic_ipr.af} != af {af}")
+                raise ValueError(fstr("nic_ipr.af {0} != af {1}", (nic_ipr.af, af)))
 
         # Allow ext to be private if check is disabled.
         # Needed to allow for conversion from a Bind to a Route.
@@ -153,13 +155,16 @@ class Route(Bind):
         return self.bind().__await__()
 
     def set_link_locals(self, link_locals: List[Any]) -> None:
+        """Store the list of link-local IPRange objects associated with this route."""
         self.link_locals = link_locals
 
     async def Address(self, dest: Any, port: int) -> Any:
+        """Return a (dest, port) tuple, satisfying the Address interface for route-based connections."""
         return (dest, port)
 
     # TODO: document this? You probably don't want to use this.
     async def rebind(self, port: int = 0, ips: Optional[List[Any]] = None) -> "Route":
+        """Return a deep copy of this route rebound to an optionally different port and IP list."""
         route = copy.deepcopy(self)
         await route.bind(port=port, ips=ips)
         return route
@@ -180,12 +185,14 @@ class Route(Bind):
         return ipr_norm(self.ext_ips[0])
 
     def link_local(self) -> str:
+        """Return the normalised string of the first link-local IP, raising if none are present."""
         if not self.link_locals:
             raise ValueError("Route has no link-local addresses.")
         return ipr_norm(self.link_locals[0])
 
     # Test if a given IPRange is in the nic_ips list.
     def has_nic_ip(self, ipr: Any) -> bool:
+        """Return True if ipr matches any entry in this route's nic_ips list."""
         for nic_ipr in self.nic_ips:
             if nic_ipr == ipr:
                 return True
@@ -193,18 +200,22 @@ class Route(Bind):
         return False
 
     def set_offsets(self, route_offset: int, host_offset: Optional[int] = None) -> None:
+        """Set the route and host iteration offsets used when cycling through the route pool."""
         self.route_offset = route_offset
         self.host_offset = host_offset
 
     def link_route_pool(self, route_pool: Any) -> None:
+        """Associate this route with a RoutePool so that alt() and related operations are available."""
         self.route_pool = route_pool
 
     def _check_extended(self) -> None:
+        """Raise an exception if this route has not been linked to a RoutePool."""
         if self.route_pool is None:
             raise Exception("e = route_pool not linked.")
 
     @staticmethod
     def _convert_other(other: Any) -> Any:
+        """Coerce other to an IPRange for use in Route comparison operators."""
         if isinstance(other, Route):
             if len(other.ext_ips):
                 return other.ext_ips[0]
@@ -230,6 +241,7 @@ class Route(Bind):
         )
 
     def bad_len(self, other: Any) -> bool:
+        """Return True if either this route or other has zero length, making comparison meaningless."""
         if not len(self) or not len(other):
             return True
         else:
@@ -238,6 +250,7 @@ class Route(Bind):
     # Get a list of N routes that don't use this WAN IP.
     # Incrementally adjusts route offset so its efficent.
     def alt(self, limit: int, exclusions: Optional[List[Any]] = None) -> List["Route"]:
+        """Return up to limit routes from the pool that are not equal to self and not in exclusions."""
         # Init storage vars.
         # Check the class has been mapped to a RoutePool.
         self._check_extended()
@@ -265,6 +278,7 @@ class Route(Bind):
         return routes
 
     def to_dict(self) -> Dict[str, Any]:
+        """Serialise this route to a plain dict containing AF, NIC IPs, external IPs, and link-locals."""
         nic_ips = []
         ext_ips = []
         list_infos = [[nic_ips, self.nic_ips], [ext_ips, self.ext_ips]]
@@ -286,6 +300,7 @@ class Route(Bind):
 
     @staticmethod
     def from_dict(d: Dict[str, Any]) -> "Route":
+        """Reconstruct a Route from a dict previously produced by to_dict."""
         nic_ips = []
         ext_ips = []
         list_info = [[nic_ips, d["nic_ips"]], [ext_ips, d["ext_ips"]]]

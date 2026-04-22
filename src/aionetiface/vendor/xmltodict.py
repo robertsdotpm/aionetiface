@@ -204,7 +204,7 @@ def parse(
     namespace_separator=":",
     disable_entities=True,
     process_comments=False,
-    **kwargs,
+    **kwargs
 ):
     """Parse the given XML input and convert it into a dictionary.
 
@@ -576,7 +576,7 @@ def unparse(
     full_document=True,
     short_empty_elements=False,
     comment_key="#comment",
-    **kwargs,
+    **kwargs
 ):
     """Emit an XML document for the given `input_dict` (reverse of `parse`).
 
@@ -616,7 +616,7 @@ def unparse(
             content_handler,
             full_document=full_document,
             comment_key=comment_key,
-            **kwargs,
+            **kwargs
         )
         if key != comment_key:
             seen_root = True

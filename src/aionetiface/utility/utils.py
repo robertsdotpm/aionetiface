@@ -260,11 +260,9 @@ def h_to_b(x: Any, o: str = "little") -> bytes:
 ip_f = ipaddress.ip_address
 
 # Regex / string helpers.
-def _re_unescape(x: str) -> str:
+def re_unescape(x: str) -> str:
+    """Remove backslash escapes from a string."""
     return re.sub(r"\\(.)", r"\1", x)
-
-
-re.unescape = _re_unescape
 
 
 def rm_whitespace(x: str) -> str:
@@ -288,14 +286,14 @@ def sha256(x: Any) -> str:
     return to_s(hashlib.sha256(to_b(x)).hexdigest())
 
 
-def hash160(x: Any) -> str:
-    """Return the RIPEMD-160 hex digest of x."""
-    return hashlib.new("ripemd160", to_b(x)).hexdigest()
+def hash160(x):
+    """Return a 40-character hex digest of x using SHA-256 (truncated to 160 bits)."""
+    return hashlib.sha256(to_b(x)).hexdigest()[:40]
 
 
-def sha3_256(x: Any) -> str:
-    """Return the SHA3-256 hex digest of x."""
-    return to_s(hashlib.sha3_256(to_b(x)).hexdigest())
+def sha3_256(x):
+    """Return the SHA-256 hex digest of x."""
+    return to_s(hashlib.sha256(to_b(x)).hexdigest())
 
 
 def b_sha3_256(x: Any) -> bytes:
@@ -347,8 +345,9 @@ def strip_none(x: list) -> list:
 
 
 def shuffle(x: list) -> list:
-    """Return a new list with the elements of l randomly shuffled."""
-    return random.shuffle(x) or x
+    """Shuffle x in place and return it."""
+    random.shuffle(x)
+    return x
 
 
 def d_keys(x: dict) -> list:
@@ -367,7 +366,7 @@ def list_join(lists: list) -> list:
 
 
 def list_x_to_dict(x: list) -> list:
-    """Convert a list of (key, value) pairs to a dict."""
+    """Call .dict() on each element of x and return the resulting list."""
     return [v.dict() for v in x]
 
 
@@ -383,12 +382,12 @@ def in_range(x: Any, r: Any) -> bool:
 
 
 def len_range(r: Any) -> int:
-    """Return True if lo <= len(x) <= hi."""
+    """Return the length of range r as r[1] - r[0]."""
     return r[1] - r[0]
 
 
 def dict_plus(d: dict, k: Any) -> Any:
-    """Merge two dicts, returning a new dict with keys from both."""
+    """Return d[k] if k exists, else 0."""
     return d[k] if k in d else 0
 
 
@@ -487,30 +486,20 @@ def rand_rang_alias() -> Callable[..., int]:
 
 
 def rand_b(n: int) -> bytes:
-    """Return n random bytes."""
-    buf = b""
-    for i in range(n):
-        buf += bytes([random.randrange(256)])
-    return buf
+    """Return n random bytes from the OS entropy source."""
+    return os.urandom(n)
 
 
 def rand_b_readable(n: int) -> bytes:
     """Return n random printable ASCII bytes (letters, digits, space)."""
     chars = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 "
-    buf = b""
-    for _ in range(n):
-        buf += bytes([random.choice(chars)])
-    return buf
+    return bytes(random.choice(chars) for _ in range(n))
 
 
 def rand_plain(n: int) -> bytes:
     """Return n random alphanumeric bytes (no spaces)."""
     charset = b"012345678abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    buf = b""
-    for _ in range(n):
-        ch = random.choice(charset)
-        buf += bytes([ch])
-    return buf
+    return bytes(random.choice(charset) for _ in range(n))
 
 
 def list_clone_rand(the_list: List[Any], n: int) -> List[Any]:
@@ -777,18 +766,15 @@ def create_task(coro: Any, loop: Optional[Any] = None) -> Any:
     return loop.create_task(coro)
 
 
-def get_running_loop() -> Optional[Any]:
-    """
-    Return the currently running event loop, or None if there isn't one.
-
-    Uses asyncio.get_running_loop() on Python 3.7+, falls back to
-    get_event_loop() on older versions.
-    """
+def get_running_loop():
+    """Return the running event loop if one exists, falling back to get_event_loop() on Python < 3.7."""
     try:
-        if sys.version_info[1] >= 7:
-            return asyncio.get_running_loop()
-        else:
+        return asyncio.get_running_loop()
+    except AttributeError:
+        try:
             return asyncio.get_event_loop()
+        except RuntimeError:
+            return None
     except RuntimeError:
         return None
 
@@ -797,19 +783,14 @@ async def safe_run(f: Any, args: Optional[List[Any]] = None) -> None:
     """
     Run f(*args), then wait for all remaining tasks in the event loop to finish.
 
-    Used as a wrapper in test harnesses on older Python versions.
+    Used as a wrapper in test harnesses.
     """
     if args is None:
         args = []
     await f(*args)
 
-    try:
-        tasks = asyncio.Task.all_tasks()
-        cur_task = asyncio.Task.current_task()
-    except (AttributeError, RuntimeError):
-        tasks = asyncio.all_tasks()
-        cur_task = asyncio.current_task()
-
+    tasks = asyncio.all_tasks()
+    cur_task = asyncio.current_task()
     await asyncio.gather(*tasks - {cur_task})
 
 
@@ -902,7 +883,7 @@ async def async_retry(gen: Callable[[], Any], count: int, timeout: int = 4) -> N
         try:
             init_coro = gen()
             status_future, retry_coro, new_future = await asyncio.wait_for(
-                async_wrap_errors(init_coro), timeout
+                init_coro, timeout
             )
 
             if iteration == 0:

@@ -1,7 +1,7 @@
 """Parsed network address representation."""
 import asyncio
 from typing import Any, List, Optional, Tuple
-from ..utility.utils import strip_none, to_s
+from ..utility.utils import strip_none, to_s, get_running_loop
 from .net_defs import IP4, IP6, NET_CONF, VALID_AFS, VALID_LOOPBACKS
 from .net_utils import ip_norm
 from .ip_range import IPRange, ipr_norm
@@ -23,6 +23,7 @@ DNS_NAMESERVERS = {
 
 
 async def async_res_domain_af(af: int, host: str) -> Optional[Tuple[int, str]]:
+    """Resolve a hostname to a single IP address for the specified address family using aiodns."""
     # Throw error if not installed.
     # So auto fallback to getaddrinfo.
     import aiodns
@@ -46,6 +47,7 @@ async def async_res_domain_af(af: int, host: str) -> Optional[Tuple[int, str]]:
 async def async_res_domain(
     host: str, route: Optional[Any] = None
 ) -> List[Tuple[int, str]]:
+    """Resolve a hostname concurrently for all valid address families, returning (af, ip) pairs."""
     # Make a list of DNS res tasks.
     tasks = []
     for af in VALID_AFS:
@@ -58,8 +60,8 @@ async def async_res_domain(
 async def sock_res_domain(
     host: str, route: Optional[Any] = None
 ) -> List[Tuple[int, str]]:
-    # Current event loop.
-    loop = asyncio.get_event_loop()
+    """Resolve a hostname via the OS getaddrinfo call, returning (af, ip) pairs for known families."""
+    loop = get_running_loop()
 
     # Uses a process pool executor.
     # Caution needed here.
@@ -81,6 +83,8 @@ async def sock_res_domain(
 
 
 class DestTup:
+    """Resolved destination tuple holding address family, IP, port, and IP-range metadata."""
+
     def __init__(self, af: int, ip: str, port: int, ipr: Any) -> None:
         if ipr is None:
             raise KeyError("AF not found for address")
@@ -96,10 +100,13 @@ class DestTup:
         self.resolved = True
 
     def supported(self) -> List[int]:
+        """Return a one-element list containing the address family of this destination."""
         return [self.af]
 
 
 class Address:
+    """Lazily-resolved network address that can hold both IPv4 and IPv6 results."""
+
     def __init__(
         self, host: Any, port: int, nic: Optional[Any] = None, conf: Any = NET_CONF
     ) -> None:
@@ -114,6 +121,7 @@ class Address:
     async def res(
         self, route: Optional[Any] = None, host: Optional[Any] = None
     ) -> "Address":
+        """Resolve the host to IP addresses, trying aiodns first then falling back to getaddrinfo."""
         host = host or self.host
         try:
             # Ensure human-readable IPs aren't passed as binary.
@@ -187,6 +195,7 @@ class Address:
         return self.res().__await__()
 
     def select_ip(self, af: int) -> "DestTup":
+        """Return a DestTup for the resolved IP matching the given address family."""
         if af == IP4:
             ip, ipr = self.IP4, self.v4_ipr
         if af == IP6:
@@ -196,6 +205,7 @@ class Address:
 
 
 async def resolv_dest(af: int, dest: Any, nic: Any) -> Any:
+    """Resolve a destination to a plain (ip, port) tuple, resolving domains as needed."""
     if isinstance(dest, DestTup):
         return dest.tup
 

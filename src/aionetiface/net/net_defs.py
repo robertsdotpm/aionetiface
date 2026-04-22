@@ -243,17 +243,23 @@ NET_CONF = {
 
 
 class FakeSocket:
+    """Minimal socket-like object backed by a BytesIO buffer, used for HTTP response parsing."""
+
     def __init__(self, response_bytes: bytes) -> None:
         self._file = BytesIO(response_bytes)
 
     def makefile(self, *args: Any, **kwargs: Any) -> BytesIO:
+        """Return the underlying BytesIO buffer as a file-like object."""
         return self._file
 
     def close(self) -> None:
+        """No-op close to satisfy the socket interface."""
         return
 
     def _close_conn(self) -> None:
+        """No-op connection-close stub to satisfy the socket interface."""
         return
 
     def flush(self) -> None:
+        """No-op flush to satisfy the socket interface."""
         return

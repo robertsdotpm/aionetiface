@@ -13,10 +13,12 @@ from ...net.bind.bind_rules import binder_async
 
 
 async def get_mac_mixed(if_name: str) -> Optional[str]:
+    """Try multiple OS-specific commands (and pyroute2 as a fallback) to retrieve the MAC address of if_name."""
     mac_p = r"((?:[0-9a-fA-F]{2}[\s:-]*){6})"
     win_p = r"[0-9]+\s*[.]+([^.]+)\s*[.]+"
     grep_p = "egrep 'lladdr|ether|link'"
     def win_f(x: str) -> str:
+        """Extract the interface description matching if_name from Windows route print output."""
         return re.findall(win_p + re.escape(if_name), x)[0]
     vectors = {
         "Linux": [
@@ -63,7 +65,7 @@ async def get_mac_mixed(if_name: str) -> Optional[str]:
                 continue
 
             return out
-        except (ValueError, AttributeError):
+        except (ValueError, AttributeError, IndexError):
             log_exception()
 
     if os_name not in ["Darwin", "Windows"]:
@@ -73,13 +75,14 @@ async def get_mac_mixed(if_name: str) -> Optional[str]:
             with pyroute2.NDB() as ndb:
                 with ndb.interfaces[if_name] as interface:
                     return interface["address"]
-        except (ImportError, OSError):
+        except (ImportError, SyntaxError, OSError):
             log_exception()
             return None
 
 
 # Netifaces apparently doesn't use their own values...
 def af_to_netiface(af: int) -> int:
+    """Convert an internal AF constant to the integer value expected by the netifaces library."""
     if af == IP4:
         return int(IP4)
         return netifaces.AF_INET
@@ -92,6 +95,7 @@ def af_to_netiface(af: int) -> int:
 
 
 def netiface_to_af(af: int, netifaces: Any) -> int:
+    """Convert a netifaces AF constant to an internal AF constant, or return af unchanged if unknown."""
     if af == netifaces.AF_INET:
         return IP4
 
@@ -102,11 +106,13 @@ def netiface_to_af(af: int, netifaces: Any) -> int:
 
 
 def is_af_routable(af: int, netifaces: Any) -> bool:
+    """Return True if the given address family has at least one gateway entry in the netifaces gateway table."""
     af = af_to_netiface(af)
     return af in netifaces.gateways()
 
 
 async def get_mac_address(name: str, netifaces: Any) -> Optional[str]:
+    """Return the normalised MAC address for network interface name, using netifaces or OS commands."""
     if not hasattr(netifaces.ifaddresses(name), "AF_LINK"):
         try:
             mac = await get_mac_mixed(name)
@@ -124,6 +130,7 @@ async def get_mac_address(name: str, netifaces: Any) -> Optional[str]:
 async def netiface_addr_to_ipr(
     af: int, nic_id: Any, info: Dict[str, str]
 ) -> Optional[Any]:
+    """Convert a netifaces address info dict to an IPRange, validating the subnet by attempting a bind."""
     # Some interfaces might not have valid information set.
     if "addr" not in info:
         return None
@@ -217,6 +224,7 @@ async def netiface_addr_to_ipr(
 async def get_nic_private_ips(
     interface: Any, af: int, netifaces: Any, loop: Optional[Any] = None
 ) -> List[Any]:
+    """Return the list of private (non-public) IPRange objects assigned to interface for the given address family."""
     loop = loop or asyncio.get_event_loop()
     nic_iprs = []
     if_name = interface.name
@@ -248,6 +256,7 @@ on android. Need a patch for this.
 def netiface_gateways(
     netifaces: Any, get_interface_type: Any, preference: int = AF_ANY
 ) -> Dict[str, Any]:
+    """Return the netifaces gateway dict, patching in a default entry when netifaces fails to identify one."""
     gws = netifaces.gateways()
 
     # Netifaces may not always find the default gateway.

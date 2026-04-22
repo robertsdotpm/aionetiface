@@ -15,6 +15,7 @@ from .nat.nat_utils import nat_info
 
 
 def get_default_routes(nic: Any) -> Dict[int, Any]:
+    """Probe the OS routing table via UDP connect and return a dict of {af: Route} for reachable families."""
     dests = {IP4: "8.8.8.8", IP6: "2001:4860:4860::8888"}
 
     routes = {}
@@ -38,6 +39,7 @@ def get_default_routes(nic: Any) -> Dict[int, Any]:
 
 
 def use_default_interface(nic: Any) -> None:
+    """Populate nic with OS-derived default routes so it acts as a generic default interface."""
     nic.name = "default"
     nic.timeout = 4
     nic.netiface_index = 0
@@ -54,6 +56,7 @@ def use_default_interface(nic: Any) -> None:
     nic.resolved = True
 
     def is_default_always(af, gws=None):
+        """Always return True to mark this interface as the default for any address family."""
         return True
 
     nic.is_default = is_default_always

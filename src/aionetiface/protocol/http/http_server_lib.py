@@ -7,6 +7,7 @@ from http.server import BaseHTTPRequestHandler
 from io import BytesIO
 from typing import Any, Callable, Dict, List, Optional, Tuple
 from ...utility.utils import *
+from ...utility.utils import re_unescape
 from .http_client_lib import *
 from ...net.daemon import Daemon
 
@@ -18,6 +19,7 @@ aionetiface_MIME = [[dict, "json"], [bytes, "binary"], [str, "text"]]
 # Support passing in GET params using path seperators.
 # Ex: /timeout/10/sub/all -> {'timeout': '10', 'sub': 'all'}
 def get_params(field_names: List[str], url_path: str) -> Dict[str, str]:
+    """Extract named key/value pairs from a slash-separated URL path and return them as a dict."""
     # Return empty.
     if not field_names:
         return {}
@@ -46,14 +48,14 @@ def get_params(field_names: List[str], url_path: str) -> Dict[str, str]:
             # Every 2 fields is a named value.
             name = results[i * 2]
             value = results[(i * 2) + 1]
-            value = re.unescape(value)
+            value = re_unescape(value)
 
             # Param not set.
             if name == "":
                 continue
 
             # Save by name.
-            name = re.unescape(name)
+            name = re_unescape(name)
             params[name] = value
 
     # Return it for use.
@@ -61,9 +63,11 @@ def get_params(field_names: List[str], url_path: str) -> Dict[str, str]:
 
 
 def api_closure(url_path: str) -> Callable[..., Any]:
+    """Return an api() callable that matches url_path against a regex and returns a named-field dict."""
     # Fields list names a p result and is in a fixed order.
     # Get names matches named values and is in a variable order.
     def api(p, field_names=None, get_names=None):
+        """Match regex p against the captured url_path and map groups to field_names or get_names."""
         if field_names is None:
             field_names = []
         if get_names is None:
@@ -92,6 +96,7 @@ def api_closure(url_path: str) -> Callable[..., Any]:
 # p = {}, optional = [ named ... ]
 # default = [ matching values ... ]
 def set_defaults(p: Dict[str, Any], optional: List[str], default: List[Any]) -> None:
+    """Fill in missing keys in p from the parallel default list for any optional parameter names."""
     # Set default param values.
     for i, named in enumerate(optional):
         if named not in p:
@@ -99,6 +104,8 @@ def set_defaults(p: Dict[str, Any], optional: List[str], default: List[Any]) -> 
 
 
 class ParseHTTPRequest(BaseHTTPRequestHandler):
+    """Parse a raw HTTP request byte string using BaseHTTPRequestHandler."""
+
     def __init__(self, request_text: bytes) -> None:
         self.rfile = BytesIO(request_text)
         self.raw_requestline = self.rfile.readline()
@@ -107,6 +114,7 @@ class ParseHTTPRequest(BaseHTTPRequestHandler):
         http_parse_headers(self)
 
     def send_error(self, code: int, message: Optional[str] = None) -> None:
+        """Record the error code and message instead of sending an HTTP response."""
         self.error_code = code
         self.error_message = message
 
@@ -116,6 +124,7 @@ class ParseHTTPRequest(BaseHTTPRequestHandler):
 def http_res(
     payload: Any, mime: str, req: Any, client_tup: Optional[Tuple[str, int]] = None
 ) -> bytes:
+    """Serialise payload to the given MIME type and return a complete HTTP/1.1 200 response as bytes."""
     # Support JSON responses.
     if mime == "json":
         # Document content is a JSON string with good indenting.
@@ -153,6 +162,7 @@ def http_res(
 async def send_json(
     a_dict: Dict[str, Any], req: Any, client_tup: Tuple[str, int], pipe: Any
 ) -> None:
+    """Send a_dict as a JSON HTTP response to client_tup and close the pipe."""
     remote_client_tup = None
     if "client_tup" in a_dict:
         remote_client_tup = a_dict["client_tup"]
@@ -165,12 +175,14 @@ async def send_json(
 async def send_binary(
     out: bytes, req: Any, client_tup: Tuple[str, int], pipe: Any
 ) -> None:
+    """Send out as an octet-stream HTTP response to client_tup and close the pipe."""
     res = http_res(out, "binary", req, client_tup)
     await pipe.send(res, client_tup)
     await pipe.close()
 
 
 async def send_text(out: str, req: Any, client_tup: Tuple[str, int], pipe: Any) -> None:
+    """Send out as a text/html HTTP response to client_tup and close the pipe."""
     res = http_res(out, "text", req, client_tup)
     await pipe.send(res, client_tup)
     await pipe.close()
@@ -182,6 +194,7 @@ async def rest_service(
     pipe: Any,
     api_closure: Callable[..., Any] = api_closure,
 ) -> Optional[Any]:
+    """Parse an incoming HTTP message, enforce CORS, handle pre-flight requests, and return the parsed req object."""
     # Parse http request.
     try:
         req = ParseHTTPRequest(msg)
@@ -225,9 +238,11 @@ async def rest_service(
 # Routes a URL path to named and unnamed parameters based on scheme definitions.
 # Each scheme entry is [name] or [name, default] or [name, default, regex].
 def api_route_closure(url_path: str) -> Callable[..., Any]:
+    """Return an api() callable that maps slash-separated URL segments to scheme-defined named and positional params."""
     # Fields list names a p result and is in a fixed order.
     # Get names matches named values and is in a variable order.
     def api(schemes):
+        """Match url_path segments against schemes and return (named_dict, positional_dict)."""
         # Break up the URL based on slashes.
         out = re.findall(r"(?:/([^/]+))", url_path)
         as_dict = {}
@@ -236,6 +251,7 @@ def api_route_closure(url_path: str) -> Callable[..., Any]:
 
         # Generate a list of matches for schemes across out list.
         def in_schemes(v):
+            """Return (scheme_index, value, matched) indicating whether URL segment v matches any scheme entry."""
             for i in range(len(schemes)):
                 # Use regex to check value.
                 scheme = schemes[i]
@@ -302,6 +318,8 @@ def api_route_closure(url_path: str) -> Callable[..., Any]:
 
 
 class RESTD(Daemon):
+    """Daemon subclass that automatically discovers decorated REST API handlers and dispatches HTTP requests to them."""
+
     def __init__(self) -> None:
         super().__init__()
 
@@ -322,6 +340,7 @@ class RESTD(Daemon):
 
     @staticmethod
     def rest_api_decorator(f: Any, args: Any) -> Any:
+        """Tag function f with a REST__ prefix and store its route scheme args so it can be discovered at runtime."""
         # Allow this method to be looked up.
         f.__name__ = "REST__" + f.__name__
 
@@ -340,6 +359,7 @@ class RESTD(Daemon):
 
     @staticmethod
     def GET(*args: Any, **kw: Any) -> Callable[..., Any]:
+        """Decorator that registers the decorated function as a GET route with the given URL scheme args."""
         def decorate(f):
             # Save HTTP method.
             f.http_method = "GET"
@@ -349,6 +369,7 @@ class RESTD(Daemon):
 
     @staticmethod
     def POST(*args: Any, **kw: Any) -> Callable[..., Any]:
+        """Decorator that registers the decorated function as a POST route with the given URL scheme args."""
         def decorate(f):
             # Save HTTP method.
             f.http_method = "POST"
@@ -358,6 +379,7 @@ class RESTD(Daemon):
 
     @staticmethod
     def DELETE(*args: Any, **kw: Any) -> Callable[..., Any]:
+        """Decorator that registers the decorated function as a DELETE route with the given URL scheme args."""
         def decorate(f):
             # Save HTTP method.
             f.http_method = "DELETE"
@@ -367,6 +389,7 @@ class RESTD(Daemon):
 
     # Todo: $_GET from ?...
     async def msg_cb(self, msg: bytes, client_tup: Tuple[str, int], pipe: Any) -> None:
+        """Parse an incoming HTTP request, route it to the best matching REST API method, and send the reply."""
         # Parse HTTP message and handle CORS.
         req = await rest_service(msg, client_tup, pipe, api_route_closure)
 
