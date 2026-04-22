@@ -9,8 +9,8 @@ class TestSock(unittest.IsolatedAsyncioTestCase):
             s1.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         except OSError:
             pass
-        s1.bind(('', 0))
-        #s1.connect(("www.google.com", 80))
+        s1.bind(("", 0))
+        # s1.connect(("www.google.com", 80))
 
         port = s1.getsockname()[1]
         s2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -19,8 +19,8 @@ class TestSock(unittest.IsolatedAsyncioTestCase):
             s2.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         except OSError:
             pass
-        s2.bind(('', port))
-        #s2.connect(("www.google.com", 80))
+        s2.bind(("", port))
+        # s2.connect(("www.google.com", 80))
 
         s1.close()
         s2.close()
@@ -35,12 +35,7 @@ class TestSock(unittest.IsolatedAsyncioTestCase):
         await dest.res(r)
         dest = dest.select_ip(IP4)
         s = await socket_factory(route=r, dest_addr=dest, sock_type=TCP, conf=NET_CONF)
-        con_task = asyncio.create_task(
-            loop.sock_connect(
-                s, 
-                dest.tup
-            )
-        )
+        con_task = asyncio.create_task(loop.sock_connect(s, dest.tup))
 
         await asyncio.wait_for(con_task, 2)
         if s is not None:
@@ -67,8 +62,7 @@ class TestSock(unittest.IsolatedAsyncioTestCase):
         reuse_sock.close()
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
 
 """

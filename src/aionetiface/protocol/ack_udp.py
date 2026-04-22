@@ -8,21 +8,22 @@ import asyncio
 import struct
 import random
 from struct import pack
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 from ..utility.utils import async_wrap_errors, rm_done_tasks, timestamp, to_b
 
 
 UDP_MAX_DICT_LEN = 1000
 
-class ACKUDP():
+
+class ACKUDP:
     def __init__(self) -> None:
-        self.seq = {} # Waiting for acks.
+        self.seq = {}  # Waiting for acks.
         self.ack_send_tasks = []
 
     # Returns a sequence number if a message is an ack.
     def is_ack(self, data: bytes, stream: Any) -> Optional[int]:
         if len(data) >= 9:
-            seq, = struct.unpack("!Q", data[0:8])
+            (seq,) = struct.unpack("!Q", data[0:8])
             is_ack = data[8]
             if is_ack == 1:
                 return seq
@@ -32,9 +33,9 @@ class ACKUDP():
     # Received message that needs to be acked.
     # Return its sequence number and valid ack response.
     def is_ackable(self, data: bytes, stream: Any) -> List[Optional[Any]]:
-        payload = ack = is_ack = seq = None
+        ack = is_ack = seq = None
         if len(data) >= 9:
-            seq, = struct.unpack("!Q", data[0:8])
+            (seq,) = struct.unpack("!Q", data[0:8])
             is_ack = data[8]
         else:
             return [None, None, None]
@@ -49,7 +50,13 @@ class ACKUDP():
     # they receive it, even if already acked, since we can't know if our
     # prior ack was received. Skip acking if a peer sent the same sequence;
     # this prevents the sender from getting into a loop.
-    def handle_ack(self, data: bytes, f_is_ack: Callable[..., Any], f_is_ackable: Callable[..., Any], f_send: Callable[..., Any]) -> Tuple[int, Optional[bytes]]:
+    def handle_ack(
+        self,
+        data: bytes,
+        f_is_ack: Callable[..., Any],
+        f_is_ackable: Callable[..., Any],
+        f_send: Callable[..., Any],
+    ) -> Tuple[int, Optional[bytes]]:
         self.ack_send_tasks = rm_done_tasks(self.ack_send_tasks)
         payload = recv_seq = ack_seq = ack = None
         self.timestamp = timestamp()
@@ -88,11 +95,7 @@ class ACKUDP():
         # The TURN client implements a custom is_ackable that wraps an ACK
         # in a channel message which allows the server to deliver the message.
         if ack is not None:
-            task = asyncio.create_task(
-                async_wrap_errors(
-                    f_send(ack)
-                )
-            )
+            task = asyncio.create_task(async_wrap_errors(f_send(ack)))
 
             self.ack_send_tasks.append(task)
             return 2, payload
@@ -103,7 +106,14 @@ class ACKUDP():
     # If an acknowledgement arrives before an error condition the function
     # returns successfully. Events are used to wait on ACKs so there are no
     # busy-loop checks.
-    async def ack_send(self, data: bytes, dest_tup: Tuple[Any, ...], seq: Optional[int] = None, sock_timeout: int = 0, tries: int = 3) -> Tuple[Any, Any]:
+    async def ack_send(
+        self,
+        data: bytes,
+        dest_tup: Tuple[Any, ...],
+        seq: Optional[int] = None,
+        sock_timeout: int = 0,
+        tries: int = 3,
+    ) -> Tuple[Any, Any]:
         # Keep sending until max sends reached.
         # For acks we send max transmits as they're small messages.
         if seq is None:
@@ -123,11 +133,7 @@ class ACKUDP():
                 start = timestamp()
 
             # Build data to send.
-            buf = bytearray().join([
-                pack("!Q", seq),
-                pack("!B", 0),
-                memoryview(data)
-            ])
+            buf = bytearray().join([pack("!Q", seq), pack("!B", 0), memoryview(data)])
 
             # Await on ACK events.
             # Break on transmits >= tries, timeout, or success.
@@ -146,10 +152,7 @@ class ACKUDP():
                 try:
                     # Will return instantly on receiving a related ACK.
                     # Otherwise it suspends for other code to execute.
-                    await asyncio.wait_for(
-                        self.seq[seq].wait(),
-                        3
-                    )
+                    await asyncio.wait_for(self.seq[seq].wait(), 3)
 
                     # No timeout error = success.
                     break
@@ -173,6 +176,7 @@ class ACKUDP():
 
         # Wait for ACK.
         return task, event
+
 
 class BaseACKProto(asyncio.Protocol):
     def __init__(self, conf: Any) -> None:

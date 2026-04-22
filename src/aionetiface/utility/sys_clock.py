@@ -30,7 +30,10 @@ from ..servers import get_infra
 NTP_RETRY = 2
 NTP_TIMEOUT = 2
 
-async def get_ntp(af: int, interface: Any, server: Optional[Any] = None, retry: int = NTP_RETRY) -> Optional[float]:
+
+async def get_ntp(
+    af: int, interface: Any, server: Optional[Any] = None, retry: int = NTP_RETRY
+) -> Optional[float]:
     if server is None:
         groups = get_infra(af, UDP, "NTP", no=1)
         if not groups:
@@ -50,15 +53,15 @@ async def get_ntp(af: int, interface: Any, server: Optional[Any] = None, retry: 
         log_exception()
     return None
 
-async def get_ntp_from_dest(af: int, nic: Any, dest: Tuple[str, int], retry: int = NTP_RETRY) -> Optional[float]:
+
+async def get_ntp_from_dest(
+    af: int, nic: Any, dest: Tuple[str, int], retry: int = NTP_RETRY
+) -> Optional[float]:
     # The NTP client uses UDP so retry on failure.
     try:
         for _ in range(retry):
             client = NTPClient(af, nic)
-            response = await client.request(
-                dest,
-                version=3
-            )
+            response = await client.request(dest, version=3)
             if response is None:
                 continue
 
@@ -96,7 +99,9 @@ class SysClock:
                 probes.append((af, (s["ip"], s["port"])))
 
         if not probes:
-            log("SysClock: no NTP servers available for supported AFs; using system clock.")
+            log(
+                "SysClock: no NTP servers available for supported AFs; using system clock."
+            )
             self._use_system_clock()
             return self
 
@@ -104,7 +109,7 @@ class SysClock:
         # the fast ones.  First non-None result wins.
         results = await asyncio.gather(
             *[get_ntp_from_dest(af, self.interface, dest) for af, dest in probes],
-            return_exceptions=True
+            return_exceptions=True,
         )
 
         for result in results:
@@ -145,10 +150,11 @@ class SysClock:
         elapsed = max(time.monotonic() - self.start_time, 0)
         return self.ntp + elapsed + self.offset
 
-async def test_clock_skew() -> None: # pragma: no cover
-    from p2pd.nic.interface import Interface
-    interface = await Interface()
 
+async def test_clock_skew() -> None:  # pragma: no cover
+    from p2pd.nic.interface import Interface
+
+    interface = await Interface()
 
     print("loaded")
     s = await SysClock(interface=interface)
@@ -156,14 +162,13 @@ async def test_clock_skew() -> None: # pragma: no cover
     time.sleep(1)
     print(s.time())
 
-
     return
 
-if __name__ == "__main__":
-    #sys_clock = SysClock()
-    #print(sys_clock.clock_skew)
-    async_test(test_clock_skew)
 
+if __name__ == "__main__":
+    # sys_clock = SysClock()
+    # print(sys_clock.clock_skew)
+    async_test(test_clock_skew)
 
     # print(get_ntp())
     # print(get_ntp())

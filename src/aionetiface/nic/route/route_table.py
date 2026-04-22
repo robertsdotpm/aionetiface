@@ -25,12 +25,13 @@ async def windows_get_route_table(af: int) -> List[Dict[str, Any]]:
             "next_hop": result[2],
             "route_metric": int(result[3]),
             "if_metric": int(result[4]),
-            "policy_store": result[5]
+            "policy_store": result[5],
         }
 
         table.append(entry)
 
     return table
+
 
 async def linux_get_route_table(af: int) -> List[Dict[str, Any]]:
     table = []
@@ -49,7 +50,7 @@ async def linux_get_route_table(af: int) -> List[Dict[str, Any]]:
                 "metric": int(result[4]),
                 "ref": int(result[5]),
                 "use": int(result[6]),
-                "if": result[7]
+                "if": result[7],
             }
 
             table.append(entry)
@@ -67,12 +68,13 @@ async def linux_get_route_table(af: int) -> List[Dict[str, Any]]:
                 "metric": int(result[3]),
                 "ref": int(result[4]),
                 "use": int(result[5]),
-                "if": result[6]
+                "if": result[6],
             }
 
             table.append(entry)
 
     return table
+
 
 async def darwin_get_route_table(af: int) -> List[Dict[str, Any]]:
     table = []
@@ -90,12 +92,13 @@ async def darwin_get_route_table(af: int) -> List[Dict[str, Any]]:
             "gw": result[1],
             "flags": result[2],
             "if": result[3],
-            "expiry": result[4]
+            "expiry": result[4],
         }
 
         table.append(entry)
 
     return table
+
 
 async def get_route_table(af: int) -> List[Dict[str, Any]]:
     if platform.system() == "Windows":
@@ -109,7 +112,10 @@ async def get_route_table(af: int) -> List[Dict[str, Any]]:
 
     return []
 
-def find_rt_entry(dest: Any, if_name: Any, table: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+
+def find_rt_entry(
+    dest: Any, if_name: Any, table: List[Dict[str, Any]]
+) -> Optional[Dict[str, Any]]:
     for entry in table:
         if entry["dest"] != dest:
             continue
@@ -119,6 +125,7 @@ def find_rt_entry(dest: Any, if_name: Any, table: List[Dict[str, Any]]) -> Optio
 
         return entry
 
+
 async def darwin_is_internet_if(if_name: str) -> bool:
     def is_internet_if(table):
         # Find default entry for iface.
@@ -127,9 +134,9 @@ async def darwin_is_internet_if(if_name: str) -> bool:
             return False
 
         # Check flags for entry.
-        if 'U' not in default_entry["flags"]:
+        if "U" not in default_entry["flags"]:
             return False
-        if 'G' not in default_entry["flags"]:
+        if "G" not in default_entry["flags"]:
             return False
 
         return True
@@ -140,6 +147,7 @@ async def darwin_is_internet_if(if_name: str) -> bool:
             return True
 
     return False
+
 
 async def linux_is_internet_if(if_name: str) -> bool:
     def is_internet_if(table, af):
@@ -184,12 +192,13 @@ async def linux_is_internet_if(if_name: str) -> bool:
 
     return False
 
+
 async def windows_is_internet_if(if_index: Any) -> bool:
     def is_internet_if(table, af):
         if af == IP4:
             dest = "0.0.0.0/0"
         if af == IP6:
-            dest = "::/0" # Probably what it will be.
+            dest = "::/0"  # Probably what it will be.
 
         return find_rt_entry(dest, if_index, table) is not None
 
@@ -199,6 +208,7 @@ async def windows_is_internet_if(if_index: Any) -> bool:
             return True
 
     return False
+
 
 async def is_internet_if(if_name: Any) -> bool:
     if platform.system() == "Linux":
@@ -212,14 +222,15 @@ async def is_internet_if(if_name: Any) -> bool:
 
     return False
 
-if __name__ == "__main__": # pragma: no cover
+
+if __name__ == "__main__":  # pragma: no cover
     from .interface import Interface
+
     async def test_route_table() -> None:
         i = Interface()
         if i.nic_no:
-            r = await is_internet_if(i.nic_no)
+            await is_internet_if(i.nic_no)
         else:
-            r = await is_internet_if(i.name)
+            await is_internet_if(i.name)
 
     async_test(test_route_table)
-

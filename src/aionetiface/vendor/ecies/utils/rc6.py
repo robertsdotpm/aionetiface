@@ -74,7 +74,7 @@ b'IVTESTIVTESTIVTE'
 True
 >>> rc6.data_decryption_CBC(bytes.fromhex('8de91e69865825bbb6e1785e3b498f3a89708aaa2aff01a688cf9836bd7eea56c04fa0a14706d79bd94846e905bf070b'), iv)
 b'abcdefghijklmnopabcdefghijklmnopabcdefghijklm'
->>> 
+>>>
 
 ~# rc6 mykey -s mydata -6
 0wS4TwM292nGa378oBuz/w==
@@ -88,7 +88,7 @@ mydata
 6D7969766D7969766D7969766D796976BF2F024053F74FE27920DE5C274935A6
 ~# rc6 mykey -m CBC -d -s 6D7969766D7969766D7969766D796976BF2F024053F74FE27920DE5C274935A6 -n base16
 mydata
-~# 
+~#
 
 1 items passed all tests:
   32 tests in RC6Encryption
@@ -166,7 +166,7 @@ __copyright__ = copyright
 
 __all__ = ["RC6Encryption", "pkcs5_7padding"]
 
-from base64 import (
+from base64 import (  # noqa: E402
     b85encode,
     b64encode,
     b32encode,
@@ -177,14 +177,13 @@ from base64 import (
     b16decode,
 )
 
-from locale import getpreferredencoding
-from sys import exit, stdin, stdout
-from warnings import simplefilter
-from contextlib import suppress
-from os import device_encoding
-from functools import partial
-from hashlib import sha256
-from os import urandom
+from locale import getpreferredencoding  # noqa: E402
+from warnings import simplefilter  # noqa: E402
+from contextlib import suppress  # noqa: E402
+from os import device_encoding  # noqa: E402
+from functools import partial  # noqa: E402
+from hashlib import sha256  # noqa: E402
+from os import urandom  # noqa: E402
 
 try:
     from binascii import a2b_hqx, b2a_hqx
@@ -198,7 +197,6 @@ unblock = partial(int.to_bytes, length=4, byteorder="little")
 
 
 class RC6Encryption:
-
     """
     This class implements the RC6 encryption.
 
@@ -208,9 +206,7 @@ class RC6Encryption:
     P32 = 0xB7E15163
     Q32 = 0x9E3779B9
 
-    def __init__(
-        self, key       , rounds      = 20, w_bit      = 32, lgw      = 5
-    ):
+    def __init__(self, key, rounds=20, w_bit=32, lgw=5):
         self.key_bytes = key
         self.rounds = rounds
         self.w_bit = w_bit
@@ -233,7 +229,7 @@ class RC6Encryption:
         self.key_generation()
 
     @staticmethod
-    def enumerate_blocks(data       )                                       :
+    def enumerate_blocks(data):
         """
         This function returns a tuple of 4 integers for each blocks.
         """
@@ -245,7 +241,7 @@ class RC6Encryption:
             yield a, b, c, d
 
     @staticmethod
-    def get_blocks(data       )                               :
+    def get_blocks(data):
         """
         This function returns blocks (binary strings and integers) from data.
         """
@@ -259,7 +255,7 @@ class RC6Encryption:
                 binary_blocks.append(block)
                 integer_blocks.append(basetwo(block))
                 block = ""
-                
+
             block = "{:0>8b}".format(char) + block
 
         binary_blocks.append(block)
@@ -268,7 +264,7 @@ class RC6Encryption:
         return binary_blocks, integer_blocks
 
     @staticmethod
-    def blocks_to_data(blocks           )         :
+    def blocks_to_data(blocks):
         """
         This function returns data from blocks (binary strings).
         """
@@ -280,7 +276,7 @@ class RC6Encryption:
 
         return data
 
-    def right_rotation(self, x     , n     )       :
+    def right_rotation(self, x, n):
         """
         This function perform a right rotation.
         """
@@ -289,14 +285,14 @@ class RC6Encryption:
         mask_bits = x & mask
         return (x >> n) | (mask_bits << (self.w_bit - n))
 
-    def left_rotation(self, x     , n     )       :
+    def left_rotation(self, x, n):
         """
         This function perform a left rotation (based on right rotation).
         """
 
         return self.right_rotation(x, self.w_bit - n)
 
-    def key_generation(self)             :
+    def key_generation(self):
         """
         This function generate the key.
         """
@@ -324,7 +320,7 @@ class RC6Encryption:
 
         return self.rc6_key
 
-    def data_encryption_ECB(self, data       )         :
+    def data_encryption_ECB(self, data):
         """
         This function performs full encryption using ECB mode:
             - add PKCS (5/7) padding
@@ -342,7 +338,7 @@ class RC6Encryption:
 
         return self.blocks_to_data(encrypted)
 
-    def data_decryption_ECB(self, data       )         :
+    def data_decryption_ECB(self, data):
         """
         This function performs full decryption using ECB mode:
             - get blocks
@@ -359,9 +355,7 @@ class RC6Encryption:
 
         return remove_pkcs_padding(self.blocks_to_data(decrypted))
 
-    def data_encryption_CBC(
-        self, data       , iv        = None
-    )                       :
+    def data_encryption_CBC(self, data, iv=None):
         """
         This function performs full encryption using CBC mode:
             - get/generate the IV
@@ -395,7 +389,7 @@ class RC6Encryption:
 
         return _iv, self.blocks_to_data(encrypted)
 
-    def data_decryption_CBC(self, data       , iv       )         :
+    def data_decryption_CBC(self, data, iv):
         """
         This function performs full decryption using CBC mode:
             - get blocks
@@ -422,9 +416,7 @@ class RC6Encryption:
 
         return remove_pkcs_padding(self.blocks_to_data(decrypted))
 
-    def encrypt(
-        self, data                                         
-    )             :
+    def encrypt(self, data):
         """
         This functions performs RC6 encryption on only one block.
 
@@ -443,9 +435,7 @@ class RC6Encryption:
             u = self.left_rotation(d * (2 * d + 1) % self.modulo, self.lgw)
             tmod = t % self.w_bit
             umod = u % self.w_bit
-            a = (
-                self.left_rotation(a ^ t, umod) + self.rc6_key[2 * i]
-            ) % self.modulo
+            a = (self.left_rotation(a ^ t, umod) + self.rc6_key[2 * i]) % self.modulo
             c = (
                 self.left_rotation(c ^ u, tmod) + self.rc6_key[2 * i + 1]
             ) % self.modulo
@@ -456,7 +446,7 @@ class RC6Encryption:
 
         return [a, b, c, d]
 
-    def decrypt(self, data       )             :
+    def decrypt(self, data):
         """
         This function performs a RC6 decryption.
         """
@@ -475,17 +465,10 @@ class RC6Encryption:
             tmod = t % self.w_bit
             umod = u % self.w_bit
             c = (
-                self.right_rotation(
-                    (c - self.rc6_key[2 * i + 1]) % self.modulo, tmod
-                )
+                self.right_rotation((c - self.rc6_key[2 * i + 1]) % self.modulo, tmod)
                 ^ u
             )
-            a = (
-                self.right_rotation(
-                    (a - self.rc6_key[2 * i]) % self.modulo, umod
-                )
-                ^ t
-            )
+            a = self.right_rotation((a - self.rc6_key[2 * i]) % self.modulo, umod) ^ t
 
         d = (d - self.rc6_key[1]) % self.modulo
         b = (b - self.rc6_key[0]) % self.modulo
@@ -493,7 +476,7 @@ class RC6Encryption:
         return [a, b, c, d]
 
 
-def remove_pkcs_padding(data       )         :
+def remove_pkcs_padding(data):
     """
     This function implements PKCS 5/7 padding.
     """
@@ -501,7 +484,7 @@ def remove_pkcs_padding(data       )         :
     return data[: data[-1] * -1]
 
 
-def pkcs5_7padding(data       , size      = 16)         :
+def pkcs5_7padding(data, size=16):
     """
     This function implements PKCS 5/7 padding.
     """
@@ -511,8 +494,7 @@ def pkcs5_7padding(data       , size      = 16)         :
     return data + padding
 
 
-
-def output_encoding(data       , arguments           )         :
+def output_encoding(data, arguments):
     """
     This function returns encoded data.
     """
@@ -536,7 +518,7 @@ def output_encoding(data       , arguments           )         :
     return encoding(data)
 
 
-def input_encoding(data       , encoding     )         :
+def input_encoding(data, encoding):
     """
     This function returns decoded data.
     """
@@ -560,7 +542,7 @@ def input_encoding(data       , encoding     )         :
     return decoding(data)
 
 
-def get_key(arguments           )         :
+def get_key(arguments):
     """
     This function returns the key (256 bits) using sha256
     by default or PKCS 5/7 for padding.
@@ -572,7 +554,7 @@ def get_key(arguments           )         :
         return pkcs5_7padding(arguments.key.encode(), 16)[:16]
 
 
-def get_data(arguments           )         :
+def get_data(arguments):
     """
     This function returns data for encryption from arguments.
     """
@@ -606,7 +588,7 @@ def get_encodings():
     yield "latin-1"  # Can read all files
 
 
-def decode_output(data       )       :
+def decode_output(data):
     """
     This function decode outputs (try somes encoding).
     """
@@ -616,9 +598,6 @@ def decode_output(data       )       :
         with suppress(UnicodeDecodeError):
             output = data.decode(encoding)
             return output
-
-
-
 
 
 """

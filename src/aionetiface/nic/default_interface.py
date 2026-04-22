@@ -4,7 +4,7 @@ theres no actual nic_no stuff this is for simplied programs.
 """
 
 import socket
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 from ..net.net_defs import IP4, IP6
 from ..net.net_utils import ip_norm
 from ..net.ip_range import IPR
@@ -15,14 +15,14 @@ from .nat.nat_utils import nat_info
 
 
 def get_default_routes(nic: Any) -> Dict[int, Any]:
-    dests = {
-        IP4: "8.8.8.8",
-        IP6: "2001:4860:4860::8888"
-    }
+    dests = {IP4: "8.8.8.8", IP6: "2001:4860:4860::8888"}
 
     routes = {}
-    for af in (IP4, IP6,):
-        dest = (dests[af], 53) # DNS.
+    for af in (
+        IP4,
+        IP6,
+    ):
+        dest = (dests[af], 53)  # DNS.
 
         # create a UDP socket to the host
         try:
@@ -35,6 +35,7 @@ def get_default_routes(nic: Any) -> Dict[int, Any]:
             pass
 
     return routes
+
 
 def use_default_interface(nic: Any) -> None:
     nic.name = "default"
@@ -51,8 +52,8 @@ def use_default_interface(nic: Any) -> None:
 
     nic.stack = get_interface_stack(nic.rp)
     nic.resolved = True
-    
+
     def is_default_always(af, gws=None):
         return True
-    nic.is_default = is_default_always
 
+    nic.is_default = is_default_always

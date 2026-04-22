@@ -3,6 +3,7 @@ import socket
 
 from typing import Any, List, Optional
 
+
 def patch() -> None:
     """Patch selectors.SelectSelector to fix WinError 10038 in Windows
 
@@ -12,11 +13,13 @@ def patch() -> None:
     import select
     from selectors import SelectSelector
 
-    def _select(self: Any, r: Any, w: Any, _: Any, timeout: Optional[float] = None) -> Any:
+    def _select(
+        self: Any, r: Any, w: Any, _: Any, timeout: Optional[float] = None
+    ) -> Any:
         try:
             r, w, x = select.select(r, w, w, timeout)
         except OSError as e:
-            if hasattr(e, 'winerror') and e.winerror == 10038:
+            if hasattr(e, "winerror") and e.winerror == 10038:
                 # descriptors may already be closed
                 return [], [], []
             raise
@@ -25,16 +28,18 @@ def patch() -> None:
 
     SelectSelector._select = _select
 
-class MyProtocol(asyncio.Protocol):
 
+class MyProtocol(asyncio.Protocol):
     def connection_made(self, transport: Any) -> None:
-        transport.write(b'123')   # just in case a write is needed
+        transport.write(b"123")  # just in case a write is needed
+
 
 port = 6666
 
+
 async def connect_and_recv(loop: Any, sock: Any) -> None:
     try:
-        await loop.sock_connect(sock, ('127.0.0.1', port))
+        await loop.sock_connect(sock, ("127.0.0.1", port))
         while True:
             await loop.sock_recv(sock, 20)
     except asyncio.CancelledError:
@@ -43,13 +48,14 @@ async def connect_and_recv(loop: Any, sock: Any) -> None:
 
 
 async def main(loop: Any) -> None:
-    server = await loop.create_server(MyProtocol, '127.0.0.1', port)
+    server = await loop.create_server(MyProtocol, "127.0.0.1", port)
     sock = socket.socket()
     sock.setblocking(False)
     task = loop.create_task(connect_and_recv(loop, sock))
     await asyncio.sleep(0.1)
     task.cancel()
     await asyncio.sleep(0.1)
+
 
 patch()
 loop = asyncio.get_event_loop()

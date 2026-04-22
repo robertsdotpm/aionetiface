@@ -3,7 +3,12 @@ from ..utility.utils import *
 from .net_utils import *
 
 
-async def socket_factory(route: Any, dest_addr: Optional[Any] = None, sock_type: int = TCP, conf: Any = NET_CONF) -> Optional[Any]:
+async def socket_factory(
+    route: Any,
+    dest_addr: Optional[Any] = None,
+    sock_type: int = TCP,
+    conf: Any = NET_CONF,
+) -> Optional[Any]:
     # Check route is bound.
     if not route.resolved:
         raise Exception("You didn't bind the route!")
@@ -13,7 +18,7 @@ async def socket_factory(route: Any, dest_addr: Optional[Any] = None, sock_type:
         if not dest_addr.resolved:
             raise Exception("net sock factory: dest addr not resolved")
         else:
-            #if not dest_addr.port:
+            # if not dest_addr.port:
             #    raise Exception("net: dest port is 0!")
 
             # If dest_addr was a domain = AF_ANY.
@@ -27,7 +32,7 @@ async def socket_factory(route: Any, dest_addr: Optional[Any] = None, sock_type:
     # Useful to cleanup sockets right away.
     if conf["linger"] is not None:
         # Enable linger and set it to its value.
-        linger = struct.pack('ii', 1, conf["linger"])
+        linger = struct.pack("ii", 1, conf["linger"])
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, linger)
 
     # Reuse port to avoid errors.
@@ -81,24 +86,28 @@ async def socket_factory(route: Any, dest_addr: Optional[Any] = None, sock_type:
             bind_flag = LOOPBACK_BIND
 
     # Choose bind tup to use.
-    bind_tup = route.bind_tup(
-        flag=bind_flag
-    )
+    bind_tup = route.bind_tup(flag=bind_flag)
 
     # Attempt to bind to the tup.
     try:
         sock.bind(bind_tup)
         return sock
     except OSError:
-        error = fstr("""
+        error = fstr(
+            """
         Could not bind to interface
         af = {0}
         sock = {1}"
         bind_tup = {2}
-        """, (route.af, sock, bind_tup,))
+        """,
+            (
+                route.af,
+                sock,
+                bind_tup,
+            ),
+        )
         log(error)
         log_exception()
         if sock is not None:
             sock.close()
         return None
-

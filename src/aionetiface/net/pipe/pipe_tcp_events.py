@@ -19,8 +19,12 @@ a protocol class for TCP that can handle messages as they're
 ready as opposed to having to poll ourself. Encapsulates
 a client connection to a TCP server in a BaseProto object.
 """
+
+
 class TCPClientProtocol(asyncio.StreamReaderProtocol):
-    def __init__(self, stream_reader: Any, pipe_events: Any, loop: Any, conf: Any = NET_CONF) -> None:
+    def __init__(
+        self, stream_reader: Any, pipe_events: Any, loop: Any, conf: Any = NET_CONF
+    ) -> None:
         if PY_13_OR_LATER:
             super().__init__(stream_reader)
         else:
@@ -62,12 +66,13 @@ class TCPClientProtocol(asyncio.StreamReaderProtocol):
     StreamReaderProtocol has a bug in this function and doesn't
     properly return False. This is a patch.
     """
+
     def eof_received(self) -> bool:
-        #self.transport.pause_reading()
+        # self.transport.pause_reading()
         reader = self._stream_reader
         if reader is not None:
             reader.feed_eof()
-            
+
         return False
 
     def connection_made(self, transport: Any) -> None:
@@ -78,24 +83,23 @@ class TCPClientProtocol(asyncio.StreamReaderProtocol):
 
         # Wrap this connection in a BaseProto object.
         self.transport = transport
-        self.sock = transport.get_extra_info('socket')
+        self.sock = transport.get_extra_info("socket")
         aionetiface_fds.add(self.sock)
 
         self.remote_tup = self.sock.getpeername()
         self.client_events = PipeEvents(
-            sock=self.sock,
-            route=self.pipe_events.route,
-            conf=self.conf,
-            loop=self.loop
+            sock=self.sock, route=self.pipe_events.route, conf=self.conf, loop=self.loop
         )
 
         # Log connection details.
         log(
             fstr(
-                "New TCP client l={0}, r={1}", (
-                self.sock.getsockname(), 
-                self.remote_tup,
-            ))
+                "New TCP client l={0}, r={1}",
+                (
+                    self.sock.getsockname(),
+                    self.remote_tup,
+                ),
+            )
         )
 
         # Setup stream object.
@@ -116,9 +120,8 @@ class TCPClientProtocol(asyncio.StreamReaderProtocol):
         super().connection_made(transport)
         self.client_events.stream.set_handle(
             self._stream_writer,
-
             # Index writers by peer connection.
-            self.remote_tup
+            self.remote_tup,
         )
 
     # If close was called on a pipe on a server then clients will already be closed.
@@ -159,7 +162,7 @@ class TCPClientProtocol(asyncio.StreamReaderProtocol):
         """
 
         # Remove this as an object to close and manage in the server.
-        #super().connection_lost(exc)
+        # super().connection_lost(exc)
 
     def error_received(self, exp: Exception) -> None:
         log_exception()
@@ -167,7 +170,7 @@ class TCPClientProtocol(asyncio.StreamReaderProtocol):
     def data_received(self, data: bytes) -> None:
         log(fstr("Base proto recv tcp client = {0}", (data,)))
         # This just adds data to reader which we are handling ourselves.
-        #super().connection_lost(exc)
+        # super().connection_lost(exc)
         if self.client_events is None:
             return
 
@@ -176,27 +179,27 @@ class TCPClientProtocol(asyncio.StreamReaderProtocol):
 
         self.client_events.handle_data(data, self.remote_tup)
 
+
 # Returns a hacked TCP server object
-async def create_tcp_server(sock: Any, pipe_events: Any, *, loop: Optional[Any] = None, conf: Any = NET_CONF, **kwds: Any) -> Any:
+async def create_tcp_server(
+    sock: Any,
+    pipe_events: Any,
+    *,
+    loop: Optional[Any] = None,
+    conf: Any = NET_CONF,
+    **kwds: Any,
+) -> Any:
     # Main vars.
     loop = loop or asyncio.get_event_loop()
+
     def factory():
         if sys.version_info >= (3, 10):
             reader = asyncio.StreamReader(limit=conf["reader_limit"])
         else:
             reader = asyncio.StreamReader(limit=conf["reader_limit"], loop=loop)
-        return TCPClientProtocol(
-            reader,
-            pipe_events,
-            loop,
-            conf
-        )
+        return TCPClientProtocol(reader, pipe_events, loop, conf)
 
     # Call the regular create server func with custom protocol factory.
-    server = await loop.create_server(
-        factory,
-        sock=sock,
-        **kwds
-    )
+    server = await loop.create_server(factory, sock=sock, **kwds)
 
     return server

@@ -9,18 +9,69 @@ from ..errors import *
 from ..utility.cmd_tools import *
 
 __all__ = [
-    "HOST_TYPE_DOMAIN", "HOST_TYPE_IP", "AF_ANY", "AF_NONE", "AF_LINK", "AF_INET",
-    "AF_INET6", "TCP", "STREAM", "SOCK_STREAM", "UDP", "DGRAM", "SOCK_DGRAM", "RUDP",
-    "INTERFACE_UNKNOWN", "INTERFACE_ETHERNET", "INTERFACE_WIRELESS", "UNKNOWN_STACK",
-    "IP4", "V4", "V4_STACK", "IP6", "V6", "V6_STACK", "V6_LINK_LOCAL_MASK",
-    "DUEL_STACK", "VALID_AFS", "VALID_STACKS", "NET_NON_BLOCKING", "NET_BLOCKING",
-    "NET_MAX_MSG_NO", "NET_MAX_MSGS_SIZEOF", "ZERO_NETMASK_IP4", "ZERO_NETMASK_IP6",
-    "BLACK_HOLE_IPS", "VALID_LOOPBACKS", "VALID_ANY_ADDR", "ANY_ADDR", "LOOPBACK_BIND",
-    "IPA_TYPES", "ipa_types", "ANY_ADDR_LOOKUP", "LOCALHOST_LOOKUP", "PROTO_LOOKUP",
-    "DATAGRAM_TYPES", "STREAM_TYPES", "V4_VALID_ANY", "V6_VALID_ANY", "V6_VALID_LOCALHOST",
-    "V4_VALID_LOCALHOST", "VALID_LOCALHOST", "NIC_BIND", "EXT_BIND", "NIC_FAIL",
-    "EXT_FAIL", "IP_PRIVATE", "IP_PUBLIC", "IP_APPEND", "IP_BIND_TUP", "NOT_WINDOWS",
-    "SUB_ALL", "NET_CONF", "FakeSocket",
+    "HOST_TYPE_DOMAIN",
+    "HOST_TYPE_IP",
+    "AF_ANY",
+    "AF_NONE",
+    "AF_LINK",
+    "AF_INET",
+    "AF_INET6",
+    "TCP",
+    "STREAM",
+    "SOCK_STREAM",
+    "UDP",
+    "DGRAM",
+    "SOCK_DGRAM",
+    "RUDP",
+    "INTERFACE_UNKNOWN",
+    "INTERFACE_ETHERNET",
+    "INTERFACE_WIRELESS",
+    "UNKNOWN_STACK",
+    "IP4",
+    "V4",
+    "V4_STACK",
+    "IP6",
+    "V6",
+    "V6_STACK",
+    "V6_LINK_LOCAL_MASK",
+    "DUEL_STACK",
+    "VALID_AFS",
+    "VALID_STACKS",
+    "NET_NON_BLOCKING",
+    "NET_BLOCKING",
+    "NET_MAX_MSG_NO",
+    "NET_MAX_MSGS_SIZEOF",
+    "ZERO_NETMASK_IP4",
+    "ZERO_NETMASK_IP6",
+    "BLACK_HOLE_IPS",
+    "VALID_LOOPBACKS",
+    "VALID_ANY_ADDR",
+    "ANY_ADDR",
+    "LOOPBACK_BIND",
+    "IPA_TYPES",
+    "ipa_types",
+    "ANY_ADDR_LOOKUP",
+    "LOCALHOST_LOOKUP",
+    "PROTO_LOOKUP",
+    "DATAGRAM_TYPES",
+    "STREAM_TYPES",
+    "V4_VALID_ANY",
+    "V6_VALID_ANY",
+    "V6_VALID_LOCALHOST",
+    "V4_VALID_LOCALHOST",
+    "VALID_LOCALHOST",
+    "NIC_BIND",
+    "EXT_BIND",
+    "NIC_FAIL",
+    "EXT_FAIL",
+    "IP_PRIVATE",
+    "IP_PUBLIC",
+    "IP_APPEND",
+    "IP_BIND_TUP",
+    "NOT_WINDOWS",
+    "SUB_ALL",
+    "NET_CONF",
+    "FakeSocket",
 ]
 
 # Every network endpoint is uniquely identified by the 4-tuple
@@ -98,10 +149,7 @@ NET_MAX_MSGS_SIZEOF = 2 * 1024 * 1024
 # Netmasks that are for public addresses.
 ZERO_NETMASK_IP4 = "0.0.0.0"
 ZERO_NETMASK_IP6 = "0000:0000:0000:0000:0000:0000:0000:0000"
-BLACK_HOLE_IPS = {
-    IP4: "192.0.2.1",
-    IP6: "0100:0000:0000:0000:0000:0000:0000:0001"
-}
+BLACK_HOLE_IPS = {IP4: "192.0.2.1", IP6: "0100:0000:0000:0000:0000:0000:0000:0001"}
 
 # A value meaning 'listen to' or 'subscribe to' all messages.
 VALID_LOOPBACKS = ["127.0.0.1", "::1"]
@@ -112,10 +160,7 @@ LOOPBACK_BIND = 3
 # Address object types.
 IPA_TYPES = ipa_types = (ipaddress.IPv4Address, ipaddress.IPv6Address)
 
-ANY_ADDR_LOOKUP = {
-    IP4: "0.0.0.0",
-    IP6: "::"
-}
+ANY_ADDR_LOOKUP = {IP4: "0.0.0.0", IP6: "::"}
 
 LOCALHOST_LOOKUP = {
     IP4: "127.0.0.1",
@@ -123,11 +168,7 @@ LOCALHOST_LOOKUP = {
 }
 
 # Convert string proto values to enums.
-PROTO_LOOKUP = {
-    "TCP": TCP,
-    "UDP": UDP,
-    "RUDP": RUDP
-}
+PROTO_LOOKUP = {"TCP": TCP, "UDP": UDP, "RUDP": RUDP}
 
 DATAGRAM_TYPES = [
     asyncio.selector_events._SelectorDatagramTransport,
@@ -164,58 +205,43 @@ SUB_ALL = [None, None]
 NET_CONF = {
     # Seconds to use for a DNS request before timeout exception.
     "dns_timeout": 2,
-
     # Wrap socket with SSL.
     "use_ssl": 0,
-
     # Timeout for SSL handshake.
     "ssl_handshake": 4,
-
     # Protocol family used for the socket.socket function.
     "sock_proto": 0,
-
     # N seconds before a registering recv timeout.
     "recv_timeout": 2,
-
     # Only applies to TCP.
     "con_timeout": 2,
-
     # No of messages to receive per subscription.
     "max_qsize": 0,
-
     # Require unique messages or not.
     "enable_msg_ids": 0,
-
     # Number of message IDs to keep around.
     "max_msg_ids": 1000,
-
     # Reuse address tuple for bind() socket call.
     "reuse_addr": False,
-
     # Setup socket as a broadcast socket.
     "broadcast": False,
-
     # Buf size for asyncio.StreamReader.
-    "reader_limit": 2 ** 16,
-
+    "reader_limit": 2**16,
     # Return the sock instead of the base proto.
     "sock_only": False,
-
     # Enable closing sock on error.
     "do_close": False,
-
     # Whether to set SO_LINGER. None = off.
     # Non-none = linger value.
     "linger": None,
-
     # Retry N times on reply timeout.
     "send_retry": 2,
-
     # Ref to an event loop.
-    "loop": None
+    "loop": None,
 }
 
-class FakeSocket():
+
+class FakeSocket:
     def __init__(self, response_bytes: bytes) -> None:
         self._file = BytesIO(response_bytes)
 

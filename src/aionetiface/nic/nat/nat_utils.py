@@ -2,33 +2,56 @@ import asyncio
 import random
 from typing import Any, Dict, List, Optional
 from .nat_defs import (
-    STUN_PORT, MAX_MAP_NO, OPEN_INTERNET, SYMMETRIC_UDP_FIREWALL,
-    FULL_CONE, RESTRICT_NAT, RESTRICT_PORT_NAT, SYMMETRIC_NAT, BLOCKED_NAT,
-    NA_DELTA, EQUAL_DELTA, PRESERV_DELTA, INDEPENDENT_DELTA, DEPENDENT_DELTA,
-    RANDOM_DELTA, EASY_NATS, PREDICTABLE_NATS, FUSSY_NATS, BLOCKING_NATS,
+    STUN_PORT,
+    MAX_MAP_NO,
+    OPEN_INTERNET,
+    SYMMETRIC_UDP_FIREWALL,
+    RESTRICT_PORT_NAT,
+    SYMMETRIC_NAT,
+    EQUAL_DELTA,
+    PRESERV_DELTA,
+    INDEPENDENT_DELTA,
+    DEPENDENT_DELTA,
+    RANDOM_DELTA,
+    EASY_NATS,
+    PREDICTABLE_NATS,
 )
 from ...utility.utils import (
-    MAX_PORT, log, log_exception, async_wrap_errors,
-    field_dist, range_intersects, intersect_range, in_range,
+    MAX_PORT,
+    log,
+    log_exception,
+    async_wrap_errors,
+    field_dist,
+    range_intersects,
+    intersect_range,
+    in_range,
 )
-
 
 
 # Convenience funcs.
 # delta, nat_type
-f_is_open = lambda n, d: n in [OPEN_INTERNET, SYMMETRIC_UDP_FIREWALL]
-f_can_predict = lambda n, d: n in PREDICTABLE_NATS
+def f_is_open(n: int, d: Any) -> bool:
+    return n in [OPEN_INTERNET, SYMMETRIC_UDP_FIREWALL]
+
+
+def f_can_predict(n: int, d: Any) -> bool:
+    return n in PREDICTABLE_NATS
+
+
 def f_is_hard(n: int, d: Dict[str, Any]) -> bool:
     not_easy = n not in EASY_NATS
     return not_easy and d["type"] not in [PRESERV_DELTA, EQUAL_DELTA]
 
-def delta_info(delta_type: int, delta_value: int) -> Dict[str, Any]:
-    return {
-        "type": delta_type,
-        "value": delta_value
-    }
 
-def nat_info(nat_type: Optional[int] = None, delta: Optional[Dict[str, Any]] = None, map_range: Optional[List[int]] = None) -> Dict[str, Any]:
+def delta_info(delta_type: int, delta_value: int) -> Dict[str, Any]:
+    return {"type": delta_type, "value": delta_value}
+
+
+def nat_info(
+    nat_type: Optional[int] = None,
+    delta: Optional[Dict[str, Any]] = None,
+    map_range: Optional[List[int]] = None,
+) -> Dict[str, Any]:
     # Defaults.
     delta = delta or delta_info(RANDOM_DELTA, 0)
     map_range = map_range or [1, MAX_PORT]
@@ -37,11 +60,11 @@ def nat_info(nat_type: Optional[int] = None, delta: Optional[Dict[str, Any]] = N
     # Main NAT dic with simple lookup types.
     nat = {
         "type": nat_type,
-        "delta": delta, # type, value
-        "range": map_range, # start, stop
+        "delta": delta,  # type, value
+        "range": map_range,  # start, stop
         "is_open": f_is_open(nat_type, delta),
         "can_predict": f_can_predict(nat_type, delta),
-        "is_hard": f_is_hard(nat_type, delta)
+        "is_hard": f_is_hard(nat_type, delta),
     }
 
     # Setup whether this NAT type is good for concurrent punches.
@@ -50,6 +73,7 @@ def nat_info(nat_type: Optional[int] = None, delta: Optional[Dict[str, Any]] = N
 
     # Return results.
     return nat
+
 
 def valid_mappings_len(mappings: List[Any]) -> int:
     if not len(mappings):
@@ -61,7 +85,12 @@ def valid_mappings_len(mappings: List[Any]) -> int:
     return 1
 
 
-async def delta_test(stun_clients: List[Any], test_no: int = 8, threshold: int = 5, concurrency: bool = True) -> Dict[str, Any]:
+async def delta_test(
+    stun_clients: List[Any],
+    test_no: int = 8,
+    threshold: int = 5,
+    concurrency: bool = True,
+) -> Dict[str, Any]:
     """
     Probe the NAT to determine what kind of port delta behaviour it exhibits.
 
@@ -87,14 +116,13 @@ async def delta_test(stun_clients: List[Any], test_no: int = 8, threshold: int =
       - start_port is chosen randomly to avoid conflicts with other test ranges.
       - Ports run from start_port to start_port + (test_no * port_dist) - 1.
     """
-    assert(len(stun_clients) >= test_no)
+    assert len(stun_clients) >= test_no
+
     def get_start_port(port_dist, range_info=None):
         if range_info is None:
             range_info = []
-        # Random port skipping reserved and max ports.
-        rand_start_port = lambda: random.randrange(
-            4000, MAX_PORT - (test_no * port_dist)
-        )
+        def rand_start_port() -> int:
+            return random.randrange(4000, MAX_PORT - (test_no * port_dist))
 
         # Return if no other port range to check for conflicts.
         if not range_info:
@@ -137,10 +165,10 @@ async def delta_test(stun_clients: List[Any], test_no: int = 8, threshold: int =
                 # Make sure port isn't in the reserved range.
                 if src_port < 4000 and src_port != 0:
                     raise Exception("src less than 4k in mapping behavior.")
-                
-                # Avoid relying on any one server. 
+
+                # Avoid relying on any one server.
                 stun_client = random.choice(stun_clients)
-                
+
                 # Get mapping using specific source port.
                 route = None
                 if stun_client.interface is not None:
@@ -151,9 +179,7 @@ async def delta_test(stun_clients: List[Any], test_no: int = 8, threshold: int =
                 # TODO: manually chosen source ports may conflict with
                 # ports already in use.  Consider checking for failure here.
 
-                ret = await stun_client.get_mapping(
-                    pipe=route
-                )
+                ret = await stun_client.get_mapping(pipe=route)
 
                 if ret is None:
                     log("No stun reply in delta map")
@@ -167,11 +193,7 @@ async def delta_test(stun_clients: List[Any], test_no: int = 8, threshold: int =
             # Allow for tests to be done concurrently.
             tasks.append(
                 async_wrap_errors(
-                    asyncio.wait_for(
-                        result_wrapper(src_port),
-                        2
-                    ),
-                    logging=False
+                    asyncio.wait_for(result_wrapper(src_port), 2), logging=False
                 )
             )
 
@@ -186,7 +208,7 @@ async def delta_test(stun_clients: List[Any], test_no: int = 8, threshold: int =
                 # Skip invalid results
                 if results[i] is None:
                     continue
-                
+
                 # Unpack result.
                 local, mapped, s = results[i]
                 socks.append(s)
@@ -230,9 +252,8 @@ async def delta_test(stun_clients: List[Any], test_no: int = 8, threshold: int =
                 log_exception()
 
     # Offset names for port test results.
-    LOCAL_INDEX = 0 # Source port.
-    MAPPED_INDEX = 1 # External mapped port.
-    SOCK_INDEX = 2 # Ref to sock used for STUN test.
+    LOCAL_INDEX = 0  # Source port.
+    MAPPED_INDEX = 1  # External mapped port.
     socks = []
 
     # Used for info about port ranges used for tests.
@@ -264,15 +285,15 @@ async def delta_test(stun_clients: List[Any], test_no: int = 8, threshold: int =
     for p in socks:
         if p is None:
             continue
-            
+
         await p.close()
-        
+
     socks = []
 
     # See if any of the above tests succeeded.
-    test_names = [ EQUAL_DELTA, PRESERV_DELTA ]
+    test_names = [EQUAL_DELTA, PRESERV_DELTA]
     if len(preserv_dist) <= 1:
-        test_names = [ EQUAL_DELTA]
+        test_names = [EQUAL_DELTA]
 
     for test_name in test_names:
         if test_name not in list(delta_no.keys()):
@@ -280,11 +301,11 @@ async def delta_test(stun_clients: List[Any], test_no: int = 8, threshold: int =
 
         no = delta_no[test_name]
         if no >= threshold:
-            return delta_info( test_name, 0 )
+            return delta_info(test_name, 0)
     for port_dist in list(dist_no.keys()):
         no = dist_no[port_dist]
         if no >= threshold:
-            return delta_info( INDEPENDENT_DELTA, port_dist )
+            return delta_info(INDEPENDENT_DELTA, port_dist)
 
     # Check for dependent delta: requires that the local source port also
     # increments by the same delta (dist(map_a, map_b) == dist(local_a, local_b)).
@@ -310,12 +331,15 @@ async def delta_test(stun_clients: List[Any], test_no: int = 8, threshold: int =
     for port_dist in list(local_dist.keys()):
         no = local_dist[port_dist]
         if no >= threshold:
-            return delta_info( DEPENDENT_DELTA, port_dist )
+            return delta_info(DEPENDENT_DELTA, port_dist)
 
     # Return delta value.
-    return delta_info( RANDOM_DELTA, 0 )
+    return delta_info(RANDOM_DELTA, 0)
 
-def nats_intersect(our_nat: Dict[str, Any], their_nat: Dict[str, Any], test_no: int) -> List[int]:
+
+def nats_intersect(
+    our_nat: Dict[str, Any], their_nat: Dict[str, Any], test_no: int
+) -> List[int]:
     """
     Return the port range both NATs can agree on for test probes.
 
@@ -334,10 +358,7 @@ def nats_intersect(our_nat: Dict[str, Any], their_nat: Dict[str, Any], test_no: 
     if is_intersect:
         # A range that represents an overlapping portion.
         # Between our[range] and their[range] if any.
-        r = intersect_range(
-            our_nat["range"],
-            their_nat["range"]
-        )
+        r = intersect_range(our_nat["range"], their_nat["range"])
 
         # If range is long enough then use it.
         range_no = r[1] - r[0]
@@ -353,8 +374,9 @@ def nats_intersect(our_nat: Dict[str, Any], their_nat: Dict[str, Any], test_no: 
         use_range[0] = 2000
         if use_range[0] >= use_range[1]:
             raise Exception("Can't find intersecting port range.")
-        
+
     return use_range
+
 
 def nats_can_predict(our_nat: Dict[str, Any], their_nat: Dict[str, Any]) -> int:
     """
@@ -404,4 +426,3 @@ def nats_can_predict(our_nat: Dict[str, Any], their_nat: Dict[str, Any]) -> int:
                 use_stun_port = 1
 
     return use_stun_port
-

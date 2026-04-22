@@ -5,21 +5,24 @@ from ..net.net_defs import AF_ANY, DUEL_STACK, VALID_AFS, VALID_STACKS, IP4, IP6
 from ..protocol.stun.stun_defs import RFC5389
 from ..utility.utils import async_wrap_errors, fstr, log, log_exception, to_s
 from .route.route_pool import RoutePool
-from .route.route_utils import interfaces_to_rp
 from .route.route_load import discover_nic_wan_ips
 from .netifaces.netiface_fallback import load_if_info_fallback
 from .netifaces.netiface_extra import get_mac_address
 from .interface_utils import (
-    clean_if_list, get_default_iface, get_interface_af,
-    get_interface_stack, get_interface_type,
+    clean_if_list,
+    get_default_iface,
+    get_interface_af,
+    get_interface_stack,
+    get_interface_type,
 )
-from ..protocol.stun.stun_client import STUNClient, get_stun_clients
+from ..protocol.stun.stun_client import get_stun_clients
 from ..entrypoint import aionetiface_setup_netifaces
 from ..servers import INFRA, get_infra
 from ..updater import reconcile_infra, update_server_list
 
 
 _infra_lock = asyncio.Lock()
+
 
 # Load mac, nic_no, and process name.
 def load_if_info(nic: Any) -> Any:
@@ -61,11 +64,19 @@ def load_if_info(nic: Any) -> Any:
     if nic.netifaces is not None:
         if_names = nic.netifaces.interfaces()
         if nic.name not in if_names:
-            log(fstr("interface name {0} not in {1}", (nic.name, if_names,)))
+            log(
+                fstr(
+                    "interface name {0} not in {1}",
+                    (
+                        nic.name,
+                        if_names,
+                    ),
+                )
+            )
             raise InterfaceNotFound
         nic.type = get_interface_type(nic.name)
         nic.nic_no = 0
-        if hasattr(nic.netifaces, 'nic_no'):
+        if hasattr(nic.netifaces, "nic_no"):
             nic.nic_no = nic.netifaces.nic_no(nic.name)
             nic.id = nic.nic_no
         else:
@@ -75,14 +86,17 @@ def load_if_info(nic: Any) -> Any:
 
     return nic
 
-async def load_interface(nic: Any, netifaces: Optional[Any], min_agree: int, max_agree: int, timeout: int) -> Any:
+
+async def load_interface(
+    nic: Any, netifaces: Optional[Any], min_agree: int, max_agree: int, timeout: int
+) -> Any:
     global INFRA_BUF
     global INFRA
 
     # Not needed.
     if nic.name == "default":
         return nic
-    
+
     # Update internal server list if needed.
     # Uses time.time which may not be accurate.
     update_req, infra_buf, infra = await update_server_list(nic.__class__("default"))
@@ -96,7 +110,7 @@ async def load_interface(nic: Any, netifaces: Optional[Any], min_agree: int, max
 
     stack = nic.stack
     log(fstr("Starting resolve with stack type = {0}", (stack,)))
-    
+
     # Load internal interface details.
     nic.netifaces = await aionetiface_setup_netifaces()
 
@@ -123,15 +137,9 @@ async def load_interface(nic: Any, netifaces: Optional[Any], min_agree: int, max
 
         # Used to resolve nic addresses.
         servers = get_infra(af, UDP, "STUN(see_ip)", max_agree + 5)
-        stun_clients = get_stun_clients(
-            af,
-            max_agree,
-            nic,
-            RFC5389,
-            servs=servers
-        )
+        stun_clients = get_stun_clients(af, max_agree, nic, RFC5389, servs=servers)
 
-        assert(len(stun_clients) <= max_agree)
+        assert len(stun_clients) <= max_agree
 
         # Is this default iface for this AF?
         try:
@@ -143,7 +151,16 @@ async def load_interface(nic: Any, netifaces: Optional[Any], min_agree: int, max
             # If it's poorly supported allow default NIC behavior.
             log_exception()
             enable_default = True
-        log(fstr("{0} {1} {2}", (nic.name, af, enable_default,)))
+        log(
+            fstr(
+                "{0} {1} {2}",
+                (
+                    nic.name,
+                    af,
+                    enable_default,
+                ),
+            )
+        )
 
         # Use a threshold of pub servers for res.
         tasks.append(
@@ -180,7 +197,7 @@ async def load_interface(nic: Any, netifaces: Optional[Any], min_agree: int, max
         log("Could not load mac. Setting to blank.")
         nic.mac = ""
 
-    # If there's only 1 interface set is_default.   
+    # If there's only 1 interface set is_default.
     ifs = clean_if_list(nic.netifaces.interfaces())
     if len(ifs) == 1:
         nic.is_default = nic.is_default_patch

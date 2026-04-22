@@ -2,11 +2,13 @@ import asyncio
 import json
 import os
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 from .servers import INFRA, INFRA_BUF
-from .net.address import Address
 from .protocol.http.http_client_lib import WebCurl
-from .install import get_aionetiface_install_root, copy_aionetiface_install_files_as_needed
+from .install import (
+    get_aionetiface_install_root,
+    copy_aionetiface_install_files_as_needed,
+)
 from .utility.utils import to_s, log_exception
 from .utility.error_logger import log
 
@@ -16,6 +18,8 @@ __all__ = ["reconcile_lists", "reconcile_infra", "update_server_list"]
 Some existing code relies on preserving offsets for server
 entries so this keeps existing servers in place.
 """
+
+
 def reconcile_lists(old_list: List[Any], new_list: List[Any]) -> List[Any]:
     def get_id(x):
         return x[0]["id"]
@@ -33,7 +37,10 @@ def reconcile_lists(old_list: List[Any], new_list: List[Any]) -> List[Any]:
 
             # if both port and old_port exist, swap them
             if "port" in new_item[0] and "old_port" in old_by_id[x_id][0]:
-                new_item[0]["port"], new_item[0]["old_port"] = old_by_id[x_id][0]["old_port"], new_item[0]["port"]
+                new_item[0]["port"], new_item[0]["old_port"] = (
+                    old_by_id[x_id][0]["old_port"],
+                    new_item[0]["port"],
+                )
 
             out.append(new_item)
         else:
@@ -51,27 +58,39 @@ def reconcile_lists(old_list: List[Any], new_list: List[Any]) -> List[Any]:
 
     return out
 
+
 """
 TODO: just use a different address format for these.
 """
+
+
 def reconcile_infra(old_infra: Dict[str, Any], new_infra: Dict[str, Any]) -> None:
-    names = ("MQTT", "TURN",)
+    names = (
+        "MQTT",
+        "TURN",
+    )
     for name in names:
         for af_str in ("IPv4", "IPv6"):
             for proto_str in ("UDP", "TCP"):
                 try:
                     new_infra[name][af_str][proto_str] = reconcile_lists(
                         old_infra[name][af_str][proto_str],
-                        new_infra[name][af_str][proto_str]
+                        new_infra[name][af_str][proto_str],
                     )
                 except (KeyError, TypeError):
                     log_exception()
 
-async def update_server_list(nic: Any, sys_clock: Any = time, init_infra_buf: Any = INFRA_BUF, init_infra: Any = INFRA) -> Tuple[bool, Any, Any]:
+
+async def update_server_list(
+    nic: Any,
+    sys_clock: Any = time,
+    init_infra_buf: Any = INFRA_BUF,
+    init_infra: Any = INFRA,
+) -> Tuple[bool, Any, Any]:
     copy_aionetiface_install_files_as_needed()
     install_root = get_aionetiface_install_root()
     servers_path = os.path.join(install_root, "servers.json")
-    
+
     # Set to in-built server list.
     infra_buf = init_infra_buf
     infra = init_infra
@@ -86,7 +105,7 @@ async def update_server_list(nic: Any, sys_clock: Any = time, init_infra_buf: An
         stored_infra = None
         if os.path.exists(servers_path):
             try:
-                with open(servers_path, 'r') as fp:
+                with open(servers_path, "r") as fp:
                     stored_json = fp.read()
                 stored_infra = json.loads(stored_json)
             except (OSError, ValueError):

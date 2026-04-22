@@ -61,10 +61,12 @@ class InterProcessLock:
     MAX_DELAY = 0.1  # For backwards compatibility
     DELAY_INCREMENT = 0.01  # For backwards compatibility
 
-    def __init__(self,
-                path: Union[Path, str],
-                sleep_func: Callable[[float], None] = time.sleep,
-                logger: Optional[logging.Logger] = None):
+    def __init__(
+        self,
+        path: Union[Path, str],
+        sleep_func: Callable[[float], None] = time.sleep,
+        logger: Optional[logging.Logger] = None,
+    ):
         """
         args:
             path:
@@ -99,13 +101,15 @@ class InterProcessLock:
                 else:
                     raise RetryAgain()
             else:
-                raise threading.ThreadError("Unable to acquire lock on"
-                                            " `%(path)s` due to"
-                                            " %(exception)s" %
-                                            {
-                                                'path': self.path,
-                                                'exception': e,
-                                            })
+                raise threading.ThreadError(
+                    "Unable to acquire lock on"
+                    " `%(path)s` due to"
+                    " %(exception)s"
+                    % {
+                        "path": self.path,
+                        "exception": e,
+                    }
+                )
         else:
             return True
 
@@ -114,19 +118,20 @@ class InterProcessLock:
         if basedir:
             made_basedir = _ensure_tree(basedir)
             if made_basedir:
-                self.logger.log(BLATHER,
-                                'Created lock base path `%s`', basedir)
+                self.logger.log(BLATHER, "Created lock base path `%s`", basedir)
         # Open in append mode so we don't overwrite any potential contents of
         # the target file. This eliminates the possibility of an attacker
         # creating a symlink to an important file in our lock path.
         if self.lockfile is None or self.lockfile.closed:
-            self.lockfile = open(self.path, 'a')
+            self.lockfile = open(self.path, "a")
 
-    def acquire(self,
-                blocking: bool = True,
-                delay: float = 0.01,
-                max_delay: float = 0.1,
-                timeout: Optional[float] = None) -> bool:
+    def acquire(
+        self,
+        blocking: bool = True,
+        delay: float = 0.01,
+        max_delay: float = 0.1,
+        timeout: Optional[float] = None,
+    ) -> bool:
         """Attempt to acquire the lock.
 
         Args:
@@ -150,24 +155,27 @@ class InterProcessLock:
             raise ValueError("Timeout must be greater than or equal to zero")
         if delay >= max_delay:
             max_delay = delay
-        
+
         try:
             self._do_open()
             watch = StopWatch(duration=timeout)
-            r = Retry(delay, max_delay,
-                            sleep_func=self.sleep_func, watch=watch)
+            r = Retry(delay, max_delay, sleep_func=self.sleep_func, watch=watch)
             with watch:
                 gotten = r(self._try_acquire, blocking, watch)
-            
+
             if not gotten:
                 self.acquired = False
                 return False
             else:
                 self.acquired = True
-                self.logger.log(BLATHER,
-                                "Acquired file lock `%s` after waiting %0.3fs [%s"
-                                " attempts were required]", self.path,
-                                watch.elapsed(), r.attempts)
+                self.logger.log(
+                    BLATHER,
+                    "Acquired file lock `%s` after waiting %0.3fs [%s"
+                    " attempts were required]",
+                    self.path,
+                    watch.elapsed(),
+                    r.attempts,
+                )
                 return True
         finally:
             # Crucial fix: If we failed to acquire (gotten is False, or exception raised),
@@ -188,9 +196,11 @@ class InterProcessLock:
         gotten = self.acquire()
         if not gotten:
             # This shouldn't happen, but just in case...
-            raise threading.ThreadError("Unable to acquire a file lock"
-                                        " on `%s` (when used as a"
-                                        " context manager)" % self.path)
+            raise threading.ThreadError(
+                "Unable to acquire a file lock"
+                " on `%s` (when used as a"
+                " context manager)" % self.path
+            )
         return self
 
     def release(self):
@@ -208,12 +218,13 @@ class InterProcessLock:
             try:
                 self._do_close()
             except IOError:
-                self.logger.exception("Could not close the file handle"
-                                    " opened on `%s`", self.path)
+                self.logger.exception(
+                    "Could not close the file handle opened on `%s`", self.path
+                )
             else:
-                self.logger.log(BLATHER,
-                                "Unlocked and closed file lock open on"
-                                " `%s`", self.path)
+                self.logger.log(
+                    BLATHER, "Unlocked and closed file lock open on `%s`", self.path
+                )
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.release()
@@ -234,10 +245,12 @@ class InterProcessReaderWriterLock:
     MAX_DELAY = 0.1  # for backwards compatibility
     DELAY_INCREMENT = 0.01  # for backwards compatibility
 
-    def __init__(self,
-                path: Union[Path, str],
-                sleep_func: Callable[[float], None] = time.sleep,
-                logger: Optional[logging.Logger] = None):
+    def __init__(
+        self,
+        path: Union[Path, str],
+        sleep_func: Callable[[float], None] = time.sleep,
+        logger: Optional[logging.Logger] = None,
+    ):
         """
         Args:
             path:
@@ -264,8 +277,9 @@ class InterProcessReaderWriterLock:
     def read_lock(self, delay=0.01, max_delay=0.1):
         """Context manager that grans a read lock"""
 
-        self.acquire_read_lock(blocking=True, delay=delay,
-                            max_delay=max_delay, timeout=None)
+        self.acquire_read_lock(
+            blocking=True, delay=delay, max_delay=max_delay, timeout=None
+        )
         try:
             yield
         finally:
@@ -275,14 +289,17 @@ class InterProcessReaderWriterLock:
     def write_lock(self, delay=0.01, max_delay=0.1):
         """Context manager that grans a write lock"""
 
-        gotten = self.acquire_write_lock(blocking=True, delay=delay,
-                                        max_delay=max_delay, timeout=None)
+        gotten = self.acquire_write_lock(
+            blocking=True, delay=delay, max_delay=max_delay, timeout=None
+        )
 
         if not gotten:
             # This shouldn't happen, but just in case...
-            raise threading.ThreadError("Unable to acquire a file lock"
-                                        " on `%s` (when used as a"
-                                        " context manager)" % self.path)
+            raise threading.ThreadError(
+                "Unable to acquire a file lock"
+                " on `%s` (when used as a"
+                " context manager)" % self.path
+            )
         try:
             yield
         finally:
@@ -290,10 +307,13 @@ class InterProcessReaderWriterLock:
 
     def _try_acquire(self, blocking, watch, exclusive):
         try:
-            gotten = _interprocess_reader_writer_mechanism.trylock(self.lockfile, exclusive)
+            gotten = _interprocess_reader_writer_mechanism.trylock(
+                self.lockfile, exclusive
+            )
         except Exception as e:
             raise threading.ThreadError(
-                "Unable to acquire lock on {} due to {}!".format(self.path, e))
+                "Unable to acquire lock on {} due to {}!".format(self.path, e)
+            )
 
         if gotten:
             return True
@@ -308,30 +328,33 @@ class InterProcessReaderWriterLock:
         if basedir:
             made_basedir = _ensure_tree(basedir)
             if made_basedir:
-                self.logger.log(BLATHER,
-                                'Created lock base path `%s`', basedir)
+                self.logger.log(BLATHER, "Created lock base path `%s`", basedir)
         if self.lockfile is None:
             self.lockfile = _interprocess_reader_writer_mechanism.get_handle(self.path)
 
-    def acquire_read_lock(self,
-                        blocking: bool = True,
-                        delay: float = 0.01,
-                        max_delay: float = 0.1,
-                        timeout: float = None) -> bool:
+    def acquire_read_lock(
+        self,
+        blocking: bool = True,
+        delay: float = 0.01,
+        max_delay: float = 0.1,
+        timeout: float = None,
+    ) -> bool:
         """Attempt to acquire a reader's lock."""
         return self._acquire(blocking, delay, max_delay, timeout, exclusive=False)
 
-    def acquire_write_lock(self,
-                        blocking: bool = True,
-                        delay: float = 0.01,
-                        max_delay: float = 0.1,
-                        timeout: float = None) -> bool:
+    def acquire_write_lock(
+        self,
+        blocking: bool = True,
+        delay: float = 0.01,
+        max_delay: float = 0.1,
+        timeout: float = None,
+    ) -> bool:
         """Attempt to acquire a writer's lock."""
         return self._acquire(blocking, delay, max_delay, timeout, exclusive=True)
 
-    def _acquire(self, blocking=True,
-                delay=0.01, max_delay=0.1,
-                timeout=None, exclusive=True):
+    def _acquire(
+        self, blocking=True, delay=0.01, max_delay=0.1, timeout=None, exclusive=True
+    ):
 
         if delay < 0:
             raise ValueError("Delay must be greater than or equal to zero")
@@ -339,22 +362,25 @@ class InterProcessReaderWriterLock:
             raise ValueError("Timeout must be greater than or equal to zero")
         if delay >= max_delay:
             max_delay = delay
-        
+
         try:
             self._do_open()
             watch = StopWatch(duration=timeout)
-            r = Retry(delay, max_delay,
-                            sleep_func=self.sleep_func, watch=watch)
+            r = Retry(delay, max_delay, sleep_func=self.sleep_func, watch=watch)
             with watch:
                 gotten = r(self._try_acquire, blocking, watch, exclusive)
-            
+
             if not gotten:
                 return False
             else:
-                self.logger.log(BLATHER,
-                                "Acquired file lock `%s` after waiting %0.3fs [%s"
-                                " attempts were required]", self.path,
-                                watch.elapsed(), r.attempts)
+                self.logger.log(
+                    BLATHER,
+                    "Acquired file lock `%s` after waiting %0.3fs [%s"
+                    " attempts were required]",
+                    self.path,
+                    watch.elapsed(),
+                    r.attempts,
+                )
                 return True
         except Exception:
             # If an exception occurs, ensure we close.
@@ -370,32 +396,35 @@ class InterProcessReaderWriterLock:
             pass
             # NOTE: Logic is slightly different here because _acquire wraps logic.
             # I have patched the return False path above specifically.
-    
+
     # Re-implementing _acquire to be cleaner and safer
-    def _acquire(self, blocking=True,
-                delay=0.01, max_delay=0.1,
-                timeout=None, exclusive=True):
+    def _acquire(
+        self, blocking=True, delay=0.01, max_delay=0.1, timeout=None, exclusive=True
+    ):
         if delay < 0:
             raise ValueError("Delay must be greater than or equal to zero")
         if timeout is not None and timeout < 0:
             raise ValueError("Timeout must be greater than or equal to zero")
         if delay >= max_delay:
             max_delay = delay
-        
+
         success = False
         try:
             self._do_open()
             watch = StopWatch(duration=timeout)
-            r = Retry(delay, max_delay,
-                            sleep_func=self.sleep_func, watch=watch)
+            r = Retry(delay, max_delay, sleep_func=self.sleep_func, watch=watch)
             with watch:
                 gotten = r(self._try_acquire, blocking, watch, exclusive)
-            
+
             if gotten:
-                self.logger.log(BLATHER,
-                                "Acquired file lock `%s` after waiting %0.3fs [%s"
-                                " attempts were required]", self.path,
-                                watch.elapsed(), r.attempts)
+                self.logger.log(
+                    BLATHER,
+                    "Acquired file lock `%s` after waiting %0.3fs [%s"
+                    " attempts were required]",
+                    self.path,
+                    watch.elapsed(),
+                    r.attempts,
+                )
                 success = True
                 return True
             else:
@@ -414,36 +443,40 @@ class InterProcessReaderWriterLock:
         try:
             _interprocess_reader_writer_mechanism.unlock(self.lockfile)
         except IOError:
-            self.logger.exception("Could not unlock the acquired lock opened"
-                                " on `%s`", self.path)
+            self.logger.exception(
+                "Could not unlock the acquired lock opened on `%s`", self.path
+            )
         else:
             try:
                 self._do_close()
             except IOError:
-                self.logger.exception("Could not close the file handle"
-                                    " opened on `%s`", self.path)
+                self.logger.exception(
+                    "Could not close the file handle opened on `%s`", self.path
+                )
             else:
-                self.logger.log(BLATHER,
-                                "Unlocked and closed file lock open on"
-                                " `%s`", self.path)
+                self.logger.log(
+                    BLATHER, "Unlocked and closed file lock open on `%s`", self.path
+                )
 
     def release_read_lock(self):
         """Release the reader's lock."""
         try:
             _interprocess_reader_writer_mechanism.unlock(self.lockfile)
         except IOError:
-            self.logger.exception("Could not unlock the acquired lock opened"
-                                " on `%s`", self.path)
+            self.logger.exception(
+                "Could not unlock the acquired lock opened on `%s`", self.path
+            )
         else:
             try:
                 self._do_close()
             except IOError:
-                self.logger.exception("Could not close the file handle"
-                                    " opened on `%s`", self.path)
+                self.logger.exception(
+                    "Could not close the file handle opened on `%s`", self.path
+                )
             else:
-                self.logger.log(BLATHER,
-                                "Unlocked and closed file lock open on"
-                                " `%s`", self.path)
+                self.logger.log(
+                    BLATHER, "Unlocked and closed file lock open on `%s`", self.path
+                )
 
 
 def interprocess_write_locked(path: Union[Path, str]):

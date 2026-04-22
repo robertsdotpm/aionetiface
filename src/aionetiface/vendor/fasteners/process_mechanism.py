@@ -5,38 +5,31 @@ import os
 
 
 class _InterProcessReaderWriterLockMechanism(ABC):
+    @staticmethod
+    @abstractmethod
+    def trylock(lockfile, exclusive): ...
 
     @staticmethod
     @abstractmethod
-    def trylock(lockfile, exclusive):
-        ...
+    def unlock(lockfile): ...
 
     @staticmethod
     @abstractmethod
-    def unlock(lockfile):
-        ...
+    def get_handle(path): ...
 
     @staticmethod
     @abstractmethod
-    def get_handle(path):
-        ...
-
-    @staticmethod
-    @abstractmethod
-    def close_handle(lockfile):
-        ...
+    def close_handle(lockfile): ...
 
 
 class _InterProcessMechanism(ABC):
     @staticmethod
     @abstractmethod
-    def trylock(lockfile):
-        ...
+    def trylock(lockfile): ...
 
     @staticmethod
     @abstractmethod
-    def unlock(lockfile):
-        ...
+    def unlock(lockfile): ...
 
 
 class _WindowsInterProcessMechanism(_InterProcessMechanism):
@@ -65,7 +58,9 @@ class _FcntlInterProcessMechanism(_InterProcessMechanism):
         fcntl.lockf(lockfile, fcntl.LOCK_UN)
 
 
-class _WindowsInterProcessReaderWriterLockMechanism(_InterProcessReaderWriterLockMechanism):
+class _WindowsInterProcessReaderWriterLockMechanism(
+    _InterProcessReaderWriterLockMechanism
+):
     """Interprocess readers writer lock implementation that works on windows
     systems."""
 
@@ -97,14 +92,16 @@ class _WindowsInterProcessReaderWriterLockMechanism(_InterProcessReaderWriterLoc
 
     @staticmethod
     def get_handle(path):
-        return open(path, 'a+')
+        return open(path, "a+")
 
     @staticmethod
     def close_handle(lockfile):
         lockfile.close()
 
 
-class _FcntlInterProcessReaderWriterLockMechanism(_InterProcessReaderWriterLockMechanism):
+class _FcntlInterProcessReaderWriterLockMechanism(
+    _InterProcessReaderWriterLockMechanism
+):
     """Interprocess readers writer lock implementation that works on posix
     systems."""
 
@@ -131,25 +128,29 @@ class _FcntlInterProcessReaderWriterLockMechanism(_InterProcessReaderWriterLockM
 
     @staticmethod
     def get_handle(path):
-        return open(path, 'a+')
+        return open(path, "a+")
 
     @staticmethod
     def close_handle(lockfile):
         lockfile.close()
 
 
-if os.name == 'nt':
+if os.name == "nt":
     import msvcrt
     from .pywintypes import OVERLAPPED
     from .win32con import LOCKFILE_EXCLUSIVE_LOCK, LOCKFILE_FAIL_IMMEDIATELY
     from .pywin32.win32file import GetLastError, pointer, UnlockFileEx
     from .pywin32.win32file import ERROR_LOCK_VIOLATION, LockFileEx
 
-    _interprocess_reader_writer_mechanism = _WindowsInterProcessReaderWriterLockMechanism()
+    _interprocess_reader_writer_mechanism = (
+        _WindowsInterProcessReaderWriterLockMechanism()
+    )
     _interprocess_mechanism = _WindowsInterProcessMechanism()
 
 else:
     import fcntl
 
-    _interprocess_reader_writer_mechanism = _FcntlInterProcessReaderWriterLockMechanism()
+    _interprocess_reader_writer_mechanism = (
+        _FcntlInterProcessReaderWriterLockMechanism()
+    )
     _interprocess_mechanism = _FcntlInterProcessMechanism()

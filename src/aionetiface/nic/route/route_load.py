@@ -9,9 +9,11 @@ from ...net.ip_range import IPRange
 from ...net.net_utils import determine_if_path, ip_norm
 from ...net.bind.bind import Bind
 from .route import Route
-from .route_pool import RoutePool
 from .route_utils import (
-    get_nic_iprs, sort_routes, get_route_by_src, exclude_routes_by_src,
+    get_nic_iprs,
+    sort_routes,
+    get_route_by_src,
+    exclude_routes_by_src,
 )
 
 
@@ -21,9 +23,15 @@ Give a single address for a NIC (may appear public or private) --
 use STUN to lookup what WAN address ends up being reported after using
 that particular address for a bind() call.
 """
-async def lookup_wan_ip_for_nic_ip(src_ip: str, min_agree: int, stun_clients: List[Any], timeout: float) -> Optional[Tuple[str, Any]]:
+
+
+async def lookup_wan_ip_for_nic_ip(
+    src_ip: str, min_agree: int, stun_clients: List[Any], timeout: float
+) -> Optional[Tuple[str, Any]]:
     if not stun_clients:
-        log("lookup_wan_ip_for_nic_ip: no STUN clients available, cannot resolve WAN IP.")
+        log(
+            "lookup_wan_ip_for_nic_ip: no STUN clients available, cannot resolve WAN IP."
+        )
         return None
 
     interface = stun_clients[0].interface
@@ -38,12 +46,9 @@ async def lookup_wan_ip_for_nic_ip(src_ip: str, min_agree: int, stun_clients: Li
                 try:
                     local_addr = await asyncio.wait_for(
                         Bind(
-                            stun_client.interface,
-                            af=stun_client.af,
-                            port=0,
-                            ips=src_ip
+                            stun_client.interface, af=stun_client.af, port=0, ips=src_ip
                         ).res(),
-                        timeout=2.0
+                        timeout=2.0,
                     )
                 except asyncio.TimeoutError:
                     log(fstr("Bind timed out for {0}, skipping client.", (src_ip,)))
@@ -52,8 +57,7 @@ async def lookup_wan_ip_for_nic_ip(src_ip: str, min_agree: int, stun_clients: Li
                     continue
 
                 task = async_wrap_errors(
-                    stun_client.get_wan_ip(pipe=local_addr),
-                    logging=False
+                    stun_client.get_wan_ip(pipe=local_addr), logging=False
                 )
                 tasks.append(task)
 
@@ -61,10 +65,7 @@ async def lookup_wan_ip_for_nic_ip(src_ip: str, min_agree: int, stun_clients: Li
                 return None
 
             wan_ip = await concurrent_first_agree_or_best(
-                min_agree,
-                tasks,
-                timeout,
-                wait_all=False
+                min_agree, tasks, timeout, wait_all=False
             )
 
             if wan_ip is not None:
@@ -88,7 +89,9 @@ async def lookup_wan_ip_for_nic_ip(src_ip: str, min_agree: int, stun_clients: Li
 
     return None
 
+
 STUN_BATCH_SIZE = 4
+
 
 async def run_stun_tasks_batched(tasks: List[Any]) -> List[Any]:
     """
@@ -97,7 +100,7 @@ async def run_stun_tasks_batched(tasks: List[Any]) -> List[Any]:
     """
     results = []
     for i in range(0, len(tasks), STUN_BATCH_SIZE):
-        batch = tasks[i:i + STUN_BATCH_SIZE]
+        batch = tasks[i : i + STUN_BATCH_SIZE]
         batch_results = await asyncio.gather(*batch)
         results.extend(batch_results)
         if i + STUN_BATCH_SIZE < len(tasks):
@@ -105,7 +108,9 @@ async def run_stun_tasks_batched(tasks: List[Any]) -> List[Any]:
     return results
 
 
-def group_pub_iprs_by_subnet(pub_iprs: List[Any], max_bits: int) -> Tuple[Dict[str, List[Any]], List[Any]]:
+def group_pub_iprs_by_subnet(
+    pub_iprs: List[Any], max_bits: int
+) -> Tuple[Dict[str, List[Any]], List[Any]]:
     """
     Group public IPRange objects by their OS network prefix (subnet).
     Returns (group_heads, individual_iprs):
@@ -117,7 +122,7 @@ def group_pub_iprs_by_subnet(pub_iprs: List[Any], max_bits: int) -> Tuple[Dict[s
     individual_iprs = []
 
     for ipr in pub_iprs:
-        nc = getattr(ipr, 'subnet', None)
+        nc = getattr(ipr, "subnet", None)
         if nc is None:
             nc = max_bits
 
@@ -142,6 +147,7 @@ def group_pub_iprs_by_subnet(pub_iprs: List[Any], max_bits: int) -> Tuple[Dict[s
 
     return group_heads, individual_iprs
 
+
 """
 Network interface cards have a list of addresses to bind on them.
 They consist of one or more ranges of IPs. A range may have one IP in it.
@@ -162,7 +168,17 @@ or any of that junk. In that case -- the software still checks if these are
 valid addresses because a machine is free to set whatever addresses they like
 for their interface but it doesn't mean that the addresses are valid.
 """
-async def discover_nic_wan_ips(af: int, min_agree: int, enable_default: bool, interface: Any, stun_clients: List[Any], netifaces: Any, timeout: float) -> List[Any]:
+
+
+async def discover_nic_wan_ips(
+    af: int,
+    min_agree: int,
+    enable_default: bool,
+    interface: Any,
+    stun_clients: List[Any],
+    netifaces: Any,
+    timeout: float,
+) -> List[Any]:
     # Get a list of tasks to resolve NIC addresses.
     tasks = []
     link_locals = []
@@ -170,7 +186,7 @@ async def discover_nic_wan_ips(af: int, min_agree: int, enable_default: bool, in
     nic_iprs = await get_nic_iprs(af, interface, netifaces)
     pub_iprs = []
     for nic_ipr in nic_iprs:
-        assert(int(nic_ipr[0]))
+        assert int(nic_ipr[0])
         if ip_norm(nic_ipr[0])[:2] in ["fe", "fd"]:
             link_locals.append(nic_ipr)
             log(fstr("Addr is link local so skipping"))
@@ -196,7 +212,7 @@ async def discover_nic_wan_ips(af: int, min_agree: int, enable_default: bool, in
     if af_default_nic_ip:
         for i, ipr in enumerate(pub_iprs):
             if ip_norm(str(ipr[0])) == af_default_nic_ip:
-                pub_iprs = [ipr] + pub_iprs[:i] + pub_iprs[i+1:]
+                pub_iprs = [ipr] + pub_iprs[:i] + pub_iprs[i + 1 :]
                 break
 
     # Group public IPs by OS network prefix (subnet).
@@ -209,12 +225,7 @@ async def discover_nic_wan_ips(af: int, min_agree: int, enable_default: bool, in
     for src_ip in pub_group_heads:
         tasks.append(
             async_wrap_errors(
-                lookup_wan_ip_for_nic_ip(
-                    src_ip,
-                    min_agree,
-                    stun_clients,
-                    timeout
-                )
+                lookup_wan_ip_for_nic_ip(src_ip, min_agree, stun_clients, timeout)
             )
         )
 
@@ -223,12 +234,7 @@ async def discover_nic_wan_ips(af: int, min_agree: int, enable_default: bool, in
         pub_group_heads[src_ip] = []
         tasks.append(
             async_wrap_errors(
-                lookup_wan_ip_for_nic_ip(
-                    src_ip,
-                    min_agree,
-                    stun_clients,
-                    timeout
-                )
+                lookup_wan_ip_for_nic_ip(src_ip, min_agree, stun_clients, timeout)
             )
         )
 
@@ -239,10 +245,7 @@ async def discover_nic_wan_ips(af: int, min_agree: int, enable_default: bool, in
         tasks.append(
             async_wrap_errors(
                 lookup_wan_ip_for_nic_ip(
-                    af_default_nic_ip,
-                    min_agree,
-                    stun_clients,
-                    timeout
+                    af_default_nic_ip, min_agree, stun_clients, timeout
                 )
             )
         )
@@ -262,12 +265,7 @@ async def discover_nic_wan_ips(af: int, min_agree: int, enable_default: bool, in
         priv_src = ip_norm(str(priv_iprs[0]))
         tasks.append(
             async_wrap_errors(
-                lookup_wan_ip_for_nic_ip(
-                    priv_src,
-                    min_agree,
-                    stun_clients,
-                    timeout
-                )
+                lookup_wan_ip_for_nic_ip(priv_src, min_agree, stun_clients, timeout)
             )
         )
 
@@ -284,7 +282,7 @@ async def discover_nic_wan_ips(af: int, min_agree: int, enable_default: bool, in
             # For direct routing (no NAT) the head's ext_ip equals its nic_ip.
             # Each address in the group is its own distinct external IP, so
             # assign each derived route its own ext_ip rather than copying the head's.
-            head_is_direct = (int(head_route.nic_ips[0]) == int(head_route.ext_ips[0]))
+            head_is_direct = int(head_route.nic_ips[0]) == int(head_route.ext_ips[0])
             for extra_ipr in rest_iprs:
                 if head_is_direct:
                     ext_ipr = IPRange(ip_norm(str(extra_ipr[0])), bitlen=0)
@@ -297,10 +295,7 @@ async def discover_nic_wan_ips(af: int, min_agree: int, enable_default: bool, in
     # Only the default NIC will have
     # a default route enabled for the af.
     if enable_default:
-        default_route = get_route_by_src(
-            af_default_nic_ip,
-            results
-        )
+        default_route = get_route_by_src(af_default_nic_ip, results)
 
         """
         If the main NIC IP for the default interface for AF
@@ -360,4 +355,3 @@ async def discover_nic_wan_ips(af: int, min_agree: int, enable_default: bool, in
 
     # Return results back to caller.
     return [af, routes, link_locals]
-

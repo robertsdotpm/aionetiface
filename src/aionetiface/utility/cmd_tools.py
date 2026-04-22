@@ -12,10 +12,22 @@ from typing import Any, Callable, Optional
 from ..utility.utils import *
 
 __all__ = [
-    "nt_set_pshell_unrestricted", "nt_is_admin", "mac_arg_escape", "nix_arg_escape",
-    "win_arg_escape", "get_powershell_path", "cmd", "powershell_encoded_cmd",
-    "ps1_exec_trick", "is_pshell_restricted", "nt_pshell", "get_arg_escape_func",
-    "run_py_script", "is_root", "win_uac", "ensure_root",
+    "nt_set_pshell_unrestricted",
+    "nt_is_admin",
+    "mac_arg_escape",
+    "nix_arg_escape",
+    "win_arg_escape",
+    "get_powershell_path",
+    "cmd",
+    "powershell_encoded_cmd",
+    "ps1_exec_trick",
+    "is_pshell_restricted",
+    "nt_pshell",
+    "get_arg_escape_func",
+    "run_py_script",
+    "is_root",
+    "win_uac",
+    "ensure_root",
 ]
 
 """
@@ -42,26 +54,20 @@ My function nt_pshell already checks if powershell can
 run scripts and if not -- automatically unrestricts
 powershell and continues running the script.
 """
+
+
 async def nt_set_pshell_unrestricted() -> None:
     import winreg
 
     def mk_unrestricted(path):
         # Open path to key for 'writing.'
         key = winreg.OpenKey(
-            winreg.HKEY_LOCAL_MACHINE,
-            path,
-            access=winreg.KEY_SET_VALUE
+            winreg.HKEY_LOCAL_MACHINE, path, access=winreg.KEY_SET_VALUE
         )
 
         # Set the sub key.
         # Create it if it doesn't exist.
-        winreg.SetValueEx(
-            key,
-            "ExecutionPolicy",
-            0,
-            winreg.REG_SZ,
-            "Unrestricted"
-        )
+        winreg.SetValueEx(key, "ExecutionPolicy", 0, winreg.REG_SZ, "Unrestricted")
 
         # We want to be certain the registry
         # has been updated before proceeding.
@@ -76,17 +82,19 @@ async def nt_set_pshell_unrestricted() -> None:
     mk_unrestricted(nostics_path)
     mk_unrestricted(pshell_path)
 
+
 def nt_is_admin() -> bool:
-    if sys.platform != 'win32':
+    if sys.platform != "win32":
         return False
     try:
         return ctypes.windll.shell32.IsUserAnAdmin()
     except (OSError, AttributeError):
         return False
 
+
 # Surrounds with DOUBLE quotes.
 def mac_arg_escape(arg: str) -> str:
-    black_list = "\"\\"
+    black_list = '"\\'
     buf = ""
     for ch in arg:
         if ch in black_list:
@@ -96,6 +104,7 @@ def mac_arg_escape(arg: str) -> str:
 
     return '"' + buf + '"'
 
+
 """
 Note: this function escapes an argument string
 for Unix shell but surrounds it by single quotes.
@@ -103,9 +112,12 @@ It returns a single quoted string with the result.
 Hence the surrounding quotes APPEAR escaped when
 printing them.
 """
+
+
 # Surrounds with SINGLE quotes.
 def nix_arg_escape(arg: str) -> str:
     return shlex.quote(arg)
+
 
 def win_arg_escape(arg: str, allow_vars: int = 0) -> str:
     # Double all the backslashes before a double quote.
@@ -115,16 +127,17 @@ def win_arg_escape(arg: str, allow_vars: int = 0) -> str:
     arg = re.sub(r'(\\*)"', r'\1\1\\"', arg)
 
     # Double up continuous backslashes at the end of the string.
-    arg = re.sub(r'(\\*)$', r'\1\1', arg)
+    arg = re.sub(r"(\\*)$", r"\1\1", arg)
 
     # Replace special characters.
-    arg = re.sub('([()%!^<>&|;,])', r'^\1', arg)
+    arg = re.sub("([()%!^<>&|;,])", r"^\1", arg)
 
     # Surround entire arg with quotes.
     # This avoids spaces breaking a command.
     arg = '"%s"' % (arg)
 
     return arg
+
 
 def get_powershell_path() -> str:
     ps_dir = "%WINDIR%\\System32\\WindowsPowerShell"
@@ -159,9 +172,10 @@ def get_powershell_path() -> str:
 
     if version_dir is None:
         raise Exception("Cannot find powershell dir.")
-    
+
     ps_dir = os.path.join(ps_dir, version_dir, "powershell.exe")
     return ps_dir
+
 
 """
 There is an issue with create_subprocess_shell on Windows 10
@@ -172,10 +186,14 @@ you want to execute to powershell.
 
 Example: 'powershell "route print"'
 """
-async def cmd(value: Any, io: Optional[Any] = None, er: Any = True, timeout: Optional[int] = 10) -> Any:
+
+
+async def cmd(
+    value: Any, io: Optional[Any] = None, er: Any = True, timeout: Optional[int] = 10
+) -> Any:
     # Output type.
     out_type = value
-    null_out = to_type('', out_type)
+    null_out = to_type("", out_type)
 
     # Setup STDIN pipes.
     in_val = None
@@ -195,7 +213,7 @@ async def cmd(value: Any, io: Optional[Any] = None, er: Any = True, timeout: Opt
             stdout=asyncio.subprocess.PIPE,
             stderr=er,
             cwd=this_dir,
-            shell=True
+            shell=True,
         )
 
         if timeout:
@@ -217,7 +235,13 @@ async def cmd(value: Any, io: Optional[Any] = None, er: Any = True, timeout: Opt
                 else:
                     er = None
 
-                proc = subprocess.run(value, stdout=subprocess.PIPE, shell=True, stderr=er, timeout=timeout)
+                proc = subprocess.run(
+                    value,
+                    stdout=subprocess.PIPE,
+                    shell=True,
+                    stderr=er,
+                    timeout=timeout,
+                )
                 stdout = proc.stdout
                 stderr = proc.stderr
             except subprocess.TimeoutExpired:
@@ -225,56 +249,77 @@ async def cmd(value: Any, io: Optional[Any] = None, er: Any = True, timeout: Opt
                 return null_out
 
             return stdout, stderr
-        
+
         # Use an executor to run the blocking command so the event loop isn't wrekt.
         stdout, stderr = await blocking_cmd(er)
 
     # Log any visible errors.
     if stderr is not None and len(stderr):
-        log(fstr("cmd {0} stderr = {1}", (value, stderr,)))
+        log(
+            fstr(
+                "cmd {0} stderr = {1}",
+                (
+                    value,
+                    stderr,
+                ),
+            )
+        )
 
     # Return command output.
     if stdout is None:
         return null_out
     else:
         return to_type(stdout, out_type)
-    
+
+
 def powershell_encoded_cmd(ps1: str) -> str:
     unicode_bytes = ps1.encode("utf-16le")
     param = base64.b64encode(unicode_bytes)
     return to_s(param)
 
+
 async def ps1_exec_trick(ps1: str) -> Any:
     param = powershell_encoded_cmd(ps1)
     ps_path = get_powershell_path()
-    out = await cmd(fstr("{0} -encodedCommand {1}", (ps_path, param,)), timeout=None)
+    out = await cmd(
+        fstr(
+            "{0} -encodedCommand {1}",
+            (
+                ps_path,
+                param,
+            ),
+        ),
+        timeout=None,
+    )
     log(out)
     return out
 
+
 async def is_pshell_restricted() -> bool:
     out = await cmd("powershell Get-ExecutionPolicy", timeout=None)
-    return not "Unrestricted" in out
+    return "Unrestricted" not in out
 
-async def nt_pshell(value: str, timeout: Optional[int] = 10, is_unrestricted: Optional[bool] = None) -> Any:
+
+async def nt_pshell(
+    value: str, timeout: Optional[int] = 10, is_unrestricted: Optional[bool] = None
+) -> Any:
     # Allow powershell scripts to be run
     # by modifying registry if needed.
     if is_unrestricted is None:
-        if(await is_pshell_restricted()):
+        if await is_pshell_restricted():
             await nt_set_pshell_unrestricted()
 
     # Write a temp file into the temp dir
     # with the script to execute.
     tmp_dir = tempfile.gettempdir()
     cmd_path = os.path.join(tmp_dir, str(uuid.uuid4()) + ".ps1")
-    with open(cmd_path, 'w') as f:
+    with open(cmd_path, "w") as f:
         f.write(value)
         f.flush()
         f.close()
 
     # Command to tell powershell to run the script.
-    cmd_str = 'powershell.exe -file %s' % (
-        win_arg_escape(cmd_path)
-    )
+    cmd_str = "powershell.exe -file %s" % (win_arg_escape(cmd_path))
 
     # Wait for powershell to execute the script.
     if timeout:
@@ -288,6 +333,7 @@ async def nt_pshell(value: str, timeout: Optional[int] = 10, is_unrestricted: Op
 
     return out
 
+
 def get_arg_escape_func() -> Optional[Callable[[str], str]]:
     if platform.system() == "Linux":
         return nix_arg_escape
@@ -300,14 +346,17 @@ def get_arg_escape_func() -> Optional[Callable[[str], str]]:
 
     return None
 
-async def run_py_script(script: str, root_pw: Optional[str] = None, cleanup: bool = False) -> Any:
+
+async def run_py_script(
+    script: str, root_pw: Optional[str] = None, cleanup: bool = False
+) -> Any:
     # Write a temp file into the temp dir
     # with the script to execute.
     out = None
     tmp_dir = tempfile.gettempdir()
     cmd_path = os.path.join(tmp_dir, str(uuid.uuid4()) + ".py")
     escape_arg = get_arg_escape_func()
-    with open(cmd_path, 'w') as f:
+    with open(cmd_path, "w") as f:
         f.write(script)
         f.flush()
         f.close()
@@ -315,18 +364,12 @@ async def run_py_script(script: str, root_pw: Optional[str] = None, cleanup: boo
         # Sudo prefix.
         prefix = ""
         if platform.system() != "Windows":
-            if root_pw != None:
-                prefix = "{ echo %s; } | sudo -k -S " % (
-                    escape_arg(root_pw)
-                )
+            if root_pw is not None:
+                prefix = "{ echo %s; } | sudo -k -S " % (escape_arg(root_pw))
 
         # Build cmd to execute the new script.
-        exe_cmd = '%s%s %s' % (
-            prefix,
-            escape_arg(sys.executable),
-            escape_arg(cmd_path)
-        )
-        
+        exe_cmd = "%s%s %s" % (prefix, escape_arg(sys.executable), escape_arg(cmd_path))
+
         # Execute the command.
         out = await cmd(exe_cmd, timeout=None)
 
@@ -337,9 +380,11 @@ async def run_py_script(script: str, root_pw: Optional[str] = None, cleanup: boo
 
     return out
 
+
 def is_root() -> bool:
     if platform.system() == "Windows":
         import ctypes
+
         if ctypes.windll.shell32.IsUserAnAdmin() == 0:
             return False
     else:
@@ -348,10 +393,14 @@ def is_root() -> bool:
 
     return True
 
+
 def win_uac() -> None:
-    if sys.platform != 'win32':
+    if sys.platform != "win32":
         return
-    ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
+    ctypes.windll.shell32.ShellExecuteW(
+        None, "runas", sys.executable, " ".join(sys.argv), None, 1
+    )
+
 
 def ensure_root() -> None:
     if not is_root():

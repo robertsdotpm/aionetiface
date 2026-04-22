@@ -3,7 +3,7 @@ import asyncio
 import random
 from typing import Any, Callable, Dict, Generator, List, Optional
 from .utils import strip_none
-from ..net.net_defs import IP4, UDP, SUB_ALL
+from ..net.net_defs import IP4, UDP
 from ..servers import get_infra
 from ..nic.interface import Interface
 from ..protocol.stun.stun_defs import RFC3489, RFC5389
@@ -14,15 +14,16 @@ from ..protocol.stun.stun_client import STUNClient
 # Return a deterministically shuffled generator.
 def seed_iter(items: List[Any], seed_str: Any) -> Generator[Any, None, None]:
     # avoid mutating the original list
-    items_copy = list(items) 
+    items_copy = list(items)
 
     # deterministic RNG based on string
-    rng = random.Random(seed_str) 
+    rng = random.Random(seed_str)
     rng.shuffle(items_copy)
 
     # Return generator.
     for item in items_copy:
         yield item
+
 
 # Given a func that takes a list of named params and a dict
 # of mixed kv pairs -- only use the kvs that match a param.
@@ -33,8 +34,13 @@ def func_relevant_params(func: Any, kv: Dict[str, Any]) -> Dict[str, Any]:
     relevant_params = {k: kv[k] for k in param_names if k in kv}
     return relevant_params
 
-class ObjCollection():
-    def __init__(self, obj_factory: Callable[..., Any], select_servers: Optional[Callable[..., Any]] = None) -> None:
+
+class ObjCollection:
+    def __init__(
+        self,
+        obj_factory: Callable[..., Any],
+        select_servers: Optional[Callable[..., Any]] = None,
+    ) -> None:
         self.obj_factory = obj_factory
         self.select_servers = select_servers
 
@@ -59,15 +65,21 @@ class ObjCollection():
 
         # Run objects await methods if awaitable.
         await asyncio.gather(
-            *[o for o in objs if inspect.isawaitable(o)], 
-            return_exceptions=True
+            *[o for o in objs if inspect.isawaitable(o)], return_exceptions=True
         )
 
         return objs
-    
+
     # Get n new objects but add a function to qualify them.
     # Qualify function returns the obj if it passes.
-    async def get_n_qualify(self, n: int, kv: Dict[str, Any], qualify: Callable[..., Any], min_success: Optional[int] = None, max_attempts: int = 2) -> List[Any]:
+    async def get_n_qualify(
+        self,
+        n: int,
+        kv: Dict[str, Any],
+        qualify: Callable[..., Any],
+        min_success: Optional[int] = None,
+        max_attempts: int = 2,
+    ) -> List[Any]:
         out = []
         attempts = 0
         min_success = min_success or n
@@ -80,7 +92,7 @@ class ObjCollection():
             out += strip_none(
                 await asyncio.gather(
                     *[qualify(o) for o in (await self.get_n(needed, kv))],
-                    return_exceptions=True
+                    return_exceptions=True,
                 )
             )
 
@@ -90,6 +102,7 @@ class ObjCollection():
 
         return out[:min_success]
 
+
 async def workspace_one() -> None:
     def select_servers(n, kv):
         if kv["mode"] == RFC3489:
@@ -97,11 +110,11 @@ async def workspace_one() -> None:
 
         if kv["mode"] == RFC5389:
             name = "STUN(see_ip)"
-        
+
         servers = get_infra(kv["af"], kv["proto"], name, no=n)
 
         return [(s[0]["ip"], s[0]["port"]) for s in servers]
-    
+
     async def qualify(obj):
         out = await obj.get_mapping()
         if out:
@@ -109,18 +122,18 @@ async def workspace_one() -> None:
 
     c = ObjCollection(
         lambda kparams, dest=None: STUNClient(**kparams, dest=dest),
-        select_servers=select_servers
+        select_servers=select_servers,
     )
 
-    out = await c.get_n_qualify(5, {
+    out = await c.get_n_qualify(
+        5,
+        {
             "af": IP4,
             "nic": Interface("default"),
             "mode": RFC3489,
             "proto": UDP,
         },
-        qualify
+        qualify,
     )
 
     print(out)
-
-

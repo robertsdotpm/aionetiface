@@ -1,25 +1,35 @@
-import sys
 import socket
-import platform
 import struct
 import ipaddress
-import random
-import copy
-import ssl
-from io import BytesIO
 from typing import Any, Optional, Tuple, Union
 import re
-from ..utility.utils import ip_f, log, log_exception, to_h, to_i, to_s
+from ..utility.utils import (
+    ip_f,
+    log,
+    log_exception,
+    to_h,
+    to_i,
+    to_s,
+)
 from .net_defs import *
 
 
-af_to_v  = lambda af: 4 if af == IP4 else 6
-v_to_af  = lambda v: IP4 if v == 4 else IP6
-i_to_af  = lambda x: IP4 if x == 2 else IP6
+def af_to_v(af: int) -> int:
+    return 4 if af == IP4 else 6
+
+
+def v_to_af(v: int) -> int:
+    return IP4 if v == 4 else IP6
+
+
+def i_to_af(x: int) -> int:
+    return IP4 if x == 2 else IP6
+
 
 def af_bitlen(af: int) -> int:
     """Return the bit width of the address family (32 for IPv4, 128 for IPv6)."""
     return 32 if af == IP4 else 128
+
 
 def sock_has_data(sock: Any) -> bool:
     try:
@@ -28,13 +38,15 @@ def sock_has_data(sock: Any) -> bool:
             return True
     except BlockingIOError:
         return False
-    
+
     return False
+
 
 def af_from_ip_s(ip_s: Union[str, bytes]) -> int:
     ip_s = to_s(ip_s)
     ip_obj = ip_f(ip_s)
     return v_to_af(ip_obj.version)
+
 
 def ip_str_to_int(ip_str: str) -> int:
     ip_obj = ipaddress.ip_address(ip_str)
@@ -43,18 +55,18 @@ def ip_str_to_int(ip_str: str) -> int:
         return struct.unpack("!L", pack_ip)[0]
     else:
         ip_str = str(ip_obj.exploded)
-        hex_str = to_h(socket.inet_pton(
-            AF_INET6, ip_str
-        ))
+        hex_str = to_h(socket.inet_pton(AF_INET6, ip_str))
         return to_i(hex_str)
+
 
 def netmask_to_cidr(netmask: str) -> int:
     # Already a host_limit.
     if "/" in netmask:
         return int(netmask.replace("/", ""))
 
-    as_int = ip_str_to_int(netmask) 
+    as_int = ip_str_to_int(netmask)
     return bin(as_int).count("1")
+
 
 def cidr_to_netmask(host_limit: int, af: int) -> str:
     end = 32 if af == AF_INET else 128
@@ -62,9 +74,10 @@ def cidr_to_netmask(host_limit: int, af: int) -> str:
     buf += "0" * (end - host_limit)
     n = int(buf, 2)
     if af == AF_INET:
-        return (str(ipaddress.IPv4Address(n)))
+        return str(ipaddress.IPv4Address(n))
     else:
         return str(ipaddress.IPv6Address(n).exploded)
+
 
 def toggle_host_bits(netmask: str, ip_str: str, toggle: int = 0) -> str:
     ip_obj = ipaddress.ip_address(ip_str)
@@ -87,8 +100,10 @@ def toggle_host_bits(netmask: str, ip_str: str, toggle: int = 0) -> str:
     else:
         return str(ipaddress.IPv6Address(n_result).exploded)
 
+
 def get_broadcast_ip(netmask: str, gw_ip: str) -> str:
     return toggle_host_bits(netmask, gw_ip, toggle=1)
+
 
 """
 - Removes %interface name after an IPv6.
@@ -103,6 +118,8 @@ Or if you compare the same compressed IPv6 to
 its uncompressed form (textually) then it
 will give a false negative.
 """
+
+
 def ipv6_norm(ip_val: Union[str, bytes, int]) -> str:
     ip_obj = ipaddress.ip_address(ip_val)
     if ip_obj.version == 6:
@@ -110,13 +127,15 @@ def ipv6_norm(ip_val: Union[str, bytes, int]) -> str:
 
     return str(ip_obj)
 
+
 def ip_strip_if(ip: Union[str, bytes]) -> Union[str, bytes]:
     if isinstance(ip, str):
         if "%" in ip:
             parts = ip.split("%")
             return parts[0]
-    
+
     return ip
+
 
 def ip_strip_cidr(ip: Union[str, bytes]) -> Union[str, bytes]:
     if isinstance(ip, str):
@@ -124,6 +143,7 @@ def ip_strip_cidr(ip: Union[str, bytes]) -> Union[str, bytes]:
             ip = ip.split("/")[0]
 
     return ip
+
 
 def ip_norm(ip: Union[str, bytes]) -> str:
     # Strip interface scope id.
@@ -138,18 +158,21 @@ def ip_norm(ip: Union[str, bytes]) -> str:
 
     return ip
 
+
 def mac_norm(mac: str) -> str:
     parts = re.split("[:.-]", mac)
-    parts = [ part.zfill(2).lower() for part in parts ]
+    parts = [part.zfill(2).lower() for part in parts]
     return "".join(parts)
+
 
 def client_tup_norm(client_tup: Optional[Tuple[Any, ...]]) -> Optional[Tuple[str, int]]:
     if client_tup is None:
         return None
-    
+
     ip = ip_norm(client_tup[0])
     return (ip, client_tup[1])
-    
+
+
 def is_socket_closed(sock: Any) -> bool:
     try:
         # this will try to read bytes without blocking and also without removing them from buffer (peek only)
@@ -164,6 +187,7 @@ def is_socket_closed(sock: Any) -> bool:
         log("unexpected exception when checking if a socket is closed")
         return False
     return False
+
 
 # Hack: determine which local interface is on the path to a private destination.
 #
@@ -191,18 +215,16 @@ def determine_if_path(af: int, dest: str) -> Optional[str]:
 
     return src_ip
 
+
 def avoid_time_wait(pipe: Any) -> None:
     try:
         sock = pipe.sock
-        linger = struct.pack('ii', 1, 0)
-        sock.setsockopt(
-            socket.SOL_SOCKET,
-            socket.SO_LINGER,
-            linger
-        )
+        linger = struct.pack("ii", 1, 0)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, linger)
     except OSError:
         # Not guaranteed on windows.
         log_exception()
+
 
 # Not used presently but may be useful in future.
 async def safe_sock_connect(loop: Any, sock: Any, dest: Tuple[str, int]) -> bool:
@@ -216,4 +238,3 @@ async def safe_sock_connect(loop: Any, sock: Any, dest: Tuple[str, int]) -> bool
         # Handles e.g. ENETUNREACH, ETIMEDOUT, ECONNRESET
         log("Socket connect error to " + str(dest) + ":" + str(e))
         return False
-    

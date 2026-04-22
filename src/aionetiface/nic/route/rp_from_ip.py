@@ -19,12 +19,13 @@ accepted inputs:
         - limit wan ips to only the defined set of wan ips
 """
 
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List
 from ...utility.utils import find_intersect
 from ...net.net_defs import IP4, IP6
-from ...net.ip_range import IPRange, IPR
+from ...net.ip_range import IPR
 from .route import Route
 from .route_pool import RoutePool
+
 
 def sort_iprs(ipr_list: List[Any]) -> Any:
     # Sort by public / private.
@@ -38,6 +39,7 @@ def sort_iprs(ipr_list: List[Any]) -> Any:
             priv_iprs.append(ipr)
 
     return pub_iprs, priv_iprs
+
 
 def v6_route_pool_from_ips(ipr_list: List[Any], nic: Any) -> List[Any]:
     # Sort by public / private.
@@ -80,6 +82,7 @@ def v6_route_pool_from_ips(ipr_list: List[Any], nic: Any) -> List[Any]:
 
     return routes
 
+
 def v4_route_pool_from_ips(ipr_list: List[Any], nic: Any) -> List[Any]:
     # Sort by public / private.
     pub_iprs, priv_iprs = sort_iprs(ipr_list)
@@ -103,6 +106,7 @@ def v4_route_pool_from_ips(ipr_list: List[Any], nic: Any) -> List[Any]:
 
     return routes
 
+
 def route_pool_from_ips(ip_list: List[str], nic: Any) -> Dict[int, Any]:
     # Classify IPs by version.
     ipr_list = {IP4: [], IP6: []}
@@ -110,15 +114,12 @@ def route_pool_from_ips(ip_list: List[str], nic: Any) -> Dict[int, Any]:
         ipr = IPR(ip)
         if ipr.af == IP4:
             ipr_list[IP4].append(ipr)
-    
+
         if ipr.af == IP6:
             ipr_list[IP6].append(ipr)
 
     # AF-specific route pool funcs.
-    get_route_pool_funcs = {
-        IP4: v4_route_pool_from_ips,
-        IP6: v6_route_pool_from_ips
-    }
+    get_route_pool_funcs = {IP4: v4_route_pool_from_ips, IP6: v6_route_pool_from_ips}
 
     # Return route pool based on version
     rp = {}
@@ -134,6 +135,7 @@ def route_pool_from_ips(ip_list: List[str], nic: Any) -> Dict[int, Any]:
             rp[af] = nic.rp[af]
 
     return rp
+
 
 def sort_ips_by_nic(ip_list: List[str], nic_list: List[Any]) -> Dict[Any, List[str]]:
     by_nic = {}
@@ -169,6 +171,7 @@ def sort_ips_by_nic(ip_list: List[str], nic_list: List[Any]) -> Dict[Any, List[s
         by_nic_list[nic_id] = list(by_nic[nic_id])
 
     return by_nic_list
+
 
 """
 async def workspace():

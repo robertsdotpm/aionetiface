@@ -6,12 +6,8 @@ All of the Python code used in the documentation gets tested
 using this module. Easy to know if examples still work.
 """
 parent_dir = os.path.dirname(__file__)
-EXAMPLES_DIR = os.path.join(
-    parent_dir,
-    "../",
-    "docs/",
-    "examples/"
-)
+EXAMPLES_DIR = os.path.join(parent_dir, "../", "docs/", "examples/")
+
 
 class TestPyExamples(unittest.IsolatedAsyncioTestCase):
     async def do_py_example(self, n):
@@ -22,10 +18,7 @@ class TestPyExamples(unittest.IsolatedAsyncioTestCase):
 
             # Event loop is already running so replace
             # async_test with an await call.
-            py_code = py_code.replace(
-                'async_test(example)',
-                'pass'
-            )
+            py_code = py_code.replace("async_test(example)", "pass")
 
             # Load the example code definitions.
             try:
@@ -33,7 +26,7 @@ class TestPyExamples(unittest.IsolatedAsyncioTestCase):
             except Exception as e:
                 print("Py example ", n, " failed")
                 what_exception()
-                assert(0)
+                assert 0
 
             # Run the async callback.
             coro = globals().get("example")
@@ -80,5 +73,6 @@ class TestPyExamples(unittest.IsolatedAsyncioTestCase):
     async def test_16(self):
         await self.do_py_example(16)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

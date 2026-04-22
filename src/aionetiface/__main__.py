@@ -17,18 +17,15 @@ if int(vmin) < 8:
     print("aionetiface REPL needs >= Python 3.8")
     exit()
 
-from .do_imports import *
-
+from .do_imports import *  # noqa: E402
 
 
 class AsyncIOInteractiveConsole(code.InteractiveConsole):
-
     def __init__(self, locals: Any, loop: Any) -> None:
         super().__init__(locals)
         self.compile.compiler.flags |= ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
 
         self.loop = loop
-
 
     def runcode(self, code: Any) -> None:
         future = concurrent.futures.Future()
@@ -77,46 +74,65 @@ class AsyncIOInteractiveConsole(code.InteractiveConsole):
 
 
 class REPLThread(threading.Thread):
-
     def run(self) -> None:
         try:
             loop_policy = str(asyncio.get_event_loop_policy())
             if "elector" in loop_policy:
-                loop_policy = 'selector'
+                loop_policy = "selector"
 
             spawn_method = multiprocessing.get_start_method()
             vmaj, vmin, _ = platform.python_version_tuple()
             banner = (
-                fstr('aionetiface REPL on Python {1}.{2} / {3}', (0, vmaj, vmin, sys.platform,)),
-                fstr('Loop = {0}, Process = {1}', (loop_policy, spawn_method,)),
-                'Use "await" directly instead of "asyncio.run()".' ,
-                fstr('{0}from aionetiface import *', (getattr(sys, "ps1", ">>> "),)),
+                fstr(
+                    "aionetiface REPL on Python {1}.{2} / {3}",
+                    (
+                        0,
+                        vmaj,
+                        vmin,
+                        sys.platform,
+                    ),
+                ),
+                fstr(
+                    "Loop = {0}, Process = {1}",
+                    (
+                        loop_policy,
+                        spawn_method,
+                    ),
+                ),
+                'Use "await" directly instead of "asyncio.run()".',
+                fstr("{0}from aionetiface import *", (getattr(sys, "ps1", ">>> "),)),
             )
 
             console.push("from aionetiface.do_imports import *")
             console.interact(
-                banner="\n".join(banner),
-                exitmsg='exiting asyncio REPL...')
-            
+                banner="\n".join(banner), exitmsg="exiting asyncio REPL..."
+            )
+
         finally:
             warnings.filterwarnings(
-                'ignore',
-                message=r'^coroutine .* was never awaited$',
-                category=RuntimeWarning)
+                "ignore",
+                message=r"^coroutine .* was never awaited$",
+                category=RuntimeWarning,
+            )
 
             loop.call_soon_threadsafe(loop.stop)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    repl_locals = {'asyncio': asyncio}
-    for key in {'__name__', '__package__',
-                '__loader__', '__spec__',
-                '__builtins__', '__file__'}:
+    repl_locals = {"asyncio": asyncio}
+    for key in {
+        "__name__",
+        "__package__",
+        "__loader__",
+        "__spec__",
+        "__builtins__",
+        "__file__",
+    }:
         repl_locals[key] = locals()[key]
 
     console = AsyncIOInteractiveConsole(repl_locals, loop)
-    
 
     repl_future = None
     repl_future_interrupted = False

@@ -2,15 +2,20 @@ import asyncio
 import re
 import socket
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 from ..utility.utils import async_wrap_errors, fstr, log, log_exception, to_s
 from ..errors import InterfaceInvalidAF, InterfaceNotFound
 from ..net.net_defs import (
-    BLACK_HOLE_IPS, DUEL_STACK, INTERFACE_ETHERNET, INTERFACE_UNKNOWN,
-    INTERFACE_WIRELESS, IP4, IP6, UNKNOWN_STACK, VALID_AFS,
+    BLACK_HOLE_IPS,
+    DUEL_STACK,
+    INTERFACE_ETHERNET,
+    INTERFACE_UNKNOWN,
+    INTERFACE_WIRELESS,
+    IP4,
+    IP6,
+    UNKNOWN_STACK,
+    VALID_AFS,
 )
-from ..net.net_utils import ip_norm
-from ..net.ip_range import IPRange, ipr_norm
 from .netifaces.netiface_extra import af_to_netiface, netiface_gateways
 from .nat.nat_utils import nat_info
 from .route.route_pool import RoutePool
@@ -28,11 +33,12 @@ def get_interface_af(netifaces: Any, name: str) -> int:
 
     if len(af_list) == 2:
         return DUEL_STACK
-    
+
     if len(af_list) == 1:
         return af_list[0]
-    
+
     return UNKNOWN_STACK
+
 
 @lru_cache(maxsize=None)
 def get_default_nic_ip(af: int) -> str:
@@ -47,7 +53,13 @@ def get_default_nic_ip(af: int) -> str:
         log_exception()
         return ""
 
-def get_default_iface(netifaces: Any, afs: List[int] = VALID_AFS, exp: int = 1, duel_stack_test: bool = True) -> str:
+
+def get_default_iface(
+    netifaces: Any,
+    afs: List[int] = VALID_AFS,
+    exp: int = 1,
+    duel_stack_test: bool = True,
+) -> str:
     for af in afs:
         af = int(af)
         nic_ip = get_default_nic_ip(af)
@@ -59,12 +71,13 @@ def get_default_iface(netifaces: Any, afs: List[int] = VALID_AFS, exp: int = 1, 
             for addr_info in addr_infos[af]:
                 if addr_info["addr"] == nic_ip:
                     return if_name
-        
+
     return ""
+
 
 def get_interface_type(name: str) -> int:
     name = name.lower()
-    if re.match(r"en[0-9]+", name) != None:
+    if re.match(r"en[0-9]+", name) is not None:
         return INTERFACE_ETHERNET
 
     eth_names = ["eth", "eno", "ens", "enp", "enx", "ethernet"]
@@ -82,6 +95,7 @@ def get_interface_type(name: str) -> int:
 
     return INTERFACE_UNKNOWN
 
+
 def get_interface_stack(rp: Dict[int, Any]) -> int:
     stacks = []
     for af in [IP4, IP6]:
@@ -97,6 +111,7 @@ def get_interface_stack(rp: Dict[int, Any]) -> int:
 
     return UNKNOWN_STACK
 
+
 def clean_if_list(ifs: List[str]) -> List[str]:
     # Otherwise use the interface type function.
     # Looks at common patterns for interface names (not accurate.)
@@ -107,16 +122,26 @@ def clean_if_list(ifs: List[str]) -> List[str]:
             clean_ifs.append(if_name)
 
     return clean_ifs
-    
+
+
 def log_interface_rp(interface: Any) -> None:
     for af in VALID_AFS:
         if not len(interface.rp[af].routes):
             continue
 
         route_s = str(interface.rp[af].routes)
-        log(fstr("> AF {0} = {1}", (af, route_s,)))
+        log(
+            fstr(
+                "> AF {0} = {1}",
+                (
+                    af,
+                    route_s,
+                ),
+            )
+        )
         log(fstr("> nic() = {0}", (interface.route(af).nic(),)))
         log(fstr("> ext() = {0}", (interface.route(af).ext(),)))
+
 
 def get_ifs_by_af_intersect(if_list: List[Any]) -> List[Any]:
     largest = []
@@ -133,15 +158,12 @@ def get_ifs_by_af_intersect(if_list: List[Any]) -> List[Any]:
 
     return [largest, af_used]
 
+
 def is_nic_default(nic: Any, af: int, gws: Optional[Any] = None) -> bool:
     def try_netiface_check(af, gws):
         af = af_to_netiface(af)
         if not gws:
-            gws = netiface_gateways(
-                nic.netifaces,
-                get_interface_type,
-                preference=af
-            )
+            gws = netiface_gateways(nic.netifaces, get_interface_type, preference=af)
 
         def_gws = gws["default"]
         if af not in def_gws:
@@ -152,23 +174,21 @@ def is_nic_default(nic: Any, af: int, gws: Optional[Any] = None) -> bool:
                 return True
             else:
                 return False
-            
-    def try_sock_trick(af):    
-        if_name = get_default_iface(
-            nic.netifaces,
-            afs=[af]
-        )
+
+    def try_sock_trick(af):
+        if_name = get_default_iface(nic.netifaces, afs=[af])
         if if_name == "":
             return False
-        
+
         return nic.name == if_name
-    
+
     try:
         ret = try_sock_trick(af) or try_netiface_check(af, gws)
         return ret
     except (OSError, KeyError, AttributeError):
         log_exception()
         return False
+
 
 def nic_from_dict(d: Dict[str, Any], Interface: Any) -> Any:
     i = Interface(d["name"])
@@ -177,13 +197,12 @@ def nic_from_dict(d: Dict[str, Any], Interface: Any) -> Any:
     i.id = d["id"]
     i.mac = d["mac"]
 
-
     i.is_default = lambda af, gws=None: d["is_default"][af]
 
     # Set the interface route pool.
     i.rp = {
         IP4: RoutePool.from_dict(d["rp"][int(IP4)]),
-        IP6: RoutePool.from_dict(d["rp"][int(IP6)])
+        IP6: RoutePool.from_dict(d["rp"][int(IP6)]),
     }
 
     # Set interface part of routes.
@@ -203,6 +222,7 @@ def nic_from_dict(d: Dict[str, Any], Interface: Any) -> Any:
     # ... and return it.
     return i
 
+
 def nic_to_dict(nic: Any) -> Dict[str, Any]:
     return {
         "netiface_index": nic.netiface_index,
@@ -212,19 +232,17 @@ def nic_to_dict(nic: Any) -> Dict[str, Any]:
         "mac": nic.mac,
         "is_default": {
             int(IP4): nic.is_default(IP4, None),
-            int(IP6): nic.is_default(IP6, None)
+            int(IP6): nic.is_default(IP6, None),
         },
         "nat": {
             "type": nic.nat["type"],
-            "nat_info": TXT["nat"][ nic.nat["type"] ],
+            "nat_info": TXT["nat"][nic.nat["type"]],
             "delta": nic.nat["delta"],
-            "delta_info": TXT["delta"][ nic.nat["delta"]["type"] ]
+            "delta_info": TXT["delta"][nic.nat["delta"]["type"]],
         },
-        "rp": {
-            int(IP4): nic.rp[IP4].to_dict(),
-            int(IP6): nic.rp[IP6].to_dict()
-        }
+        "rp": {int(IP4): nic.rp[IP4].to_dict(), int(IP6): nic.rp[IP6].to_dict()},
     }
+
 
 # Given a list of Interface dicts.
 # Convert them back to Interfaces and return a list.
@@ -236,6 +254,7 @@ def dict_to_if_list(dict_list: List[Dict[str, Any]], Interface: Any) -> List[Any
 
     return if_list
 
+
 # Given a list of Interface objs.
 # Convert to dict and return a list.
 def if_list_to_dict(if_list: List[Any]) -> List[Dict[str, Any]]:
@@ -246,15 +265,23 @@ def if_list_to_dict(if_list: List[Any]) -> List[Dict[str, Any]]:
 
     return dict_list
 
-async def load_interfaces(if_names: List[Any], Interface: Any, min_agree: int = 2, max_agree: int = 5, skip_nat: bool = False, timeout: int = 4) -> List[Any]:
+
+async def load_interfaces(
+    if_names: List[Any],
+    Interface: Any,
+    min_agree: int = 2,
+    max_agree: int = 5,
+    skip_nat: bool = False,
+    timeout: int = 4,
+) -> List[Any]:
     """
-When an interface is loaded, it is placed into a clearing queue.
-The event loop cycles through this queue, switching between tasks as they
-become eligible to run. Because completion time depends on how many other
-interfaces are also pending, timeouts are set relative to the total number of
-active interfaces rather than per task in isolation. This ensures that delays from
-other tasks are accounted for and no single timeout is miscalculated by
-assuming immediate execution.
+    When an interface is loaded, it is placed into a clearing queue.
+    The event loop cycles through this queue, switching between tasks as they
+    become eligible to run. Because completion time depends on how many other
+    interfaces are also pending, timeouts are set relative to the total number of
+    active interfaces rather than per task in isolation. This ensures that delays from
+    other tasks are accounted for and no single timeout is miscalculated by
+    assuming immediate execution.
     """
     nics = []
     for if_name in if_names:
@@ -267,13 +294,11 @@ assuming immediate execution.
             )
 
             if not skip_nat:
-                nat = await async_wrap_errors(
-                    nic.load_nat(timeout=timeout)
-                )
+                nat = await async_wrap_errors(nic.load_nat(timeout=timeout))
 
                 if nat is None:
                     log("Could not load NAT for " + to_s(if_name))
-                    
+
             nics.append(nic)
         except asyncio.CancelledError:
             raise
@@ -281,6 +306,7 @@ assuming immediate execution.
             log_exception()
 
     return nics
+
 
 def get_nic_for_af(nic_list: List[Any]) -> Dict[int, Optional[Any]]:
     ret = {IP4: None, IP6: None}

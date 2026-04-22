@@ -4,9 +4,9 @@ import operator
 import os
 import random
 from functools import reduce
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from .net.net_defs import IP4, IP6, UDP, TCP
+from .net.net_defs import IP4, UDP
 from .utility.utils import rand_b, to_b
 
 __all__ = ["INFRA", "INFRA_SEED", "rng_for_attempt", "filter_by_score", "get_infra"]
@@ -21,12 +21,16 @@ INFRA_SEED = rand_b(8)
 
 
 def rng_for_attempt(attempt: int) -> random.Random:
+    """Return a seeded Random instance deterministic for the given attempt number."""
     h = hashlib.sha256(INFRA_SEED + to_b(str(attempt))).digest()
     seed = int.from_bytes(h[:8], "big")
     return random.Random(seed)
 
 
-def filter_by_score(groups: List[List[Dict[str, Any]]], threshold: float = 0.8) -> List[List[Dict[str, Any]]]:
+def filter_by_score(
+    groups: List[List[Dict[str, Any]]], threshold: float = 0.8
+) -> List[List[Dict[str, Any]]]:
+    """Return only those server groups whose minimum score meets or exceeds the threshold."""
     filtered = []
     for group in groups:
         if not group:
@@ -37,7 +41,10 @@ def filter_by_score(groups: List[List[Dict[str, Any]]], threshold: float = 0.8) 
     return filtered
 
 
-def get_infra(af: int, proto: int, name: str, no: int = 1, attempt: int = 0, sample: bool = False) -> List[Any]:
+def get_infra(
+    af: int, proto: int, name: str, no: int = 1, attempt: int = 0, sample: bool = False
+) -> List[Any]:
+    """Look up infrastructure server entries by address family, protocol, and name."""
     af_str = ".IPv4" if af == IP4 else ".IPv6"
     proto_str = ".UDP" if proto == UDP else ".TCP"
     name = name + af_str + proto_str

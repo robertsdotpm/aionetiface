@@ -29,12 +29,14 @@ from ._utils import *
 class ReaderWriterLock(object):
     """An inter-thread readers writer lock."""
 
-    WRITER = 'w'  #: Writer owner type/string constant.
-    READER = 'r'  #: Reader owner type/string constant.
+    WRITER = "w"  #: Writer owner type/string constant.
+    READER = "r"  #: Reader owner type/string constant.
 
-    def __init__(self,
-                condition_cls=threading.Condition,
-                current_thread_functor=threading.current_thread):
+    def __init__(
+        self,
+        condition_cls=threading.Condition,
+        current_thread_functor=threading.current_thread,
+    ):
         """
         Args:
             condition_cls:
@@ -122,9 +124,10 @@ class ReaderWriterLock(object):
 
     def _acquire_read_lock(self, me):
         if me in self._pending_writers:
-            raise RuntimeError("Writer %s can not acquire a read lock"
-                            " while waiting for the write lock"
-                            % me)
+            raise RuntimeError(
+                "Writer %s can not acquire a read lock"
+                " while waiting for the write lock" % me
+            )
         with self._cond:
             while True:
                 # No active writer, or we are the writer;
@@ -176,8 +179,9 @@ class ReaderWriterLock(object):
 
     def _acquire_write_lock(self, me):
         if self.is_reader():
-            raise RuntimeError("Reader %s to writer privilege"
-                            " escalation not allowed" % me)
+            raise RuntimeError(
+                "Reader %s to writer privilege escalation not allowed" % me
+            )
 
         with self._cond:
             self._pending_writers.append(me)
@@ -276,8 +280,8 @@ def locked(*args, **kwargs):
     """
 
     def decorator(f):
-        attr_name = kwargs.get('lock', '_lock')
-        logger = kwargs.get('logger')
+        attr_name = kwargs.get("lock", "_lock")
+        logger = kwargs.get("logger")
 
         @functools.wraps(f)
         def wrapper(self, *args, **kwargs):
@@ -286,8 +290,9 @@ def locked(*args, **kwargs):
                 with LockStack(logger=logger) as stack:
                     for i, lock in enumerate(attr_value):
                         if not stack.acquire_lock(lock):
-                            raise threading.ThreadError("Unable to acquire"
-                                                        " lock %s" % (i + 1))
+                            raise threading.ThreadError(
+                                "Unable to acquire lock %s" % (i + 1)
+                            )
                     return f(self, *args, **kwargs)
             else:
                 lock = attr_value
@@ -321,7 +326,7 @@ def read_locked(*args, **kwargs):
     """
 
     def decorator(f):
-        attr_name = kwargs.get('lock', '_lock')
+        attr_name = kwargs.get("lock", "_lock")
 
         @functools.wraps(f)
         def wrapper(self, *args, **kwargs):
@@ -356,7 +361,7 @@ def write_locked(*args, **kwargs):
     """
 
     def decorator(f):
-        attr_name = kwargs.get('lock', '_lock')
+        attr_name = kwargs.get("lock", "_lock")
 
         @functools.wraps(f)
         def wrapper(self, *args, **kwargs):

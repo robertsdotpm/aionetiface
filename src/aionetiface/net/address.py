@@ -17,8 +17,9 @@ DNS_NAMESERVERS = {
         # OpenDNS.
         "2620:119:35::35",
         "2620:119:53::53",
-    ]
+    ],
 }
+
 
 async def async_res_domain_af(af: int, host: str) -> Optional[Tuple[int, str]]:
     # Throw error if not installed.
@@ -39,24 +40,23 @@ async def async_res_domain_af(af: int, host: str) -> Optional[Tuple[int, str]]:
         result = results[0]
         ip = ip_norm(result.host)
         return (af, ip)
-    
-async def async_res_domain(host: str, route: Optional[Any] = None) -> List[Tuple[int, str]]:
+
+
+async def async_res_domain(
+    host: str, route: Optional[Any] = None
+) -> List[Tuple[int, str]]:
     # Make a list of DNS res tasks.
     tasks = []
     for af in VALID_AFS:
-        tasks.append(
-            async_res_domain_af(af, host)
-        )
+        tasks.append(async_res_domain_af(af, host))
 
     # Concurrently get IP fields from domain.
-    return strip_none(
-        await asyncio.gather(
-            *tasks,
-            return_exceptions=False
-        )
-    )
+    return strip_none(await asyncio.gather(*tasks, return_exceptions=False))
 
-async def sock_res_domain(host: str, route: Optional[Any] = None) -> List[Tuple[int, str]]:
+
+async def sock_res_domain(
+    host: str, route: Optional[Any] = None
+) -> List[Tuple[int, str]]:
     # Current event loop.
     loop = asyncio.get_event_loop()
 
@@ -78,11 +78,12 @@ async def sock_res_domain(host: str, route: Optional[Any] = None) -> List[Tuple[
 
     return results
 
-class DestTup():
+
+class DestTup:
     def __init__(self, af: int, ip: str, port: int, ipr: Any) -> None:
         if ipr is None:
             raise KeyError("AF not found for address")
-        
+
         self.af = af
         self.ip = ip
         self.port = port
@@ -96,8 +97,11 @@ class DestTup():
     def supported(self) -> List[int]:
         return [self.af]
 
-class Address():
-    def __init__(self, host: Any, port: int, nic: Optional[Any] = None, conf: Any = NET_CONF) -> None:
+
+class Address:
+    def __init__(
+        self, host: Any, port: int, nic: Optional[Any] = None, conf: Any = NET_CONF
+    ) -> None:
         self.host = host
         self.port = port
         self.nic = nic
@@ -105,8 +109,10 @@ class Address():
         self.IP6 = self.IP4 = None
         self.v6_ipr = self.v4_ipr = None
         self.resolved = False
-    
-    async def res(self, route: Optional[Any] = None, host: Optional[Any] = None) -> "Address":
+
+    async def res(
+        self, route: Optional[Any] = None, host: Optional[Any] = None
+    ) -> "Address":
         host = host or self.host
         try:
             # Ensure human-readable IPs aren't passed as binary.
@@ -128,9 +134,9 @@ class Address():
                 nic_id = route.interface.id
             else:
                 nic_id = None
-        
+
             # Apply any needed IP patches.
-            #ip = self.patch_ip(ipr_norm(ipr), ipr, nic_id)
+            # ip = self.patch_ip(ipr_norm(ipr), ipr, nic_id)
             ip = patch_connect_ip(ipr.af, ipr_norm(ipr), nic_id, ipr)
             if ip in VALID_LOOPBACKS:
                 ipr.is_loopback = True
@@ -150,8 +156,7 @@ class Address():
                 # Uses a manual DNS req to resolve a domain.
                 # Bypasses any DNS errors.
                 results = await asyncio.wait_for(
-                    async_res_domain(host, route),
-                    self.conf["dns_timeout"]
+                    async_res_domain(host, route), self.conf["dns_timeout"]
                 )
 
                 # Ensure some IPs returned.
@@ -162,8 +167,7 @@ class Address():
             except (OSError, asyncio.TimeoutError, ValueError, ImportError):
                 # If that fails -- fallback to getaddrinfo.
                 results = await asyncio.wait_for(
-                    sock_res_domain(host, route),
-                    self.conf["dns_timeout"]
+                    sock_res_domain(host, route), self.conf["dns_timeout"]
                 )
 
                 # Otherwise complete failure.
@@ -189,10 +193,11 @@ class Address():
 
         return DestTup(af, ip, self.port, ipr)
 
+
 async def resolv_dest(af: int, dest: Any, nic: Any) -> Any:
     if isinstance(dest, DestTup):
         return dest.tup
-    
+
     if isinstance(dest, tuple):
         try:
             # An IP -- already resolved.
@@ -200,7 +205,6 @@ async def resolv_dest(af: int, dest: Any, nic: Any) -> Any:
             return dest
         except ValueError:
             dest = await Address(*dest, nic)
-    
+
     if isinstance(dest, Address):
         return dest.select_ip(af).tup
-

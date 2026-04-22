@@ -14,7 +14,8 @@ class TestHTTPClientLib(unittest.IsolatedAsyncioTestCase):
         except Exception:
             has_thrown = True
 
-        assert(has_thrown)
-        
-if __name__ == '__main__':
+        assert has_thrown
+
+
+if __name__ == "__main__":
     main()

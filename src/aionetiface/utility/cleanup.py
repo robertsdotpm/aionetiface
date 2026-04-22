@@ -3,9 +3,8 @@ import sys
 import asyncio
 import multiprocessing
 import signal as signal_mod
-from typing import Any, List, Optional, Set
+from typing import Any, List, Optional
 from .utils import log, log_exception
-
 
 
 async def cancel_task(task: Optional[Any]) -> None:
@@ -62,6 +61,7 @@ def cancel_all_tasks(loop: Any) -> None:
         Task = getattr(asyncio, "Task", None)
         if Task is None or not hasattr(Task, "all_tasks"):
             import types
+
             for name, mod in list(asyncio.__dict__.items()):
                 if isinstance(mod, types.ModuleType) and hasattr(mod, "Task"):
                     Task = mod.Task
@@ -83,11 +83,13 @@ def cancel_all_tasks(loop: Any) -> None:
         except asyncio.CancelledError:
             continue
         if exc is not None:
-            loop.call_exception_handler({
-                'message': 'unhandled exception during asyncio.run() shutdown',
-                'exception': exc,
-                'task': task,
-            })
+            loop.call_exception_handler(
+                {
+                    "message": "unhandled exception during asyncio.run() shutdown",
+                    "exception": exc,
+                    "task": task,
+                }
+            )
 
 
 async def shutdown_executor_with_timeout(executor: Any, timeout: int = 3) -> None:
@@ -120,7 +122,11 @@ async def shutdown_proc_pool(proc_pool: Any) -> None:
     end = loop.time() + 3
     while True:
         active = multiprocessing.active_children()
-        remaining = {c for c in active if c.pid in executor_pids} if executor_pids else set(active)
+        remaining = (
+            {c for c in active if c.pid in executor_pids}
+            if executor_pids
+            else set(active)
+        )
         if not remaining or loop.time() >= end:
             break
         await asyncio.sleep(0.5)

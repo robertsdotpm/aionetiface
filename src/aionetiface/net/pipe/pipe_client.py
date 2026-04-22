@@ -1,6 +1,6 @@
 import asyncio
 import re
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Tuple
 from ...utility.utils import fstr
 from ...protocol.ack_udp import *
 from ..net_defs import NET_CONF, SUB_ALL
@@ -8,7 +8,6 @@ from ..net_utils import *
 from ..ip_range import *
 from .pipe_defs import *
 from .pipe_utils import *
-from ..asyncio.create_udp_fallback import PolledDatagramTransport
 
 
 """
@@ -18,8 +17,11 @@ for handles to handle messages as they come in. The fetching
 API needs for messages to be subscribed to beforehand.
 """
 
+
 class PipeClient(ACKUDP):
-    def __init__(self, pipe_events: Any, loop: Optional[Any] = None, conf: Any = NET_CONF) -> None:
+    def __init__(
+        self, pipe_events: Any, loop: Optional[Any] = None, conf: Any = NET_CONF
+    ) -> None:
         super().__init__()
         self.conf = conf
         self.dest = None
@@ -42,6 +44,7 @@ class PipeClient(ACKUDP):
     (2) TCP cons have a dest set.
     (3) TCP and UDP servers won't have a dest.
     """
+
     def set_dest_tup(self, dest_tup: Optional[Tuple[Any, ...]]) -> None:
         dest_tup = client_tup_norm(dest_tup)
         self.dest_tup = dest_tup
@@ -51,7 +54,10 @@ class PipeClient(ACKUDP):
     For UDP this is a asyncio.DatagramTransport.
     For TCP it's a asyncio.StreamWriter.
     """
-    def set_handle(self, handle: Any, client_tup: Optional[Tuple[Any, ...]] = None) -> None:
+
+    def set_handle(
+        self, handle: Any, client_tup: Optional[Tuple[Any, ...]] = None
+    ) -> None:
         if client_tup is not None:
             client_tup = client_tup_norm(client_tup)
             self.handle[client_tup] = handle
@@ -61,7 +67,13 @@ class PipeClient(ACKUDP):
     def hash_sub(self, sub: Any) -> int:
         h = hash(sub[0])
         if sub[1] is not None:
-            client_tup_str = fstr("{0}:{1}", (sub[1][0], sub[1][1],))
+            client_tup_str = fstr(
+                "{0}:{1}",
+                (
+                    sub[1][0],
+                    sub[1][1],
+                ),
+            )
             h += hash(client_tup_str)
 
         return h
@@ -72,17 +84,13 @@ class PipeClient(ACKUDP):
     def subscribe(self, sub: Any, handler: Optional[Any] = None) -> int:
         b_msg_p, client_tup = sub
         if client_tup is not None:
-            assert(isinstance(client_tup[1], int))
+            assert isinstance(client_tup[1], int)
             client_tup = norm_client_tup(client_tup)
             sub = (b_msg_p, client_tup)
 
         offset = self.hash_sub(sub)
         if offset not in self.subs:
-            self.subs[offset] = [
-                sub,
-                asyncio.Queue(self.conf["max_qsize"]),
-                handler
-            ]
+            self.subs[offset] = [sub, asyncio.Queue(self.conf["max_qsize"]), handler]
 
         return offset
 
@@ -101,11 +109,12 @@ class PipeClient(ACKUDP):
     being empty? Should it discard data? Maybe on limit - 1
     call https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.remove_reader and on queue empty add it back.
     """
+
     def add_msg(self, data: bytes, client_tup: Tuple[Any, ...]) -> None:
         # No subscriptions.
         if not len(self.subs):
             return
-        
+
         # Norm compressed IPv6 addresses.
         client_tup = client_tup_norm(client_tup)
 
@@ -118,7 +127,7 @@ class PipeClient(ACKUDP):
                 q.get_nowait()
 
             # Put an item on the queue.
-            assert(isinstance(client_tup, tuple))
+            assert isinstance(client_tup, tuple)
             q.put_nowait([client_tup, data])
 
         # Apply bool filters to message.
@@ -130,7 +139,7 @@ class PipeClient(ACKUDP):
             # Check client_addr matches their host pattern.
             if m_client_tup is not None:
                 # Also check the source port.
-                assert(isinstance(m_client_tup[1], int))
+                assert isinstance(m_client_tup[1], int)
                 if m_client_tup[1]:
                     if m_client_tup != client_tup:
                         continue
@@ -148,12 +157,7 @@ class PipeClient(ACKUDP):
 
             # Execute message using handle instead of adding to queue.
             if handler is not None:
-                run_handler(
-                    self.pipe_events,
-                    handler,
-                    client_tup,
-                    data
-                )
+                run_handler(self.pipe_events, handler, client_tup, data)
 
                 continue
 
@@ -162,14 +166,24 @@ class PipeClient(ACKUDP):
             do_add(q)
 
         if not msg_added:
-            log(fstr("Discarded {0} = {1}", (client_tup, data,)))
+            log(
+                fstr(
+                    "Discarded {0} = {1}",
+                    (
+                        client_tup,
+                        data,
+                    ),
+                )
+            )
 
     # Async wait for a message that matches a pattern in a queue.
-    async def recv(self, sub: Any = SUB_ALL, timeout: int = 2, full: bool = False) -> Optional[bytes]:
+    async def recv(
+        self, sub: Any = SUB_ALL, timeout: int = 2, full: bool = False
+    ) -> Optional[bytes]:
         recv_timeout = timeout or self.conf["recv_timeout"]
         msg_p, addr_p = sub
         if addr_p is not None:
-            assert(isinstance(addr_p[1], int))
+            assert isinstance(addr_p[1], int)
             addr_p = client_tup_norm(addr_p)
             sub = (msg_p, addr_p)
 
@@ -181,19 +195,11 @@ class PipeClient(ACKUDP):
 
             # Get message from queue with timeout.
             _, q, handler = self.subs[offset]
-            ret = await asyncio.wait_for(
-                q.get(),
-                recv_timeout
-            )
+            ret = await asyncio.wait_for(q.get(), recv_timeout)
 
             # Run handler if one is set.
             if handler is not None:
-                run_handler(
-                    self.pipe_events,
-                    handler,
-                    ret[0],
-                    ret[1]
-                )
+                run_handler(self.pipe_events, handler, ret[0], ret[1])
 
             # Return data, sender_tup.
             if full:
@@ -234,7 +240,10 @@ class PipeClient(ACKUDP):
 
             # UDP send -- not connected - can be sent to anyone.
             # Single handle for multiplexing.
-            if self.pipe_events.proto in (UDP, RUDP,):
+            if self.pipe_events.proto in (
+                UDP,
+                RUDP,
+            ):
                 """
                 When you bind to IPv6 you specify the 4 tup. The 4 tup must be
                 provided for dest (ip, port, 0, scope_id) but the last two can be
@@ -243,26 +252,20 @@ class PipeClient(ACKUDP):
                 the dest tup as well.
                 """
                 if self.route.af == IP6:
-                    if dest_tup[0][:2] in ("fe", "fd",):
+                    if dest_tup[0][:2] in (
+                        "fe",
+                        "fd",
+                    ):
                         nic_id = int(self.route.interface.id)
                     else:
                         nic_id = 0
-                    
-                    # 4 tup dest for UDP IPv6.
-                    dest_tup = (
-                        dest_tup[0],
-                        dest_tup[1],
-                        0,
-                        nic_id
-                    )
 
-                handle.sendto(
-                    data,
-                    dest_tup
-                )
+                    # 4 tup dest for UDP IPv6.
+                    dest_tup = (dest_tup[0], dest_tup[1], 0, nic_id)
+
+                handle.sendto(data, dest_tup)
 
                 return 1
-
 
             # TCP send -- already bound to transport con.
             # TCP Transport instance.
@@ -270,7 +273,7 @@ class PipeClient(ACKUDP):
                 # This also works for SSL wrapped sockets.
                 handle.write(data)
 
-                #await self.pipe_events.safe_write(data)
+                # await self.pipe_events.safe_write(data)
 
                 """
                 await self.loop.sock_sendall(
@@ -279,7 +282,7 @@ class PipeClient(ACKUDP):
                 )
                 """
 
-                #await handle.drain()
+                # await handle.drain()
 
                 return 1
 

@@ -1,6 +1,7 @@
 from typing import Any
 from aionetiface import *
 
+
 class TestDaemon(unittest.IsolatedAsyncioTestCase):
     async def test_daemon(self) -> None:
         loop = asyncio.get_event_loop()
@@ -8,10 +9,7 @@ class TestDaemon(unittest.IsolatedAsyncioTestCase):
 
         protos = (TCP, UDP)
         server_port = 34200
-        loopbacks = {
-            IP4: "127.0.0.1",
-            IP6: "::1"
-        }
+        loopbacks = {IP4: "127.0.0.1", IP6: "::1"}
 
         at_least_one = False
         i = 0
@@ -24,7 +22,6 @@ class TestDaemon(unittest.IsolatedAsyncioTestCase):
         print(aionetiface_fds)
         return
         """
-
 
         afs = [IP4]
         for af in afs:
@@ -53,22 +50,21 @@ class TestDaemon(unittest.IsolatedAsyncioTestCase):
                 msg = b"hello world ay lmaoo"
                 for proto in protos:
                     log(fstr("test daemon proto = {0}", (proto,)))
-                    #print()
-                    #print(proto)
-                    #print(addr)
+                    # print()
+                    # print(proto)
+                    # print(addr)
 
                     # Fresh route per server.
                     i += 1
-                    echo_route = await interface.route(af).bind(ips=addr, port=server_port + i)
-                    #print(echo_route)
-                    #print(echo_route._bind_tups)
+                    echo_route = await interface.route(af).bind(
+                        ips=addr, port=server_port + i
+                    )
+                    # print(echo_route)
+                    # print(echo_route._bind_tups)
 
                     # Daemon instance.
                     echod = EchoServer()
-                    await echod.add_listener(
-                        proto,
-                        echo_route
-                    )
+                    await echod.add_listener(proto, echo_route)
 
                     if addr == "*":
                         addr = "localhost"
@@ -85,7 +81,7 @@ class TestDaemon(unittest.IsolatedAsyncioTestCase):
                         pipe.subscribe(SUB_ALL)
 
                         # Send message to server.
-                        #print(dest.tup)
+                        # print(dest.tup)
                         send_ret = await pipe.send(msg, dest)
 
                         # Receive data back.
@@ -113,18 +109,17 @@ class TestDaemon(unittest.IsolatedAsyncioTestCase):
 
                         Does end up clearing servers FDs.
                         """
-                        
-                        #simulate misbehaving client not closing.
+
+                        # simulate misbehaving client not closing.
                         """
                         if pipe is not None:
                             await pipe.close()
                         """
-                            
+
                         if echod is not None:
                             await echod.close()
-                        
 
-        #await asyncio.sleep(4)
+        # await asyncio.sleep(4)
         print(aionetiface_fds)
         await asyncio.sleep(0.1)
 
@@ -136,7 +131,8 @@ class TestDaemon(unittest.IsolatedAsyncioTestCase):
         a manual proto is done for udp the socket still exists
         """
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
 
 """

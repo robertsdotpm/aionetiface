@@ -1,5 +1,5 @@
-
 from aionetiface import *
+
 
 async def example():
     serv = Daemon()
@@ -10,8 +10,9 @@ async def example():
         TCP,
         route,
     )
-    
+
     await serv.close()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     async_test(example)

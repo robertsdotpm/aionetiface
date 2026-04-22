@@ -4,23 +4,38 @@ from http.client import HTTPResponse
 import json
 import urllib.parse
 from typing import Any, Dict, List, Optional, Tuple
-from ...net.net_defs import IP4, IP6, TCP, UDP, NET_CONF
+from ...net.net_defs import IP4, TCP, NET_CONF
 from ...net.pipe.pipe import Pipe
-from ...net.address import Address, DestTup, resolv_dest
+from ...net.address import resolv_dest
 from ...utility.utils import fstr, log, log_exception, to_b, to_s, async_wrap_errors
 
 __all__ = [
-    "HTTP_HEADERS", "http_req_buf", "http_parse_headers", "ParseHTTPResponse",
-    "get_hdr", "url_res", "Payload", "do_web_req", "WebCurl",
+    "HTTP_HEADERS",
+    "http_req_buf",
+    "http_parse_headers",
+    "ParseHTTPResponse",
+    "get_hdr",
+    "url_res",
+    "Payload",
+    "do_web_req",
+    "WebCurl",
 ]
 
 HTTP_HEADERS = [
     [b"User-Agent", b"curl/7.54.0"],
     [b"Origin", b"null"],
-    [b"Accept", b"*/*"]
+    [b"Accept", b"*/*"],
 ]
 
-def http_req_buf(af: int, host: Any, path: bytes = b"/", method: bytes = b"GET", payload: bytes = b"", headers: Optional[List[Any]] = None) -> bytes:
+
+def http_req_buf(
+    af: int,
+    host: Any,
+    path: bytes = b"/",
+    method: bytes = b"GET",
+    payload: bytes = b"",
+    headers: Optional[List[Any]] = None,
+) -> bytes:
     # Format headers.
     hdrs = {}
     if headers is None:
@@ -31,7 +46,7 @@ def http_req_buf(af: int, host: Any, path: bytes = b"/", method: bytes = b"GET",
     # Raw http request.
     # Very important: 1.0 is used to disable 'chunked encoding.'
     # Chunked encoding overly complicates processing HTTP responses.
-    buf  = b"%s %s HTTP/1.0\r\n" % (to_b(method), to_b(path))
+    buf = b"%s %s HTTP/1.0\r\n" % (to_b(method), to_b(path))
     if af == IP4:
         host = to_b(host)
     else:
@@ -43,7 +58,7 @@ def http_req_buf(af: int, host: Any, path: bytes = b"/", method: bytes = b"GET",
         # Don't add host header twice.
         if n.lower() == b"host":
             continue
-        
+
         # Skip duplicate headers.
         if n not in hdrs:
             buf += b"%s: %s\r\n" % (n, v)
@@ -52,10 +67,10 @@ def http_req_buf(af: int, host: Any, path: bytes = b"/", method: bytes = b"GET",
     # Add content length for payload.
     if payload is not None:
         buf += to_b(fstr("Content-Length: {0}\r\n", (len(payload),)))
-    
+
     # Terminate headers.
     buf = buf[:-2]
-    assert(buf[-1] not in [b'\r', b'\n'])
+    assert buf[-1] not in [b"\r", b"\n"]
     buf += b"\r\n\r\n"
 
     # Append payload (if any.)
@@ -63,6 +78,7 @@ def http_req_buf(af: int, host: Any, path: bytes = b"/", method: bytes = b"GET",
         buf += to_b(payload)
 
     return buf
+
 
 def http_parse_headers(self: Any) -> None:
     # Get headers from named pair list.
@@ -73,12 +89,13 @@ def http_parse_headers(self: Any) -> None:
         hdrs[name.lower()] = value
 
     # Set origin.
-    if 'Origin' not in hdrs:
-        hdrs['Origin'] = 'null'
-        hdrs['origin'] = 'null'
+    if "Origin" not in hdrs:
+        hdrs["Origin"] = "null"
+        hdrs["origin"] = "null"
 
     # Save header list.
     self.hdrs = hdrs
+
 
 class ParseHTTPResponse(HTTPResponse):
     def __init__(self, resp_text: bytes) -> None:
@@ -95,19 +112,21 @@ class ParseHTTPResponse(HTTPResponse):
 
     def out(self) -> bytes:
         return self.read(self.resp_len)
-    
+
+
 def get_hdr(name: Any, hdrs: Any) -> Tuple[int, Optional[Any]]:
     # Hdrs none probably.
     if not isinstance(hdrs, list):
         return (-1, None)
-    
+
     # Look for particular HTTP header.
     for index, hdr in enumerate(hdrs):
         if hdr[0].lower() == name.lower():
             return (index, hdr[1])
-        
+
     # Not found.
     return (-1, None)
+
 
 async def url_res(route: Any, url: str, timeout: int = 3) -> Dict[str, Any]:
     """
@@ -132,18 +151,14 @@ async def url_res(route: Any, url: str, timeout: int = 3) -> Dict[str, Any]:
     )
 
     # Return URL parts.
-    return {
-        "host": host,
-        "port": port,
-        "path": path,
-        "dest": dest
-    }
+    return {"host": host, "port": port, "path": path, "dest": dest}
 
 
 # Web payload decorators
 def Payload(f: Any, url: Optional[Dict[str, Any]] = None, body: bytes = b"") -> Any:
     if url is None:
         url = {}
+
     async def wrapper(path, hdrs=None):
         if hdrs is None:
             hdrs = []
@@ -151,8 +166,15 @@ def Payload(f: Any, url: Optional[Dict[str, Any]] = None, body: bytes = b"") -> 
 
     return wrapper
 
+
 # Returns pipe, ParseHTTPResponse
-async def do_web_req(addr: Any, http_buf: bytes, do_close: int, route: Any, conf: Dict[str, Any] = NET_CONF) -> Tuple[Optional[Any], Optional[Any]]:
+async def do_web_req(
+    addr: Any,
+    http_buf: bytes,
+    do_close: int,
+    route: Any,
+    conf: Dict[str, Any] = NET_CONF,
+) -> Tuple[Optional[Any], Optional[Any]]:
     log(fstr("{0}", (addr,)))
 
     # Open TCP connection to HTTP server.
@@ -174,7 +196,6 @@ async def do_web_req(addr: Any, http_buf: bytes, do_close: int, route: Any, conf
         await p.close()
         return None, None
 
-
     # Read TCP stream until headers contain Content-Length
     out = b""
     content_len = 0
@@ -182,7 +203,7 @@ async def do_web_req(addr: Any, http_buf: bytes, do_close: int, route: Any, conf
     headers = b""
     content = b""
     while True:
-        buf = await p.recv(SUB_ALL, timeout=conf['recv_timeout'])
+        buf = await p.recv(SUB_ALL, timeout=conf["recv_timeout"])
         if not buf:
             break
         out += buf
@@ -206,7 +227,7 @@ async def do_web_req(addr: Any, http_buf: bytes, do_close: int, route: Any, conf
     # Read remaining content if a Content-Length told us how much to expect.
     if content_len:
         while len(content) < content_len:
-            buf = await p.recv(SUB_ALL, timeout=conf['recv_timeout'])
+            buf = await p.recv(SUB_ALL, timeout=conf["recv_timeout"])
             if not buf:
                 break
             content += buf
@@ -228,7 +249,8 @@ async def do_web_req(addr: Any, http_buf: bytes, do_close: int, route: Any, conf
 
     return p, out
 
-class WebCurl():
+
+class WebCurl:
     """
     Minimal async HTTP client.
 
@@ -239,7 +261,15 @@ class WebCurl():
         resp.out    # raw response body bytes
         resp.info   # parsed ParseHTTPResponse object
     """
-    def __init__(self, addr: Any, route: Any, throttle: int = 0, do_close: int = 1, hdrs: Optional[List[Any]] = None) -> None:
+
+    def __init__(
+        self,
+        addr: Any,
+        route: Any,
+        throttle: int = 0,
+        do_close: int = 1,
+        hdrs: Optional[List[Any]] = None,
+    ) -> None:
         self.addr = addr
         self.route = route
         self.url_params = {}
@@ -265,7 +295,9 @@ class WebCurl():
         client.do_close = self.do_close
         return client
 
-    def vars(self, url_params: Optional[Dict[str, Any]] = None, body: bytes = b"") -> "WebCurl":
+    def vars(
+        self, url_params: Optional[Dict[str, Any]] = None, body: bytes = b""
+    ) -> "WebCurl":
         # Avoid race conditions.
         client = self.copy()
         if url_params is None:
@@ -275,13 +307,15 @@ class WebCurl():
         if len(url_params):
             client.url_params = {
                 "safe": urllib.parse.urlencode(url_params),
-                "unsafe": url_params
+                "unsafe": url_params,
             }
 
         client.body = body
         return client
-    
-    async def api(self, method: Any, path: Any, hdrs: Any, conf: Dict[str, Any]) -> "WebCurl":
+
+    async def api(
+        self, method: Any, path: Any, hdrs: Any, conf: Dict[str, Any]
+    ) -> "WebCurl":
         # New instance to avoid race conditions.
         client = self.copy()
         client.path = path
@@ -289,7 +323,7 @@ class WebCurl():
 
         # Append url encoded path if present.
         if len(client.url_params):
-            path += fstr('?{0}', (client.url_params["safe"],))
+            path += fstr("?{0}", (client.url_params["safe"],))
 
         # If payload is a dict convert to json buf.
         hdrs = hdrs or self.hdrs
@@ -306,7 +340,7 @@ class WebCurl():
             path=path,
             method=method,
             payload=client.body,
-            headers=hdrs
+            headers=hdrs,
         )
 
         # Save request for debugging.
@@ -322,10 +356,10 @@ class WebCurl():
         ret = await async_wrap_errors(
             do_web_req(
                 route=route,
-                addr=addr, 
+                addr=addr,
                 http_buf=req_buf,
                 do_close=client.do_close,
-                conf=conf
+                conf=conf,
             )
         )
 
@@ -345,11 +379,26 @@ class WebCurl():
 
         return client
 
-    async def get(self, path: Any, hdrs: Optional[List[Any]] = None, conf: Dict[str, Any] = NET_CONF) -> "WebCurl":
+    async def get(
+        self,
+        path: Any,
+        hdrs: Optional[List[Any]] = None,
+        conf: Dict[str, Any] = NET_CONF,
+    ) -> "WebCurl":
         return await self.api("GET", path, hdrs or [], conf)
 
-    async def post(self, path: Any, hdrs: Optional[List[Any]] = None, conf: Dict[str, Any] = NET_CONF) -> "WebCurl":
+    async def post(
+        self,
+        path: Any,
+        hdrs: Optional[List[Any]] = None,
+        conf: Dict[str, Any] = NET_CONF,
+    ) -> "WebCurl":
         return await self.api("POST", path, hdrs or [], conf)
 
-    async def delete(self, path: Any, hdrs: Optional[List[Any]] = None, conf: Dict[str, Any] = NET_CONF) -> "WebCurl":
+    async def delete(
+        self,
+        path: Any,
+        hdrs: Optional[List[Any]] = None,
+        conf: Dict[str, Any] = NET_CONF,
+    ) -> "WebCurl":
         return await self.api("DELETE", path, hdrs or [], conf)

@@ -6,13 +6,12 @@ from typing import Any, Optional, List
 from aionetiface import *
 
 
-
 class TestCmd(unittest.IsolatedAsyncioTestCase):
     async def do_esc_test(self, s: str) -> Any:
         # So paths with spaces don't break the command.
         py = sys.executable
         c = "import sys; print(sys.argv[-1], end='')"
-        buf = py + "\" -c \"" + c + "\" " + s
+        buf = py + '" -c "' + c + '" ' + s
         return await cmd(buf)
 
     async def test_escape(self) -> None:
@@ -20,118 +19,50 @@ class TestCmd(unittest.IsolatedAsyncioTestCase):
         if platform.system() in ["Windows"]:
             tests = [
                 # Regular command with double quotes in it.
-                [
-                    'test "somèthing"',
-                    '"test \\"somèthing\\""'
-                ],
-
+                ['test "somèthing"', '"test \\"somèthing\\""'],
                 # Sneaky attempt to escape enclosing last slash.
-                [
-                    'test x\\',
-                    '"test x\\\\"'
-                ],
-
+                ["test x\\", '"test x\\\\"'],
                 # Another attempt to escape last enclosing slash.
                 # As long as it's in double quotes it has no effect.
-                [
-                    'test x^',
-                    '"test x^^"'
-                ],
-
+                ["test x^", '"test x^^"'],
                 # Test some special charas.
-                [
-                    'test ! %',
-                    '"test ^! ^%"'
-
-                ],
-
+                ["test ! %", '"test ^! ^%"'],
                 # Test escape list impact inside string.
-                [
-                    ',:;=\t&><|',
-                    '"^,:^;=\t^&^>^<^|"'
-                ],
-
+                [",:;=\t&><|", '"^,:^;=\t^&^>^<^|"'],
                 # Test unbalanced double quotes escape.
-                [
-                    'hax """',
-                    '"hax \\"\\"\\""'
-                ]
+                ['hax """', '"hax \\"\\"\\""'],
             ]
 
         if platform.system() == "Linux":
             tests = [
                 # Regular command with double quotes in it.
-                [
-                    'tèst "something"',
-                    "'tèst \"something\"'"
-                ],
-
+                ['tèst "something"', "'tèst \"something\"'"],
                 # Sneaky attempt to escape enclosing last slash.
-                [
-                    'test x\\',
-                    "'test x\\'"
-                ],
-
+                ["test x\\", "'test x\\'"],
                 # Test some special charas.
-                [
-                    'test ! %',
-                    "'test ! %'"
-
-                ],
-
+                ["test ! %", "'test ! %'"],
                 # Test escape list impact inside string.
-                [
-                    ',:;=\t&><|',
-                    "',:;=\t&><|'"
-                ],
-
+                [",:;=\t&><|", "',:;=\t&><|'"],
                 # Test unbalanced double quotes escape.
                 # IDK why it's escaped like this but seems it works.
-                [
-                    'hax \'\'\'',
-                    '\'hax \'"\'"\'\'"\'"\'\'"\'"\'\''
-                ]
+                ["hax '''", "'hax '\"'\"''\"'\"''\"'\"''"],
             ]
 
         if platform.system() in ["FreeBSD", "Darwin"]:
             tests = [
                 # Regular command with double quotes in it.
-                [
-                    'tèst "something"',
-                    '"tèst \\"something\\""'
-                ],
-
+                ['tèst "something"', '"tèst \\"something\\""'],
                 # Sneaky attempt to escape enclosing last slash.
-                [
-                    'test x\\',
-                    '"test x\\\\"'
-                ],
-
+                ["test x\\", '"test x\\\\"'],
                 # Another attempt to escape last enclosing slash.
                 # As long as it's in double quotes it has no effect.
-                [
-                    'test x^',
-                    '"test x^"'
-                ],
-
+                ["test x^", '"test x^"'],
                 # Test some special charas.
-                [
-                    'test ! %',
-                    '"test ! %"'
-
-                ],
-
+                ["test ! %", '"test ! %"'],
                 # Test escape list impact inside string.
-                [
-                    ',:;=\t&><|',
-                    '",:;=\t&><|"'
-                ],
-
+                [",:;=\t&><|", '",:;=\t&><|"'],
                 # Test unbalanced double quotes escape.
-                [
-                    'hax """',
-                    '"hax \\"\\"\\""'
-                ]
+                ['hax """', '"hax \\"\\"\\""'],
             ]
 
         esc = get_arg_escape_func()
@@ -185,5 +116,6 @@ class TestCmd(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(out in (True, False))
     """
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

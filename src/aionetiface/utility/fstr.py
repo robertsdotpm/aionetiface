@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 """Python2 f-string like behavior"""
+
 from __future__ import print_function
 import inspect
 import re
 from typing import Any, Optional, Tuple
 
 __all__ = ["fstr", "fstr2"]
+
 
 def fstr(expr: str, params: Tuple[Any, ...] = ()) -> str:
     # Replace each {expression} with the variable value.
@@ -15,8 +17,10 @@ def fstr(expr: str, params: Tuple[Any, ...] = ()) -> str:
             return str(params[index])
         except (IndexError, TypeError) as e:
             raise ValueError("Error evaluating expression " + str(index) + str(e))
-    out = re.sub(r'\{([^}]*)\}', replacer, expr)
+
+    out = re.sub(r"\{([^}]*)\}", replacer, expr)
     return out
+
 
 class fstr2(object):
     """Legacy string formatter that uses eval() to expand {expr} placeholders.
@@ -32,11 +36,13 @@ class fstr2(object):
         _string: the original template string.
         text: the formatted string with all {expr} placeholders expanded.
     """
+
     _regex = re.compile(r"\{([^{}]+)\}", re.S)
 
     def __init__(self, s: str, regex: Optional[Any] = None) -> None:
         """Init `F` with string `s`"""
         import warnings
+
         warnings.warn(
             "fstr2 is deprecated and uses eval() — use f-strings or fstr() instead.",
             DeprecationWarning,
@@ -69,7 +75,7 @@ class fstr2(object):
 
     def _clean_and_eval(self, m: Any) -> str:
         """Remove surrounding braces and whitespace from regex match `m`,
-            evaluate, and return the result as a string.
+        evaluate, and return the result as a string.
 
         """
         replaced = m.group()[1:][:-1].strip()
@@ -88,4 +94,3 @@ class fstr2(object):
 
     def __repr__(self) -> str:
         return str(self._string)
-

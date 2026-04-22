@@ -16,121 +16,49 @@ from aionetiface import *
 class TestBind(unittest.IsolatedAsyncioTestCase):
     async def test_binder(self) -> None:
         vectors = [
-            [
-                "Windows",
-                [IP4, "127.0.0.1", 80, None],
-                ('127.0.0.1', 80)
-            ],
-            [
-                "Windows",
-                [IP4, "localhost", 80, None],
-                ('127.0.0.1', 80)
-            ],
-            [
-                "Windows",
-                [IP6, "localhost", 80, None],
-                ('::1', 80, 0, 0)
-            ],
-            [
-                "Windows",
-                [IP6, "::1", 80, None],
-                ('::1', 80, 0, 0)
-            ],
-            [
-                "Windows",
-                [IP4, "*", 80, None],
-                ('0.0.0.0', 80)
-            ],
-            [
-                "Windows",
-                [IP4, "0.0.0.0", 80, None],
-                ('0.0.0.0', 80)
-            ],
-            [
-                "Windows",
-                [IP4, "", 80, None],
-                ('0.0.0.0', 80)
-            ],
-            [
-                "Windows",
-                [IP6, "*", 80, None],
-                ('::', 80, 0, 0)
-            ],
-            [
-                "Windows",
-                [IP6, "", 80, None],
-                ('::', 80, 0, 0)
-            ],
-            [
-                "Windows",
-                [IP6, "::", 80, None],
-                ('::', 80, 0, 0)
-            ],
-            [
-                "Windows",
-                [IP6, "::/0", 80, None],
-                ('::', 80, 0, 0)
-            ],
-            [
-                "Windows",
-                [IP4, "192.168.0.1", 80, None],
-                ('192.168.0.1', 80)
-            ],
-            [
-                "Windows",
-                [IP4, "8.8.8.8", 80, None],
-                ('8.8.8.8', 80)
-            ],
+            ["Windows", [IP4, "127.0.0.1", 80, None], ("127.0.0.1", 80)],
+            ["Windows", [IP4, "localhost", 80, None], ("127.0.0.1", 80)],
+            ["Windows", [IP6, "localhost", 80, None], ("::1", 80, 0, 0)],
+            ["Windows", [IP6, "::1", 80, None], ("::1", 80, 0, 0)],
+            ["Windows", [IP4, "*", 80, None], ("0.0.0.0", 80)],
+            ["Windows", [IP4, "0.0.0.0", 80, None], ("0.0.0.0", 80)],
+            ["Windows", [IP4, "", 80, None], ("0.0.0.0", 80)],
+            ["Windows", [IP6, "*", 80, None], ("::", 80, 0, 0)],
+            ["Windows", [IP6, "", 80, None], ("::", 80, 0, 0)],
+            ["Windows", [IP6, "::", 80, None], ("::", 80, 0, 0)],
+            ["Windows", [IP6, "::/0", 80, None], ("::", 80, 0, 0)],
+            ["Windows", [IP4, "192.168.0.1", 80, None], ("192.168.0.1", 80)],
+            ["Windows", [IP4, "8.8.8.8", 80, None], ("8.8.8.8", 80)],
             [
                 "Windows",
                 [IP6, "fe80::6c00:b217:18ca:e365", 80, 3],
-                ('fe80::6c00:b217:18ca:e365', 80, 0, 3)
+                ("fe80::6c00:b217:18ca:e365", 80, 0, 3),
             ],
             [
                 "Windows",
                 [IP6, "fd12:3456:789a:1::1", 80, 3],
-                ('fd12:3456:789a:1::1', 80, 0, 3)
+                ("fd12:3456:789a:1::1", 80, 0, 3),
             ],
             [
                 "Windows",
                 [IP6, "2402:1f00:8101:83f::1", 80, 3],
-                ('2402:1f00:8101:83f::1', 80, 0, 0)
+                ("2402:1f00:8101:83f::1", 80, 0, 0),
             ],
-            [
-                "debian",
-                [IP4, "127.0.0.1", 80, 3],
-                ('127.0.0.1', 80)
-            ],
-            [
-                "debian",
-                [IP6, "::", 80, 3],
-                ('::', 80, 0, 0)
-            ],
-            [
-                "debian",
-                [IP4, "0.0.0.0", 80, 3],
-                ('0.0.0.0', 80)
-            ],
+            ["debian", [IP4, "127.0.0.1", 80, 3], ("127.0.0.1", 80)],
+            ["debian", [IP6, "::", 80, 3], ("::", 80, 0, 0)],
+            ["debian", [IP4, "0.0.0.0", 80, 3], ("0.0.0.0", 80)],
             [
                 "debian",
                 [IP6, "fe80::6c00:b217:18ca:e365", 80, 3],
-                ('fe80::6c00:b217:18ca:e365', 80, 0, 3)
+                ("fe80::6c00:b217:18ca:e365", 80, 0, 3),
             ],
             [
                 "debian",
                 [IP6, "2402:1f00:8101:83f::1", 80, 3],
-                ('2402:1f00:8101:83f::1', 80, 0, 0)
+                ("2402:1f00:8101:83f::1", 80, 0, 0),
             ],
-            [
-                "debian",
-                [IP4, "192.168.0.1", 80, 3],
-                ('192.168.0.1', 80)
-            ],
-            [
-                "debian",
-                [IP4, "8.8.8.8", 80, 3],
-                ('8.8.8.8', 80)
-            ],
+            ["debian", [IP4, "192.168.0.1", 80, 3], ("192.168.0.1", 80)],
+            ["debian", [IP4, "8.8.8.8", 80, 3], ("8.8.8.8", 80)],
         ]
 
         failed = 0
@@ -154,7 +82,7 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
             else:
                 print(plat, " ", out, " == ", expected)
 
-        assert(failed == 0)
+        assert failed == 0
 
     async def test_bind_closure(self) -> None:
         pass
@@ -164,39 +92,39 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
 
         b.af = IP4
         out = (await bind_closure(b, binder_async)(80, "127.0.0.1"))._bind_tups
-        assert(out == ('127.0.0.1', 80))
+        assert out == ("127.0.0.1", 80)
 
         b = Bind(i, IP4, leave_none=1)
         out = (await bind_closure(b, binder_async)(80, "192.168.0.1"))._bind_tups
-        assert(out == ('192.168.0.1', 80))
+        assert out == ("192.168.0.1", 80)
 
         b = Bind(i, IP4, leave_none=1)
         out = (await bind_closure(b, binder_async)(80, "8.8.8.8"))._bind_tups
-        assert(out == ('8.8.8.8', 80))
+        assert out == ("8.8.8.8", 80)
 
         b = Bind(i, IP4, leave_none=1)
         out = (await bind_closure(b, binder_async)(80, "0.0.0.0"))._bind_tups
-        assert(out == ('0.0.0.0', 80))
+        assert out == ("0.0.0.0", 80)
 
         # This is where things tend to go badly.
         b.af = IP6
 
         b = Bind(i, IP6, leave_none=1)
         try:
-
             out = (await bind_closure(b, binder_async)(80, "::1"))._bind_tups
 
             b = Bind(i, IP6, leave_none=1)
 
-            out = (await bind_closure(b, binder_async)(80, "fe80::6c00:b217:18ca:e365"))._bind_tups
+            out = (
+                await bind_closure(b, binder_async)(80, "fe80::6c00:b217:18ca:e365")
+            )._bind_tups
         except (OSError, ValueError):
             log_exception()
 
-        #assert(out[1][2] > 0 or out[2][2] > 0)
+        # assert(out[1][2] > 0 or out[2][2] > 0)
 
+        # out = (await bind_closure(b)(80, ""))._bind_tups
 
-        #out = (await bind_closure(b)(80, ""))._bind_tups
-        
     async def test_bind(self) -> None:
         i = await Interface()
         af = i.stack if i.stack != DUEL_STACK else IP4
@@ -261,8 +189,7 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
     # TODO: netifaces is pulling invalid net masks for some IPs?
     async def test_bind_assumptions(self) -> None:
         ip = "139.99.209.1"
-        #socket.socket(IP4, TCP)
-
+        # socket.socket(IP4, TCP)
 
     async def test_bind_start_v4_all_addr(self) -> None:
         af = IP4
@@ -288,15 +215,11 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
             bind_tup = (
                 "::",
                 13453,
-
                 # NIC no and scope ID stuff from getaddrinfo.
                 route._bind_tups[EXT_BIND][2],
-                route._bind_tups[EXT_BIND][3]
+                route._bind_tups[EXT_BIND][3],
             )
-            expected_tups = {
-                EXT_BIND: bind_tup,
-                NIC_BIND: bind_tup
-            }
+            expected_tups = {EXT_BIND: bind_tup, NIC_BIND: bind_tup}
             self.assertEqual(route._bind_tups, expected_tups)
             s = await socket_factory(route)
             self.assertTrue(s is not None)
@@ -305,7 +228,8 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
         except (OSError, ValueError, TypeError):
             return
 
+
 # TODO loopback tests.
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

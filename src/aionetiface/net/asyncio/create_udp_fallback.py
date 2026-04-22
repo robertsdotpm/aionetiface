@@ -5,7 +5,6 @@ a fallback implementation using low-level socket operations.
 """
 
 import asyncio
-import socket
 from typing import Any, List, Optional
 
 
@@ -42,7 +41,6 @@ class PolledDatagramTransport:
             else:
                 self.sock.sendto(data, addr)
 
-            
         except OSError as e:
             self.protocol.error_received(e)
 
@@ -60,6 +58,7 @@ class PolledDatagramTransport:
         if name == "socket":
             return self.sock
         return default
+
 
 class UdpPoller:
     def __init__(self, loop: Any) -> None:

@@ -1,20 +1,20 @@
 import re
-import asyncio
 import sys
-if sys.platform == 'win32':
+
+if sys.platform == "win32":
     import winreg
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List
 from ....net.net_utils import *
 from ....utility.cmd_tools import *
 from ....utility.utils import fstr
 from ....net.ip_range import IPRange
 
 
-class NetshParse():
+class NetshParse:
     # netsh interface ipv4 show interfaces
     # netsh interface ipv6 show interfaces
-    # if_index: 
+    # if_index:
     @staticmethod
     def show_interfaces(af: int, msg: str) -> List[Any]:
         p = r"([0-9]+)\s+([0-9]+)\s+([0-9]+)\s+([a-z0-9]+)\s+([^\r\n]+)"
@@ -28,11 +28,11 @@ class NetshParse():
                     "metric": metric,
                     "mtu": mtu,
                     "state": state,
-                    "con_name": name
+                    "con_name": name,
                 }
 
         return [af, "ifs", results]
-    
+
     # netsh interface ipv4 show ipaddresses
     # netsh interface ipv6 show addresses
     # if_index: ...
@@ -56,26 +56,30 @@ class NetshParse():
 
             for addr_info in addr_infos:
                 # Unpack the result.
-                if_index, addr_type, dad_state, valid_life, pref_life, addr = addr_info[:6]
+                if_index, addr_type, dad_state, valid_life, pref_life, addr = addr_info[
+                    :6
+                ]
                 if if_index not in results:
                     results[if_index] = []
 
                 # Record details as a keyed record.
-                results[if_index].append({
-                    "addr_type": addr_type,
-                    "dad_state": dad_state,
-                    "valid_life": valid_life,
-                    "pref_life": pref_life,
-                    "addr": addr
-                })
+                results[if_index].append(
+                    {
+                        "addr_type": addr_type,
+                        "dad_state": dad_state,
+                        "valid_life": valid_life,
+                        "pref_life": pref_life,
+                        "addr": addr,
+                    }
+                )
 
                 # Remove the interface address line from the string.
                 # Otherwise the regex will match the same result.
-                #print(msg)
+                # print(msg)
                 msg = re.sub(p, fstr("Interface {0}\r\n", (if_index,)), msg, count=1)
 
         return [af, "addrs", results]
-    
+
     # netsh interface ipv4 show route
     # netsh interface ipv6 show route
     # Routes also show subnet for interface addresses.
@@ -89,16 +93,18 @@ class NetshParse():
             if if_index not in results:
                 results[if_index] = []
 
-            results[if_index].append({
-                "publish": publish,
-                "rtype": rtype,
-                "metric": metric,
-                "prefix": prefix,
-                "con_name": con_name
-            })
+            results[if_index].append(
+                {
+                    "publish": publish,
+                    "rtype": rtype,
+                    "metric": metric,
+                    "prefix": prefix,
+                    "con_name": con_name,
+                }
+            )
 
         return [af, "routes", results]
-    
+
     # route print
     # Also has ipv6 results.
     # if_index: ... if_name, mac
@@ -111,32 +117,24 @@ class NetshParse():
             if_index, mac, if_name = match_group
             mac = mac.strip().lower()
             mac = mac.replace(" ", "-")
-            results[if_index] = {
-                "if_name": if_name,
-                "mac": mac
-            }
+            results[if_index] = {"if_name": if_name, "mac": mac}
 
         # Setup entries for default gateways IP4.
         p = r"0[.]0[.]0[.]0\s+0[.]0[.]0[.]0\s+([^\s]+)\s+([^\s]+)\s+[0-9]+"
         out = re.findall(p, msg)
         if len(out):
             gw_ip, if_ip = out[0]
-            results["default"][IP4] = {
-                "gw_ip": gw_ip.strip(),
-                "if_ip": if_ip.strip()
-            }
+            results["default"][IP4] = {"gw_ip": gw_ip.strip(), "if_ip": if_ip.strip()}
 
         # Setup entries for default gateways IP6.
         p = r"[0-9]+\s+[0-9]+\s+::\/0\s+([^\s]+)"
         out = re.findall(p, msg)
         if len(out):
             gw_ip = out[0]
-            results["default"][IP6] = {
-                "gw_ip": gw_ip.strip()
-            }
+            results["default"][IP6] = {"gw_ip": gw_ip.strip()}
 
         return [af, "macs", results]
-    
+
     # ipconfig /all
     # mac: {ip4: ..., IP6: ...}
     @staticmethod
@@ -171,44 +169,27 @@ class NetshParse():
 
         return [af, "gws", results]
 
+
 async def do_netsh_cmds() -> Dict[str, Any]:
     parser = NetshParse()
     cmd_vectors = [
-        [
-            parser.show_interfaces,
-            {
-                IP4: "interfaces",
-                IP6: "interfaces"
-            }
-        ],
-        [
-            parser.show_addresses,
-            {
-                IP4: "ipaddresses",
-                IP6: "addresses"
-            }
-        ],
-        [
-            parser.show_route,
-            {
-                IP4: "route",
-                IP6: "route"
-            }
-        ],
+        [parser.show_interfaces, {IP4: "interfaces", IP6: "interfaces"}],
+        [parser.show_addresses, {IP4: "ipaddresses", IP6: "addresses"}],
+        [parser.show_route, {IP4: "route", IP6: "route"}],
         [
             parser.show_mac,
             {
                 IP4: "route print",
             },
-            False
+            False,
         ],
         [
             parser.show_gws,
             {
                 IP4: "ipconfig /all",
             },
-            False
-        ]
+            False,
+        ],
     ]
 
     async def helper(af, cmd_val, func):
@@ -224,7 +205,13 @@ async def do_netsh_cmds() -> Dict[str, Any]:
                 if len(cmd_vector) > 2:
                     cmd_val = show_val
                 else:
-                    cmd_val = fstr("netsh interface {0} show {1}", (af_val, show_val,))
+                    cmd_val = fstr(
+                        "netsh interface {0} show {1}",
+                        (
+                            af_val,
+                            show_val,
+                        ),
+                    )
 
                 tasks.append(helper(af, cmd_val, cmd_vector[0]))
 
@@ -253,11 +240,14 @@ its description. Examples of the net name are 'local area network.'
 Examples of an interface name 'Intel ... ethernet v10'.
 
 """
+
+
 def win_con_name_lookup() -> Dict[str, Any]:
     root_key = winreg.OpenKey(
-        winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\ControlSet001\Control\Network",
+        winreg.HKEY_LOCAL_MACHINE,
+        r"SYSTEM\ControlSet001\Control\Network",
         0,
-        winreg.KEY_READ
+        winreg.KEY_READ,
     )
 
     # Recursively crawl all portions looking for the right field.
@@ -276,10 +266,7 @@ def win_con_name_lookup() -> Dict[str, Any]:
                     if re.match(r"{[^{}]+}", sub_name) is None:
                         continue
 
-                    results += recurse_search(
-                        sub_key,
-                        guid=sub_name
-                    )
+                    results += recurse_search(sub_key, guid=sub_name)
             except OSError:
                 pass
             finally:
@@ -294,9 +281,10 @@ def win_con_name_lookup() -> Dict[str, Any]:
 
     # Look up interface names.
     root_key = winreg.OpenKey(
-        winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkCards",
+        winreg.HKEY_LOCAL_MACHINE,
+        r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkCards",
         0,
-        winreg.KEY_READ
+        winreg.KEY_READ,
     )
 
     # con_name -> {"guid": ..., "if_name": ...}
@@ -318,15 +306,15 @@ def win_con_name_lookup() -> Dict[str, Any]:
         for result in results:
             con_name, saved_guid = result
             if saved_guid == found_guid:
-                infos[con_name] = {
-                    "guid": saved_guid,
-                    "if_name": found_if_name
-                }
+                infos[con_name] = {"guid": saved_guid, "if_name": found_if_name}
 
     root_key.Close()
     return infos
 
-def get_host_limit_from_route_infos(needle_ip: str, route_infos: List[Dict[str, Any]]) -> List[Any]:
+
+def get_host_limit_from_route_infos(
+    needle_ip: str, route_infos: List[Dict[str, Any]]
+) -> List[Any]:
     netmask = None
     host_limit = 0
     for route_info in route_infos:
@@ -336,13 +324,11 @@ def get_host_limit_from_route_infos(needle_ip: str, route_infos: List[Dict[str, 
             continue
 
         import ipaddress as _ipa
+
         _max_bits = 128 if _ipa.ip_address(prefix_ip).version == 6 else 32
         _host_bits = _max_bits - prefix_cidr
         prefix_ipr = IPRange(prefix_ip, bitlen=_host_bits)
-        masked_needle_net = toggle_host_bits(
-            prefix_ipr.netmask,
-            needle_ip
-        )
+        masked_needle_net = toggle_host_bits(prefix_ipr.netmask, needle_ip)
         masked_needle_ipr = IPRange(masked_needle_net, bitlen=_host_bits)
 
         if prefix_ipr == masked_needle_ipr:
@@ -351,6 +337,7 @@ def get_host_limit_from_route_infos(needle_ip: str, route_infos: List[Dict[str, 
                 netmask = prefix_ipr.netmask
 
     return [host_limit, netmask]
+
 
 async def if_infos_from_netsh() -> List[Dict[str, Any]]:
     con_table = win_con_name_lookup()
@@ -368,15 +355,14 @@ async def if_infos_from_netsh() -> List[Dict[str, Any]]:
 
             for found_addr in out["addrs"][af][if_index]:
                 host_limit, netmask = get_host_limit_from_route_infos(
-                    found_addr["addr"],
-                    out["routes"][af][if_index]
+                    found_addr["addr"], out["routes"][af][if_index]
                 )
 
                 addr = {
                     "addr": found_addr["addr"],
                     "af": af,
                     "host_limit": host_limit,
-                    "netmask": netmask
+                    "netmask": netmask,
                 }
                 addr_info[af].append(addr)
 
@@ -413,7 +399,7 @@ async def if_infos_from_netsh() -> List[Dict[str, Any]]:
             "mac": mac,
             "addr": addr_info,
             "gws": gws,
-            "defaults": defaults
+            "defaults": defaults,
         }
 
         if_infos.append(result)

@@ -13,4 +13,5 @@ class Config:
         else:
             return UNCOMPRESSED_PUBLIC_KEY_SIZE
 
+
 ECIES_CONFIG = Config()

@@ -1,6 +1,7 @@
 import asyncio
 import uvloop
 
+
 class EchoProtocol(asyncio.DatagramProtocol):
     def connection_made(self, transport):
         self.transport = transport
@@ -8,6 +9,7 @@ class EchoProtocol(asyncio.DatagramProtocol):
     def datagram_received(self, data, addr):
         # Echo the received data back to the sender
         self.transport.sendto(data, addr)
+
 
 async def main():
     loop = asyncio.get_running_loop()
@@ -46,6 +48,7 @@ async def main():
 
     # Clean up server
     transport.close()
+
 
 if __name__ == "__main__":
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())

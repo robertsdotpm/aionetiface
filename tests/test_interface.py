@@ -1,6 +1,7 @@
 from typing import Any
 from aionetiface import *
 
+
 class TestInterface(unittest.IsolatedAsyncioTestCase):
     async def test_regular(self) -> None:
         global aionetiface_fds
@@ -9,15 +10,13 @@ class TestInterface(unittest.IsolatedAsyncioTestCase):
         """
         why are so many sockets created for one address?
         """
-        
-        loop = get_running_loop()
 
+        loop = get_running_loop()
 
         await asyncio.sleep(4)
         print(aionetiface_fds)
 
         await asyncio.sleep(5)
-
 
     async def test_fallback_zero_bind(self) -> None:
         return
@@ -43,11 +42,10 @@ class TestInterface(unittest.IsolatedAsyncioTestCase):
 
         # The fallbacks nic ip should be on the any addr.
         nic_ipr = IPRange(ANY_ADDR_LOOKUP[af], bitlen=host_limit)
-        assert(route.nic_ips[0] == nic_ipr)
+        assert route.nic_ips[0] == nic_ipr
 
         # While its ext IP should be public.
-        assert(route.ext_ips[0].is_public)
-        
+        assert route.ext_ips[0].is_public
 
     # Should find at least a valid iface on whatever OS.
     async def test_default_interface(self) -> None:
@@ -110,7 +108,7 @@ class TestInterface(unittest.IsolatedAsyncioTestCase):
         print(ifs)
         self.assertTrue(len(ifs))
 
-        # Check nic IP fetch. 
+        # Check nic IP fetch.
         i = ifs[0]
         af = i.supported()[0]
         n = i.nic(af)
@@ -130,6 +128,6 @@ class TestInterface(unittest.IsolatedAsyncioTestCase):
         as_s = str(i)
         self.assertTrue(as_s in repr(i))
 
-if __name__ == '__main__':
 
+if __name__ == "__main__":
     main()

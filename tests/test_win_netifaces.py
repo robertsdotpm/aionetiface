@@ -9,7 +9,7 @@
             # "Invoke-Expression (Read-Host)"
             p = subprocess.Popen(["powershell_ise.exe"],
                 stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True                     
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
             )
             time.sleep(4)
 
@@ -55,7 +55,7 @@
 
             i = await aionetiface_setup_netifaces()
             print(i)
-            
+
             return
 
 caching + look to see if anything changed in the guid reg keys to trigger new load
@@ -71,15 +71,15 @@ from aionetiface import *
 
 
 if platform.system() == "Windows":
+
     class TestWinNetifaces(unittest.IsolatedAsyncioTestCase):
-        
         async def test_win_netifaces_ps(self):
             try:
                 # test_get_interfaces(self):
                 out = await get_ifaces()
                 self.assertTrue(out != "")
 
-                #test_get_default_interface_by_if(self):
+                # test_get_default_interface_by_if(self):
                 found_one = False
                 for af in VALID_AFS:
                     out = await get_default_iface_by_af(af)
@@ -110,7 +110,7 @@ if platform.system() == "Windows":
                 # async def test_get_default_gw_by_if_index(self):
                 out = await get_ifaces()
                 result = extract_if_fields(out)[0]
-                
+
                 found_one = False
                 for af in VALID_AFS:
                     gw_info = await get_default_gw_by_if_index(af, result["no"])
@@ -157,5 +157,5 @@ if platform.system() == "Windows":
             guid = n.guid(if_name)
             self.assertTrue(len(guid))
 
-    if __name__ == '__main__':
+    if __name__ == "__main__":
         main()

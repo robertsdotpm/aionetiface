@@ -1,5 +1,6 @@
 from aionetiface import *
 
+
 # NOTE: Servers may change IPs!
 # Try use IP4 for af with another IP if it doesn't work.
 async def example():
@@ -19,5 +20,6 @@ async def example():
     print(wan_ip)
     print(ret)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     async_test(example)

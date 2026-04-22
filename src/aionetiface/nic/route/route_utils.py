@@ -17,7 +17,8 @@ consensus code is not needed.
 """
 ROUTE_CONSENSUS = [1, 1]
 
-def rp_from_fixed(fixed: List[Any], interface: Any, af: int) -> Any: # pragma: no cover
+
+def rp_from_fixed(fixed: List[Any], interface: Any, af: int) -> Any:  # pragma: no cover
     """
     [
         [
@@ -48,6 +49,7 @@ def rp_from_fixed(fixed: List[Any], interface: Any, af: int) -> Any: # pragma: n
 
     return RoutePool(routes)
 
+
 async def get_nic_iprs(af: int, interface: Any, netifaces: Any) -> List[Any]:
     tasks = []
     netifaces_af = af_to_netiface(af)
@@ -56,21 +58,21 @@ async def get_nic_iprs(af: int, interface: Any, netifaces: Any) -> List[Any]:
         bound_addresses = if_addresses[netifaces_af]
         for info in bound_addresses:
             # Only because it calls getaddrinfo is it async.
-            task = netiface_addr_to_ipr(
-                af,
-                interface.id,
-                info
-            )
+            task = netiface_addr_to_ipr(af, interface.id, info)
 
             tasks.append(task)
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
     return [r for r in results if r is not None and not isinstance(r, Exception)]
 
+
 def sort_routes(routes: List[Any]) -> List[Any]:
     # Deterministically order routes list.
-    cmp = lambda r1, r2: int(r1.ext_ips[0]) - int(r2.ext_ips[0])
+    def cmp(r1: Any, r2: Any) -> int:
+        return int(r1.ext_ips[0]) - int(r2.ext_ips[0])
+
     return sorted(routes, key=cmp_to_key(cmp))
+
 
 def get_route_by_src(src_ip: str, results: List[Tuple[str, Any]]) -> Optional[Any]:
     route = [y for x, y in results if x == src_ip]
@@ -81,18 +83,22 @@ def get_route_by_src(src_ip: str, results: List[Tuple[str, Any]]) -> Optional[An
 
     return route
 
-def exclude_routes_by_src(src_ips: List[str], results: List[Tuple[str, Any]]) -> List[Any]:
+
+def exclude_routes_by_src(
+    src_ips: List[str], results: List[Tuple[str, Any]]
+) -> List[Any]:
     new_list = []
     for src_ip, route in results:
         found_src = False
         for needle_ip in src_ips:
             if src_ip == needle_ip:
                 found_src = True
-        
+
         if not found_src:
             new_list.append(route)
 
     return new_list
+
 
 # Combine all routes from interface into RoutePool.
 def interfaces_to_rp(interface_list: List[Any]) -> Dict[int, Any]:
@@ -103,14 +109,13 @@ def interfaces_to_rp(interface_list: List[Any]) -> Dict[int, Any]:
             if af not in iface.rp:
                 continue
 
-            route_lists.append(
-                copy.deepcopy(iface.rp[af].routes)
-            )
+            route_lists.append(copy.deepcopy(iface.rp[af].routes))
 
         routes = sum(route_lists, [])
         rp[af] = RoutePool(routes)
 
     return rp
+
 
 # Converts a Bind object to a Route.
 # Interface for bind object may be None if it's loopback.
@@ -126,11 +131,11 @@ async def bind_to_route(bind_obj: Any) -> Any:
     ips = both set to ips value
     nic_bind or ext_bind based on dest address in sock_factory
     """
-    assert(bind_obj.resolved)
+    assert bind_obj.resolved
     interface = bind_obj.interface
     nic_bind = ext_bind = bind_obj._bind_tups[0]
     af = bind_obj.af
-    assert(interface.resolved)
+    assert interface.resolved
 
     """
     If the ext_bind contains a valid public address then
@@ -161,21 +166,18 @@ async def bind_to_route(bind_obj: Any) -> Any:
 
     # Build route object.
     route = Route(
-        af=af,
-        nic_ips=[nic_ipr],
-        ext_ips=[ext_ipr],
-        interface=interface,
-        ext_check=0
+        af=af, nic_ips=[nic_ipr], ext_ips=[ext_ipr], interface=interface, ext_check=0
     )
 
     # Bind to port in route.
     await route.bind(port=bind_obj.bind_port)
     return route
 
-if __name__ == "__main__": # pragma: no cover
+
+if __name__ == "__main__":  # pragma: no cover
     from .interface import Interface
 
-    async def test_get_routes() -> None: # pragma: no cover
+    async def test_get_routes() -> None:  # pragma: no cover
         internode_iface = Interface("enp3s0")
         starlink_iface = Interface("wlp2s0")
         iface_list = [internode_iface, starlink_iface]
@@ -196,7 +198,7 @@ if __name__ == "__main__": # pragma: no cover
         # Test no WAN route.
         af = IP6
         rp = await Routes(iface_list, af)
-        r1 = rp.routes[0]
+        rp.routes[0]
 
         # When resolving a route that isnt supported = slow
         # any way to get it to return faster?
@@ -217,7 +219,7 @@ if __name__ == "__main__": # pragma: no cover
 
         ipr = IPRange("192.168.0.0", "255.255.255.0")
         r = RoutePool([ipr])
-        #ipr2 = copy.deepcopy(ipr)
+        # ipr2 = copy.deepcopy(ipr)
 
         print(id(ipr.ip))
         print(id(r.routes[0].ip))
@@ -230,5 +232,3 @@ if __name__ == "__main__": # pragma: no cover
         print(route.ext_ips)
 
     async_test(test_get_routes)
-
-

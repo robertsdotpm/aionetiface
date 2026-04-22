@@ -2,11 +2,10 @@ import asyncio
 import multiprocessing
 import socket
 import sys
-from typing import Any, Optional
+from typing import Any
 from .settings import *
-from .servers import get_infra
 from .utility.utils import *
-from .net.net_defs import AF_ANY, IP4, IP6, UDP
+from .net.net_defs import AF_ANY, IP4
 from .net.asyncio.event_loop import *
 from .net.asyncio.async_run import *
 from .net.asyncio.asyncio_patches import *
@@ -44,7 +43,10 @@ similar stuff on Github. May be something to add in the future.
 Otherwise -- the nix and BSD versions happily accept the regular
 netifaces module from pypi which doesn't need deps to work.
 """
+
+
 async def aionetiface_setup_netifaces() -> Any:
+    """Set up the event loop and return a platform-appropriate netifaces instance, caching the result."""
     global ENABLE_UDP
     global ENABLE_STUN
     global _cached_netifaces
@@ -62,24 +64,27 @@ async def aionetiface_setup_netifaces() -> Any:
             return _cached_netifaces
 
         # Setup event loop.
-        if hasattr(asyncio, 'get_running_loop'):
+        if hasattr(asyncio, "get_running_loop"):
             loop = asyncio.get_running_loop()
         else:
             loop = asyncio.get_event_loop()
         loop.set_debug(False)
         loop.set_exception_handler(CustomEventLoopPolicy.exception_handler)
-        
-        def fatal_error(self, exc, message='Fatal error on transport'):
+
+        def fatal_error(
+            self, exc: BaseException, message: str = "Fatal error on transport"
+        ) -> None:
+            """Log and forcibly close the transport on a fatal async transport error."""
             er = {
-                'message': message,
-                'exception': exc,
-                'transport': self,
-                'protocol': self._protocol,
+                "message": message,
+                "exception": exc,
+                "transport": self,
+                "protocol": self._protocol,
             }
             log(er)
 
             # Should be called from exception handler only.
-            #self.call_exception_handler(er)
+            # self.call_exception_handler(er)
             self._force_close(exc)
 
         asyncio.selector_events._SelectorTransport._fatal_error = fatal_error
@@ -97,20 +102,20 @@ async def aionetiface_setup_netifaces() -> Any:
             # Figure out what address family default interface supports.
             if_name = get_default_iface(netifaces)
             af = get_interface_af(netifaces, if_name)
-            if af == AF_ANY: # Duel stack. Just use v4.
+            if af == AF_ANY:  # Duel stack. Just use v4.
                 af = IP4
 
             # Set destination based on address family.
             if af == IP4:
-                dest = ('8.8.8.8', 60000)
+                dest = ("8.8.8.8", 60000)
             else:
-                dest = ('2001:4860:4860::8888', 60000)
+                dest = ("2001:4860:4860::8888", 60000)
 
             # Build new UDP socket.
             sock = socket.socket(family=af, type=socket.SOCK_DGRAM)
 
             # Attempt to send small msg to dest.
-            sock.sendto(b'testing UDP. disregard this sorry.', 0, dest)
+            sock.sendto(b"testing UDP. disregard this sorry.", 0, dest)
         except asyncio.CancelledError:
             raise
         except (OSError, ConnectionError):
@@ -127,7 +132,9 @@ async def aionetiface_setup_netifaces() -> Any:
         _cached_netifaces = netifaces
         return netifaces
 
+
 def aionetiface_setup_event_loop() -> None:
+    """Patch the selector and configure the custom asyncio event loop policy."""
     # -----------------------------
     # Patch logic based on Python version
     # -----------------------------
@@ -146,7 +153,6 @@ def aionetiface_setup_event_loop() -> None:
         # First time setting this otherwise it will throw an error.
         if start_method is None:
             multiprocessing.set_start_method("spawn")
-
 
     patch_asyncio_backports(CustomEventLoop)
     policy = asyncio.get_event_loop_policy()
@@ -168,11 +174,14 @@ def aionetiface_setup_event_loop() -> None:
     asyncio.sleep = sleep_wrapper
     """
 
+
 aionetiface_setup_event_loop()
+
 
 async def entrypoint_test() -> None:
     out = await aionetiface_setup_netifaces()
     print(out)
 
-if __name__ == "__main__": # pragma: no cover
+
+if __name__ == "__main__":  # pragma: no cover
     async_run(entrypoint_test())

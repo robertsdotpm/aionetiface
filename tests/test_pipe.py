@@ -43,22 +43,19 @@ class MinReader(asyncio.StreamReaderProtocol):
         # The socket has been closed
         self.close_set = True
 
+
 async def create_server():
     reader = asyncio.StreamReader(limit=10000)
 
     # Make server to test close handler works.
     loop = asyncio.get_event_loop()
     lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    lsock.bind(('127.0.0.1', 0))
+    lsock.bind(("127.0.0.1", 0))
     mr = MinReader(reader)
-    server = await loop.create_server(
-        lambda: mr,
-        sock=lsock
-    )
+    server = await loop.create_server(lambda: mr, sock=lsock)
 
     dest = ("127.0.0.1", lsock.getsockname()[1])
     return server, dest, mr
-
 
 
 class TestPipe(unittest.IsolatedAsyncioTestCase):
@@ -67,11 +64,11 @@ class TestPipe(unittest.IsolatedAsyncioTestCase):
     event loop cleanup and such hasnt been done properly in prior tests.
     It works fine if its run by itself but documenting the behavior here.
     """
+
     # Tests server can handle regular FIN sequence.
     async def test_graceful_close(self):
         loop = asyncio.get_event_loop()
         print(loop)
-
 
         # intermittent on win 3.79 proactor
         # Run listen server.
@@ -107,13 +104,9 @@ class TestPipe(unittest.IsolatedAsyncioTestCase):
 
         # Disable TCPs regular graceful close mode.
         # This means an RST is sent instead of FIN.
-        linger = struct.pack('ii', 1, 0)
-        cs.setsockopt(
-            socket.SOL_SOCKET,
-            socket.SO_LINGER,
-            linger
-        )
-        
+        linger = struct.pack("ii", 1, 0)
+        cs.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, linger)
+
         # Connect to server and teardown connection.
         cs.connect(dest)
         cs.send(b"test")
@@ -121,11 +114,12 @@ class TestPipe(unittest.IsolatedAsyncioTestCase):
 
         # Check connection_lost was called.
         await asyncio.sleep(3)
-        assert(mr.close_set)
+        assert mr.close_set
 
         # Cleanup.
         server.close()
         await server.wait_closed()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

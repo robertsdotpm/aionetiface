@@ -21,7 +21,6 @@ https://bugs.python.org/issue34795
 
 import asyncio
 import sys
-from asyncio import StreamWriter
 from ...utility.utils import *
 from typing import Any
 from ..net_utils import *
@@ -42,8 +41,16 @@ from ..asyncio.event_loop import CustomEventLoop
 class PipeError(Exception):
     pass
 
+
 class Pipe:
-    def __init__(self, proto: int, dest: Any = None, route: Any = None, sock: Any = None, conf: Any = NET_CONF) -> None:
+    def __init__(
+        self,
+        proto: int,
+        dest: Any = None,
+        route: Any = None,
+        sock: Any = None,
+        conf: Any = NET_CONF,
+    ) -> None:
         self.set_nic_and_route(route)
         self.proto = proto
         self.sock = sock
@@ -71,22 +78,25 @@ class Pipe:
             await self.create_or_use_socket()
             if do_connect:
                 await self.tcp_client_connect_if_needed()
-                
+
             await self.setup_pipe_events(msg_cb, up_cb)
             self._opened = True
-        except (OSError, ConnectionError, asyncio.TimeoutError, RuntimeError, PipeError):
+        except (
+            OSError,
+            ConnectionError,
+            asyncio.TimeoutError,
+            RuntimeError,
+            PipeError,
+        ):
             # defensive cleanup
             self.cleanup_on_error()
             raise
 
         return self
-    
+
     async def close(self, force: bool = False, keep_clients: bool = False) -> None:
         if self.pipe_events is not None:
-            await self.pipe_events.close(
-                force=force, 
-                keep_clients=keep_clients
-            )
+            await self.pipe_events.close(force=force, keep_clients=keep_clients)
 
     async def accept(self) -> Any:
         if self.pipe_events is not None:
@@ -152,7 +162,7 @@ class Pipe:
         if hasattr(asyncio, "get_running_loop"):
             return asyncio.get_running_loop()
         return asyncio.get_event_loop()
-    
+
     def set_nic_and_route(self, unknown: Any) -> None:
         self.route = None
         self.nic = None
@@ -164,14 +174,15 @@ class Pipe:
                 self.route = unknown
         else:
             from ...nic.interface import Interface
+
             self.nic = Interface("default")
 
     async def resolve_route_and_dest(self) -> None:
         self.route = await self.resolve_route(self.route)
 
         # By this point there's a route + nic.
-        assert(self.route and self.nic)
-        
+        assert self.route and self.nic
+
         self.dest = await self.resolve_dest(self.dest, self.conf)
 
     async def resolve_route(self, route: Any) -> Any:
@@ -241,13 +252,13 @@ class Pipe:
                 route=self.route,
                 dest_addr=self.dest,
                 sock_type=UDP if self.proto == RUDP else self.proto,
-                conf=self.conf
+                conf=self.conf,
             )
 
             # Failed to get a socket.
             if self.sock is None:
                 raise PipeError("Socket allocation failed")
-            
+
             # Record socket ownership state.
             aionetiface_fds.add(self.sock)
             self.owns_socket = True
@@ -291,10 +302,7 @@ class Pipe:
         """
         loop = await self.get_loop()
         self.pipe_events = PipeEvents(
-            sock=self.sock, 
-            route=self.route, 
-            loop=loop, 
-            conf=self.conf
+            sock=self.sock, route=self.route, loop=loop, conf=self.conf
         )
 
         # Manually set some attributes in pipe events not in constructor.
@@ -328,17 +336,22 @@ class Pipe:
             else:
                 # Use standard asyncio method for creating UDP transport.
                 # Note: Use patched version of create_datagram_endpoint.
-                if isinstance(loop, (asyncio.SelectorEventLoop, CustomEventLoop,)):
+                if isinstance(
+                    loop,
+                    (
+                        asyncio.SelectorEventLoop,
+                        CustomEventLoop,
+                    ),
+                ):
                     transport, _ = await create_datagram_endpoint(
-                        loop=loop, 
-                        protocol_factory=lambda: self.pipe_events, 
-                        sock=self.sock
+                        loop=loop,
+                        protocol_factory=lambda: self.pipe_events,
+                        sock=self.sock,
                     )
                 else:
                     # Unknown event loop: Use the loops own version.
                     transport, _ = await loop.create_datagram_endpoint(
-                        protocol_factory=lambda: self.pipe_events, 
-                        sock=self.sock
+                        protocol_factory=lambda: self.pipe_events, sock=self.sock
                     )
 
             # Likely never triggered as exceptions are raised instead.
@@ -370,7 +383,7 @@ class Pipe:
         if self.proto == RUDP:
             self.pipe_events.set_ack_handlers(
                 is_ack=self.pipe_events.stream.is_ack,
-                is_ackable=self.pipe_events.stream.is_ackable
+                is_ackable=self.pipe_events.stream.is_ackable,
             )
 
         # TCP setup
@@ -385,13 +398,13 @@ class Pipe:
                     sock=self.sock,
                     pipe_events=self.pipe_events,
                     loop=loop,
-                    conf=self.conf
+                    conf=self.conf,
                 )
 
                 # Check transport started successfully.
                 if server is None:
                     raise PipeError("Failed to create TCP server")
-                
+
                 # Save transport returned from create server.
                 self.pipe_events.set_tcp_server(server)
 
@@ -399,9 +412,7 @@ class Pipe:
                 # or the garbage collector could close it.
                 if hasattr(server, "serve_forever"):
                     self.pipe_events.set_tcp_server_task(
-                        asyncio.ensure_future(
-                            async_wrap_errors(server.serve_forever())
-                        )
+                        asyncio.ensure_future(async_wrap_errors(server.serve_forever()))
                     )
 
                 # Store type of endpoint in pipe events.
@@ -421,10 +432,10 @@ class Pipe:
 
                 # Wrap an already connected TCP socket.
                 await loop.create_connection(
-                    protocol_factory=lambda: self.pipe_events, 
-                    sock=self.sock, 
-                    ssl=ctx, 
-                    server_hostname=server_hostname
+                    protocol_factory=lambda: self.pipe_events,
+                    sock=self.sock,
+                    ssl=ctx,
+                    server_hostname=server_hostname,
                 )
 
                 # Wait for the TCP connection to signal ready.
@@ -440,8 +451,7 @@ class Pipe:
 
                 # Set the con handles.
                 self.pipe_events.stream.set_handle(
-                    self.pipe_events.transport, 
-                    self.dest.tup
+                    self.pipe_events.transport, self.dest.tup
                 )
 
                 # Indicate endpoint is for a TCP con.
@@ -476,12 +486,13 @@ class Pipe:
         self.owns_socket = False
         self._closed = True
 
+
 async def sock_to_pipe(sock: Any, nic: Any) -> "Pipe":
     # Useful variables from the socket.
     af = sock.family
     bind_tup = sock.getsockname()
     bind_ipr = IPR(bind_tup[0], af=af)
-    bind_port = bind_tup[1] 
+    bind_port = bind_tup[1]
 
     # Find a pre-existing route for this bind IP.
     # Comparisons use IPRange to normalise IPs.
@@ -511,14 +522,13 @@ async def sock_to_pipe(sock: Any, nic: Any) -> "Pipe":
 
     # Setup the pipe at that route.
     pipe = await Pipe(
-        sock.type, # Transport protocol.
-
+        sock.type,  # Transport protocol.
         # Allows messages to be routed back to the handle.
         # TODO: this is really a bad mechanism?
-        sock.getpeername()[:2], # Dest tup turned to Addr by resolving
-        use_route, # Route associated with a nic and bind details.
-        sock=sock # The actual socket.
-    ).connect() # Won't connect when socket is passed.
+        sock.getpeername()[:2],  # Dest tup turned to Addr by resolving
+        use_route,  # Route associated with a nic and bind details.
+        sock=sock,  # The actual socket.
+    ).connect()  # Won't connect when socket is passed.
 
     # Return pipe.
     return pipe

@@ -9,19 +9,11 @@ class TestRUDP(unittest.IsolatedAsyncioTestCase):
         r = await i.route(af).bind(port)
         dest_tup = (r.nic(), port)
         dest = dest_tup
-        pipe = await Pipe(
-            route=r,
-            proto=RUDP,
-            dest=dest
-        ).connect()
-
+        pipe = await Pipe(route=r, proto=RUDP, dest=dest).connect()
 
         msg = b"test meow"
         task, event = await pipe.stream.ack_send(msg, dest_tup)
-        await asyncio.wait_for(
-            event.wait(),
-            2
-        )
+        await asyncio.wait_for(event.wait(), 2)
         out = await pipe.recv(SUB_ALL)
         self.assertEqual(out, msg)
         await pipe.close()
@@ -31,16 +23,11 @@ class TestRUDP(unittest.IsolatedAsyncioTestCase):
         b = PipeEvents(sock=s)
         d = b"ayy lmao"
         c = ("127.0.0.1", 1337)
-        r = b.is_unique_msg(
-            pipe=None,
-            data=d,
-            client_tup=c
-        )
+        r = b.is_unique_msg(pipe=None, data=d, client_tup=c)
 
         self.assertTrue(r)
         s.close()
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

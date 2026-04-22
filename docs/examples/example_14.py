@@ -1,5 +1,6 @@
 from aionetiface import *
 
+
 # Every website today seems to want Javascript
 # but its an example and demonstrates SSL too.
 async def example():
@@ -7,9 +8,7 @@ async def example():
     addr = ("www.google.com", 443)
     params = {"q": "lets search!"}
     path = "/search"
-    conf = dict_child({
-        "use_ssl": True
-    }, NET_CONF)
+    conf = dict_child({"use_ssl": True}, NET_CONF)
 
     # Load interface and route to use.
     nic = await Interface()
@@ -20,5 +19,6 @@ async def example():
     print(resp.req_buf)
     print(resp.out)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     async_test(example)

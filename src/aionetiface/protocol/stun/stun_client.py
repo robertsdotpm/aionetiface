@@ -45,22 +45,34 @@ import asyncio
 from typing import Any, Dict, List, Optional, Tuple
 from ...errors import ErrorFeatureDeprecated
 from ...utility.utils import (
-    async_wrap_errors, cancel_tasks, fstr, log, log_exception, strip_none,
+    async_wrap_errors,
+    cancel_tasks,
+    log,
+    log_exception,
+    strip_none,
 )
 from ...utility.pattern_factory import concurrent_first_agree_or_best
 from ...net.net_defs import IP4, IP6, NET_CONF, UDP
 from ...net.net_utils import ip_norm
-from ...net.address import Address, resolv_dest
+from ...net.address import resolv_dest
 from ...net.pipe.pipe import Pipe
 from ...net.bind.bind import Bind
 from .stun_defs import RFC3489, RFC5389, STUNAttrs
-from .stun_utils import get_stun_reply, stun_reply_to_ret_dic
+from .stun_utils import get_stun_reply
 from ...servers import get_infra
 from ...nic.route.route import Route
 
 
-class STUNClient():
-    def __init__(self, af: int, dest: Tuple[str, int], nic: Any, proto: int = UDP, mode: int = RFC3489, conf: Dict[str, Any] = NET_CONF) -> None:
+class STUNClient:
+    def __init__(
+        self,
+        af: int,
+        dest: Tuple[str, int],
+        nic: Any,
+        proto: int = UDP,
+        mode: int = RFC3489,
+        conf: Dict[str, Any] = NET_CONF,
+    ) -> None:
         self.dest = dest
         self.interface = nic
         self.af = af
@@ -87,27 +99,25 @@ class STUNClient():
         if isinstance(unknown, Bind):
             route = unknown
 
-        assert(route)
+        assert route
 
         # Otherwise use details to make a new pipe.
         self.dest = await resolv_dest(self.af, self.dest, self.interface)
         return await Pipe(self.proto, self.dest, route, conf=self.conf).connect()
-    
+
     # Returns a STUN reply based on how client was setup.
-    async def get_stun_reply(self, pipe: Optional[Any] = None, attrs: Optional[List[Any]] = None) -> Any:
+    async def get_stun_reply(
+        self, pipe: Optional[Any] = None, attrs: Optional[List[Any]] = None
+    ) -> Any:
         if attrs is None:
             attrs = []
         pipe = await self._get_dest_pipe(pipe)
-        return await get_stun_reply(
-            self.mode,
-            self.dest,
-            self.dest,
-            pipe,
-            attrs
-        )
-    
+        return await get_stun_reply(self.mode, self.dest, self.dest, pipe, attrs)
+
     # Use a different port for the reply.
-    async def get_change_port_reply(self, ctup: Tuple[str, int], pipe: Optional[Any] = None) -> Any:
+    async def get_change_port_reply(
+        self, ctup: Tuple[str, int], pipe: Optional[Any] = None
+    ) -> Any:
         """
         With RFC 5389 the change request feature was deprecated.
         Servers aren't required to support it and I've yet to see any that do.
@@ -121,7 +131,6 @@ class STUNClient():
         reply_addr = (
             # The IP stays the same.
             self.dest[0],
-
             # But expect the reply on the change port.
             ctup[1],
         )
@@ -133,11 +142,13 @@ class STUNClient():
             self.dest,
             reply_addr,
             pipe,
-            [[STUNAttrs.ChangeRequest, b"\0\0\0\2"]]
+            [[STUNAttrs.ChangeRequest, b"\0\0\0\2"]],
         )
 
     # Use a different IP and port for the reply.
-    async def get_change_tup_reply(self, ctup: Tuple[str, int], pipe: Optional[Any] = None) -> Any:
+    async def get_change_tup_reply(
+        self, ctup: Tuple[str, int], pipe: Optional[Any] = None
+    ) -> Any:
         # Sanity check against expectations.
         if self.mode != RFC3489:
             error = "STUN change port only supported in RFC3489 mode."
@@ -146,11 +157,7 @@ class STUNClient():
         # Flag to make the tup change request.
         pipe = await self._get_dest_pipe(pipe)
         return await get_stun_reply(
-            self.mode,
-            self.dest,
-            ctup,
-            pipe,
-            [[STUNAttrs.ChangeRequest, b"\0\0\0\6"]]
+            self.mode, self.dest, ctup, pipe, [[STUNAttrs.ChangeRequest, b"\0\0\0\6"]]
         )
 
     # Return only your remote IP.
@@ -158,12 +165,7 @@ class STUNClient():
         caller_pipe = pipe
         pipe = await self._get_dest_pipe(pipe)
         try:
-            reply = await get_stun_reply(
-                self.mode,
-                self.dest,
-                self.dest,
-                pipe
-            )
+            reply = await get_stun_reply(self.mode, self.dest, self.dest, pipe)
 
             if hasattr(reply, "rtup"):
                 return ip_norm(reply.rtup[0])
@@ -176,16 +178,13 @@ class STUNClient():
     # On success the pipe is intentionally left open and returned to the
     # caller so it can be reused for hole-punching.  On failure the pipe
     # is closed here so it does not leak.
-    async def get_mapping(self, pipe: Optional[Any] = None) -> Optional[Tuple[int, int, Any]]:
+    async def get_mapping(
+        self, pipe: Optional[Any] = None
+    ) -> Optional[Tuple[int, int, Any]]:
         caller_supplied_pipe = pipe is not None
         pipe = await self._get_dest_pipe(pipe)
         try:
-            reply = await get_stun_reply(
-                self.mode,
-                self.dest,
-                self.dest,
-                pipe
-            )
+            reply = await get_stun_reply(self.mode, self.dest, self.dest, pipe)
 
             ltup = reply.pipe.sock.getsockname()
             if hasattr(reply, "rtup"):
@@ -205,7 +204,17 @@ class STUNClient():
                     pass
             raise
 
-def get_stun_clients(af: int, max_agree: int, interface: Any, mode: int, proto: int = UDP, servs: Optional[Any] = None, conf: Dict[str, Any] = NET_CONF, attempt: int = 0) -> List[Any]:
+
+def get_stun_clients(
+    af: int,
+    max_agree: int,
+    interface: Any,
+    mode: int,
+    proto: int = UDP,
+    servs: Optional[Any] = None,
+    conf: Dict[str, Any] = NET_CONF,
+    attempt: int = 0,
+) -> List[Any]:
     # Copy random STUN servers to use.
     if servs is None:
         if mode == RFC3489:
@@ -237,7 +246,7 @@ def get_stun_clients(af: int, max_agree: int, interface: Any, mode: int, proto: 
         except (ValueError, KeyError):
             log_exception()
             log("unexpected exception in get_stun_client helper")
-        
+
         if len(stun_clients) >= max_agree:
             break
 
@@ -248,7 +257,16 @@ def get_stun_clients(af: int, max_agree: int, interface: Any, mode: int, proto: 
 
     return stun_clients
 
-async def get_n_stun_clients(af: int, n: int, interface: Any, mode: int, proto: int = UDP, limit: int = 5, conf: Dict[str, Any] = NET_CONF) -> List[Any]:
+
+async def get_n_stun_clients(
+    af: int,
+    n: int,
+    interface: Any,
+    mode: int,
+    proto: int = UDP,
+    limit: int = 5,
+    conf: Dict[str, Any] = NET_CONF,
+) -> List[Any]:
     # Try a single STUN candidate; close the probe pipe on success.
     async def try_one(stun):
         try:
@@ -336,11 +354,7 @@ async def get_n_stun_clients(af: int, n: int, interface: Any, mode: int, proto: 
     # RNG seeds differently, giving each worker a different server pool.
     tasks = []
     for i in range(0, n):
-        tasks.append(
-            async_wrap_errors(
-                worker(attempt=i)
-            )
-        )
+        tasks.append(async_wrap_errors(worker(attempt=i)))
 
     # Run tasks and return results.
     return strip_none(
@@ -349,6 +363,7 @@ async def get_n_stun_clients(af: int, n: int, interface: Any, mode: int, proto: 
             return_exceptions=True,
         )
     )
+
 
 async def run_stun_client() -> None:
     """
@@ -366,8 +381,7 @@ async def run_stun_client() -> None:
     """
     from .interface import Interface
 
-
-    i = await Interface()
+    await Interface()
     a = ("stunserver.stunprotocol.org", 3478)
     s = STUNClientRef(a)
     r = await s.get_stun_reply()
@@ -375,7 +389,6 @@ async def run_stun_client() -> None:
     print(r.stup)
     print(r.ctup)
     print(r.pipe.sock)
-
 
     c1 = await s.get_change_port_reply(r.ctup)
     print("change port reply = ")
@@ -394,7 +407,9 @@ async def run_stun_client() -> None:
 
 async def run_con_stun_client() -> None:
     from .interface import Interface
-    af = IP4; proto = UDP;
+
+    af = IP4
+    proto = UDP
     i = await Interface()
     stun_clients = []
     tasks = []
@@ -409,23 +424,13 @@ async def run_con_stun_client() -> None:
         tasks.append(task)
 
     min_agree = 2
-    out = await concurrent_first_agree_or_best(
-        min_agree,
-        tasks,
-        timeout=2
-    )
-
+    out = await concurrent_first_agree_or_best(min_agree, tasks, timeout=2)
 
     print(out)
 
     await asyncio.sleep(2)
 
 
-
-
 if __name__ == "__main__":
     pass
-    #async_test(change_server_bind_experiment)
-
-
-
+    # async_test(change_server_bind_experiment)

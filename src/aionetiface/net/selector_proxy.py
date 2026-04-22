@@ -6,14 +6,15 @@ disconnects. Written entirely by AI but seems to work.
 
 import selectors
 import socket
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Tuple
 from ..utility.error_logger import *
 from .net_utils import *
 
-import socket
-import selectors
 
-def close_pair(sock: Any, peers: Dict[Any, Any], selector: Any, buffers: Dict[Any, bytes]) -> None:
+
+def close_pair(
+    sock: Any, peers: Dict[Any, Any], selector: Any, buffers: Dict[Any, bytes]
+) -> None:
     """Cleans up both sides of the proxy connection."""
     peer = peers.pop(sock, None)
     if peer:
@@ -32,13 +33,16 @@ def close_pair(sock: Any, peers: Dict[Any, Any], selector: Any, buffers: Dict[An
             pass
         buffers.pop(s, None)
 
-def selector_proxy(socket_p: Any, destination: Tuple[str, int], stop_reader: Any) -> None:
+
+def selector_proxy(
+    socket_p: Any, destination: Tuple[str, int], stop_reader: Any
+) -> None:
     selector = selectors.DefaultSelector()
     socket_r = None
     try:
         # Establish connection to the final destination
         socket_r = socket.create_connection(destination, timeout=10)
-        
+
         # Set both to non-blocking for the selector
         socket_p.setblocking(False)
         socket_r.setblocking(False)
@@ -61,11 +65,11 @@ def selector_proxy(socket_p: Any, destination: Tuple[str, int], stop_reader: Any
 
             for key, mask in events:
                 sock = key.fileobj
-                
+
                 # Safety: if a previous event in this batch closed the pair, skip
                 if sock not in peers:
                     continue
-                
+
                 peer = peers[sock]
 
                 # ---- READ LOGIC ----
@@ -78,15 +82,17 @@ def selector_proxy(socket_p: Any, destination: Tuple[str, int], stop_reader: Any
                             # Tell selector we want to WRITE to the peer now
                             selector.modify(
                                 peer,
-                                selector.get_key(peer).events | selectors.EVENT_WRITE
+                                selector.get_key(peer).events | selectors.EVENT_WRITE,
                             )
                         else:
                             # Empty read means the socket closed gracefully
                             close_pair(sock, peers, selector, buffers)
-                            if socket_p not in peers: break 
+                            if socket_p not in peers:
+                                break
                     except (ConnectionResetError, OSError):
                         close_pair(sock, peers, selector, buffers)
-                        if socket_p not in peers: break
+                        if socket_p not in peers:
+                            break
                         continue
 
                 # ---- WRITE LOGIC ----
@@ -95,8 +101,7 @@ def selector_proxy(socket_p: Any, destination: Tuple[str, int], stop_reader: Any
                     if not buf:
                         # Nothing left to send, stop watching for WRITE events
                         selector.modify(
-                            sock,
-                            selector.get_key(sock).events & ~selectors.EVENT_WRITE
+                            sock, selector.get_key(sock).events & ~selectors.EVENT_WRITE
                         )
                         continue
 
@@ -107,11 +112,12 @@ def selector_proxy(socket_p: Any, destination: Tuple[str, int], stop_reader: Any
                         if not buffers[sock]:
                             selector.modify(
                                 sock,
-                                selector.get_key(sock).events & ~selectors.EVENT_WRITE
+                                selector.get_key(sock).events & ~selectors.EVENT_WRITE,
                             )
                     except (BrokenPipeError, OSError):
                         close_pair(sock, peers, selector, buffers)
-                        if socket_p not in peers: break
+                        if socket_p not in peers:
+                            break
 
     except (OSError, ConnectionError):
         log_exception()

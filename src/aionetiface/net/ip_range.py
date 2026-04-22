@@ -4,14 +4,22 @@
 import ipaddress
 import copy
 from functools import total_ordering
-from typing import Any, Dict, Iterator, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 from ..utility.utils import fstr, log, range_intersects, hamming_weight, get_bits
 from .net_defs import BLACK_HOLE_IPS, IP4, IP6, IPA_TYPES, IP_PRIVATE, IP_PUBLIC
 from .net_utils import af_bitlen, cidr_to_netmask, ip_norm, v_to_af
 
-__all__ = ["IPRangeIter", "IPRange", "ipr_in_interfaces", "ipr_norm", "IPR", "ensure_ip_is_public"]
+__all__ = [
+    "IPRangeIter",
+    "IPRange",
+    "ipr_in_interfaces",
+    "ipr_norm",
+    "IPR",
+    "ensure_ip_is_public",
+]
 
-class IPRangeIter():
+
+class IPRangeIter:
     def __init__(self, ipr: "IPRange", reverse: bool = False) -> None:
         self.ipr = ipr
         self.reverse = reverse
@@ -32,6 +40,7 @@ class IPRangeIter():
         self.host_p += 1
         return ipa_ip
 
+
 """
 Represents a block of distinct IP assignments.
 bitlen is the number of host bits in the block — the counterpart to netmask.
@@ -44,9 +53,17 @@ Accepts str, int, bytes for IP and netmask.
 Can be converted to str, int, or bytes.
 Iterable and sliceable -- returns ip_addr objs.
 """
+
+
 @total_ordering
-class IPRange():
-    def __init__(self, ip: Any, netmask: Any = None, bitlen: Optional[int] = None, af: Optional[int] = None) -> None:
+class IPRange:
+    def __init__(
+        self,
+        ip: Any,
+        netmask: Any = None,
+        bitlen: Optional[int] = None,
+        af: Optional[int] = None,
+    ) -> None:
         self.route = None
         self.subnet = None
 
@@ -63,8 +80,8 @@ class IPRange():
             bitlen = 0
 
         # Sanity check.
-        assert(netmask is not None or bitlen is not None)
-        assert(ip != netmask)
+        assert netmask is not None or bitlen is not None
+        assert ip != netmask
 
         # Normalise netmask: remove /n, %iface, and/or explode compressed IPv6.
         if isinstance(netmask, str):
@@ -74,14 +91,18 @@ class IPRange():
         else:
             self.netmask = netmask
             if netmask in (32, 128):
-                log("Netmask value looks like a bit-length — did you mean bitlen= instead?")
+                log(
+                    "Netmask value looks like a bit-length — did you mean bitlen= instead?"
+                )
 
         # Determine address family (IPv4 vs IPv6) and check for ambiguity.
         self.af = None
         if isinstance(ip, int):
-            if ip < (2 ** 31):
+            if ip < (2**31):
                 if netmask is None:
-                    raise Exception("Cannot determine address family: integer IP is ambiguous without a netmask.")
+                    raise Exception(
+                        "Cannot determine address family: integer IP is ambiguous without a netmask."
+                    )
                 else:
                     ipa_netmask = ipaddress.ip_address(netmask)
                     self.af = v_to_af(ipa_netmask.version)
@@ -112,7 +133,7 @@ class IPRange():
             self.bitlen = max_bits - hamming_weight(int(ipa_netmask))
 
         # Parse IP information.
-        assert(self.bitlen <= max_bits)
+        assert self.bitlen <= max_bits
         host_bit_len = self.bitlen
 
         # IP is network portion + host portion.
@@ -137,7 +158,7 @@ class IPRange():
         if host_bit_len:
             self.i_nw = self.i_ip
             if host_bit_len != max_bits:
-                self.host_no = (2 ** host_bit_len) - 1
+                self.host_no = (2**host_bit_len) - 1
 
         # IP may have a blank host portion but the set bits
         # still seem to provide enough info for this to work.
@@ -157,7 +178,7 @@ class IPRange():
         else:
             self.r = [self.i_nw, self.i_nw + self.host_no]
 
-        assert(self.host_no)
+        assert self.host_no
 
     @property
     def host_limit(self) -> int:
@@ -173,11 +194,7 @@ class IPRange():
             return ipaddress.IPv6Address(n)
 
     def to_dict(self) -> Dict[str, Any]:
-        d = {
-            "ip": self.ip,
-            "host_limit": self.host_no,
-            "af": int(self.af)
-        }
+        d = {"ip": self.ip, "host_limit": self.host_no, "af": int(self.af)}
         if self.subnet is not None:
             d["subnet"] = self.subnet
         return d
@@ -185,6 +202,7 @@ class IPRange():
     @staticmethod
     def from_dict(d: Dict[str, Any]) -> "IPRange":
         import math
+
         host_limit = d["host_limit"]
         bitlen = 0 if host_limit <= 1 else math.ceil(math.log2(host_limit + 1))
         ipr = IPRange(ip=d["ip"], bitlen=bitlen)
@@ -217,13 +235,13 @@ class IPRange():
             return int.to_bytes(
                 int(self),
                 4,
-                'big',
+                "big",
             )
         if self.af == IP6:
             return int.to_bytes(
                 int(self),
                 16,
-                'big',
+                "big",
             )
 
     def __len__(self) -> int:
@@ -290,7 +308,9 @@ class IPRange():
         elif isinstance(other, IPA_TYPES):
             return IPRange(other)
         else:
-            raise NotImplementedError("IPRange comparison is not implemented for that type.")
+            raise NotImplementedError(
+                "IPRange comparison is not implemented for that type."
+            )
 
     def __eq__(self, other: Any) -> bool:
         other = self._convert_other(other)
@@ -314,7 +334,7 @@ class IPRange():
         elif isinstance(key, tuple):
             return [self.get_value(x) for x in key]
         else:
-            raise TypeError('Invalid argument type: {}'.format(type(key)))
+            raise TypeError("Invalid argument type: {}".format(type(key)))
 
     def __repr__(self) -> str:
         return fstr("{0}", (str(self),))
@@ -327,7 +347,10 @@ class IPRange():
     def __hash__(self) -> int:
         return hash(str(self))
 
-def ipr_in_interfaces(needle_ipr: "IPRange", if_list: List[Any], mode: int = IP_PUBLIC) -> bool:
+
+def ipr_in_interfaces(
+    needle_ipr: "IPRange", if_list: List[Any], mode: int = IP_PUBLIC
+) -> bool:
     af = needle_ipr.af
     for interface in if_list:
         routes = interface.rp[af].routes
@@ -343,46 +366,49 @@ def ipr_in_interfaces(needle_ipr: "IPRange", if_list: List[Any], mode: int = IP_
 
     return False
 
+
 def ipr_norm(ipr: "IPRange") -> str:
     return ip_norm(str(ipr[0]))
+
 
 def IPR(ip: Union[str, bytes], af: Optional[int] = None, bitlen: int = 0) -> "IPRange":
     af = af or IP6 if ":" in ip else IP4
     return IPRange(ip, af=af, bitlen=bitlen)
 
+
 def ensure_ip_is_public(ip: Union[str, bytes]) -> str:
     ip = ip_norm(ip)
-    af = IP4 if "." in ip else IP6
     ipr = IPRange(ip)
     if ipr.is_private:
         raise Exception("IP must be public.")
 
     return ip
 
-if __name__ == "__main__": # pragma: no cover
+
+if __name__ == "__main__":  # pragma: no cover
     # Blank host = range.
     x = IPRange("192.168.1.0", "255.255.255.0")
 
-    assert(str(x[0]) == "192.168.1.1")
-    assert(str(x[1]) == "192.168.1.2")
-    assert(str(x[-1]) == "192.168.1.255")
-    assert(str(x[-2]) == "192.168.1.254")
-    assert(x.host_no == 255)
+    assert str(x[0]) == "192.168.1.1"
+    assert str(x[1]) == "192.168.1.2"
+    assert str(x[-1]) == "192.168.1.255"
+    assert str(x[-2]) == "192.168.1.254"
+    assert x.host_no == 255
 
     # Not blank host = single host. Not a range.
     y = IPRange("192.168.1.179", "255.255.255.0")
-    assert(str(y[0]) == "192.168.1.179")
-    assert(str(y[1]) == "192.168.1.179")
-    assert(str(y[-1]) == "192.168.1.179")
-    assert(str(y[-2]) == "192.168.1.179")
-    assert(y.host_no == 1)
+    assert str(y[0]) == "192.168.1.179"
+    assert str(y[1]) == "192.168.1.179"
+    assert str(y[-1]) == "192.168.1.179"
+    assert str(y[-2]) == "192.168.1.179"
+    assert y.host_no == 1
 
     # Single host (with full net mask). Also not a range.
     z = IPRange("7.7.7.7", "255.255.255.255")
-    assert(str(z[0]) == "7.7.7.7")
-    assert(str(z[15]) == "7.7.7.7")
-    assert(str(z[-15]) == "7.7.7.7")
-    assert(z.host_no == 1)
+    assert str(z[0]) == "7.7.7.7"
+    assert str(z[15]) == "7.7.7.7"
+    assert str(z[-15]) == "7.7.7.7"
+    assert z.host_no == 1
 
     a = IPRange("7.7.7.7", "255.255.255.255")
     b = IPRange("7.7.7.7", "255.255.255.255")
@@ -392,22 +418,22 @@ if __name__ == "__main__": # pragma: no cover
     f = IPRange("192.169.0.0", "255.255.0.0")
     g = IPRange("192.168.2.1", "255.255.255.0")
     h = IPRange("192.168.1.20", "255.255.255.0")
-    assert(a == b) # Same IP
-    assert(b < c) # CMP single ip values
-    assert(a != c) # Not same IP
-    assert(d == e) # Check if IP in a range.
-    assert(f != e) # Compare two ranges for intersection.
-    assert(b < e) # Compare end value of ranges.
-    assert(e > b)
+    assert a == b  # Same IP
+    assert b < c  # CMP single ip values
+    assert a != c  # Not same IP
+    assert d == e  # Check if IP in a range.
+    assert f != e  # Compare two ranges for intersection.
+    assert b < e  # Compare end value of ranges.
+    assert e > b
 
-    assert(f > e) # Range compare is based on host no, not ip value
+    assert f > e  # Range compare is based on host no, not ip value
 
-    l = [a, c, e]
-    assert(d in l)
-    assert(b in l)
-    assert(g not in l)
-    assert(h in l)
+    points = [a, c, e]
+    assert d in points
+    assert b in points
+    assert g not in points
+    assert h in points
     x = IPRange("fe80::9acb:c90e:7bf6:a093%enp3s0", "ffff:ffff:ffff:ffff::/64")
-    assert(x.bitlen == 64)  # 64 host bits in a /64
+    assert x.bitlen == 64  # 64 host bits in a /64
 
     print("Self-tests passed.")

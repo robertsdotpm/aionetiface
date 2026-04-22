@@ -2,7 +2,7 @@
 This is my attempt to visualize the association between private, NIC
 addresses and public WAN addresses on a network interface. I have
 learned the following information about network addresses:
- 
+
     * A NIC can have one or more addresses.
     * A NIC can be assigned a block or range of addresses.
     * A NIC doesn't have to use private addresses. It's common for
@@ -25,12 +25,12 @@ learned the following information about network addresses:
     Thus, if there are multiple gateways for a NIC then its
     possible for the external WAN address to change under
     high network load. This is not really ideal.
- 
+
 The purpose of this module is to have easy access to the
 external addresses of the machine and any associated NIC
 addresses needed for Bind calls in order to use them. I
 use the following simple rules to make this possible:
- 
+
     1. All private addresses for a NIC form a group. This
     group points to the same external address for that NIC.
     2. Any public addresses are tested using STUN. If STUN
@@ -43,7 +43,7 @@ use the following simple rules to make this possible:
     only the first address is checked. If success then
     I assume the whole block is valid. Ranges of
     addresses are fully supported.
- 
+
 When it comes to complex routing tables that have
 strange setups with multiple default gateways for
 a NIC I am for now ignoring this possibility. I
@@ -87,10 +87,9 @@ at least it only has to be done once.
 """
 
 import copy
-import ipaddress
 import pprint
 from functools import total_ordering
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 from ...net.ip_range import IPRange, ipr_norm
 from ...net.net_defs import IPA_TYPES, VALID_AFS, IP4, IP6
 from ...net.net_utils import v_to_af
@@ -102,7 +101,14 @@ from ...utility.utils import fstr
 
 @total_ordering
 class Route(Bind):
-    def __init__(self, af: int, nic_ips: List[Any], ext_ips: List[Any], interface: Optional[Any] = None, ext_check: int = 1) -> None:
+    def __init__(
+        self,
+        af: int,
+        nic_ips: List[Any],
+        ext_ips: List[Any],
+        interface: Optional[Any] = None,
+        ext_check: int = 1,
+    ) -> None:
         if af not in VALID_AFS:
             raise ValueError(f"af {af!r} is not a supported address family")
         if not isinstance(nic_ips, list):
@@ -129,7 +135,7 @@ class Route(Bind):
         # Allow ext to be private if check is disabled.
         # Needed to allow for conversion from a Bind to a Route.
         if ext_check:
-            assert(ext_ips[0].is_public)
+            assert ext_ips[0].is_public
 
         # Interface my be None.
         super().__init__(interface, af, leave_none=1)
@@ -145,10 +151,10 @@ class Route(Bind):
 
     def __await__(self) -> Any:
         return self.bind().__await__()
-    
+
     def set_link_locals(self, link_locals: List[Any]) -> None:
         self.link_locals = link_locals
-    
+
     async def Address(self, dest: Any, port: int) -> Any:
         return (dest, port)
 
@@ -172,7 +178,7 @@ class Route(Bind):
     def ext(self) -> str:
         """Return the normalised string of the first external (WAN) IP for this route."""
         return ipr_norm(self.ext_ips[0])
-    
+
     def link_local(self) -> str:
         if not self.link_locals:
             raise ValueError("Route has no link-local addresses.")
@@ -216,11 +222,12 @@ class Route(Bind):
             return ipr
 
         if isinstance(other, IPA_TYPES):
-            af = v_to_af(other.version)
             ipr = IPRange(other, bitlen=0)
             return ipr
 
-        raise NotImplementedError("Route._convert_other: unsupported type for comparison.")
+        raise NotImplementedError(
+            "Route._convert_other: unsupported type for comparison."
+        )
 
     def bad_len(self, other: Any) -> bool:
         if not len(self) or not len(other):
@@ -260,7 +267,7 @@ class Route(Bind):
     def to_dict(self) -> Dict[str, Any]:
         nic_ips = []
         ext_ips = []
-        list_infos =  [[nic_ips, self.nic_ips], [ext_ips, self.ext_ips]]
+        list_infos = [[nic_ips, self.nic_ips], [ext_ips, self.ext_ips]]
         for list_info in list_infos:
             dest_list, src_list = list_info
             for ipr in src_list:
@@ -281,18 +288,14 @@ class Route(Bind):
     def from_dict(d: Dict[str, Any]) -> "Route":
         nic_ips = []
         ext_ips = []
-        list_info =  [[nic_ips, d["nic_ips"]], [ext_ips, d["ext_ips"]]]
+        list_info = [[nic_ips, d["nic_ips"]], [ext_ips, d["ext_ips"]]]
         for dest_list, src_list in list_info:
             for ipr_d in src_list:
                 ipr = IPRange.from_dict(ipr_d)
                 dest_list.append(ipr)
 
         af = IP4 if d["af"] == IP4 else IP6
-        route = Route(
-            af=af,
-            nic_ips=nic_ips,
-            ext_ips=ext_ips
-        )
+        route = Route(af=af, nic_ips=nic_ips, ext_ips=ext_ips)
 
         link_locals = []
         for ipr_d in d["link_local_ips"]:

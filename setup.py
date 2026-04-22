@@ -7,7 +7,7 @@ from os import path
 here = path.abspath(path.dirname(__file__))
 
 # Get the long description from the README file
-with open(path.join(here, 'README.md'), encoding='utf-8') as f:
+with open(path.join(here, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
 
 install_reqs = [
@@ -19,22 +19,22 @@ install_reqs = [
 ]
 
 setup(
-    version='0.0.15',
-    name='aionetiface',
-    description='Asynchronous networking library ',
-    keywords=('test, python'),
+    version="0.0.15",
+    name="aionetiface",
+    description="Asynchronous networking library ",
+    keywords=("test, python"),
     long_description_content_type="text/markdown",
     long_description=long_description,
-    url='http://github.com/robertsdotpm/aionetiface',
-    author='Matthew Roberts',
-    author_email='matthew@roberts.pm',
-    license='public domain',
+    url="http://github.com/robertsdotpm/aionetiface",
+    author="Matthew Roberts",
+    author_email="matthew@roberts.pm",
+    license="public domain",
     package_dir={"": "src"},
-    packages=find_packages(where="src", exclude=('tests', 'docs')),
+    packages=find_packages(where="src", exclude=("tests", "docs")),
     include_package_data=True,
     install_requires=install_reqs,
     classifiers=[
-        'Intended Audience :: Developers',
-        'Programming Language :: Python :: 3'
+        "Intended Audience :: Developers",
+        "Programming Language :: Python :: 3",
     ],
 )

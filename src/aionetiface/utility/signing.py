@@ -1,10 +1,15 @@
-from ecdsa import VerifyingKey, SECP256k1, SigningKey, util
+from ecdsa import SECP256k1, SigningKey, util
 from typing import Any, Optional
 from .utils import to_hs
 
 
-class Signing():
-    def __init__(self, priv: Optional[Any] = None, pub: Optional[Any] = None, curve: Any = SECP256k1) -> None:
+class Signing:
+    def __init__(
+        self,
+        priv: Optional[Any] = None,
+        pub: Optional[Any] = None,
+        curve: Any = SECP256k1,
+    ) -> None:
         self.curve = curve
         self.private_key = priv
         self.public_key = pub or priv.get_verifying_key()
@@ -16,6 +21,7 @@ class Signing():
         priv = SigningKey.generate(curve=curve)
         pub = priv.get_verifying_key()
         return Signing(priv, pub, curve)
+
 
 if __name__ == "__main__":
     kp = Signing.keypair()

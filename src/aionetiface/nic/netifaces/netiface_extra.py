@@ -15,36 +15,41 @@ async def get_mac_mixed(if_name: str) -> Optional[str]:
     mac_p = r"((?:[0-9a-fA-F]{2}[\s:-]*){6})"
     win_p = r"[0-9]+\s*[.]+([^.]+)\s*[.]+"
     grep_p = "egrep 'lladdr|ether|link'"
-    win_f = lambda x: re.findall(win_p + re.escape(if_name), x)[0]
+    def win_f(x: str) -> str:
+        return re.findall(win_p + re.escape(if_name), x)[0]
     vectors = {
         "Linux": [
+            [fstr("cat /sys/class/net/{0}/address", (if_name,)), lambda x: x],
             [
-                fstr("cat /sys/class/net/{0}/address", (if_name,)),
-                lambda x: x
+                fstr(
+                    "ip addr show {0} | {1}",
+                    (
+                        if_name,
+                        grep_p,
+                    ),
+                ),
+                lambda x: re.findall(mac_p, x)[0],
             ],
-            [
-                fstr("ip addr show {0} | {1}", (if_name, grep_p,)),
-                lambda x: re.findall(mac_p, x)[0]
-            ]
         ],
         "OpenBSD": [
             [
-                fstr("ifconfig {0} | {1}", (if_name, grep_p,)),
-                lambda x: re.findall(r"\s+[a-zA-Z]+\s+([^\s]+)", x)[0]
+                fstr(
+                    "ifconfig {0} | {1}",
+                    (
+                        if_name,
+                        grep_p,
+                    ),
+                ),
+                lambda x: re.findall(r"\s+[a-zA-Z]+\s+([^\s]+)", x)[0],
             ]
         ],
-        "Windows": [
-            [
-                "route print",
-                win_f
-            ]
-        ]
+        "Windows": [["route print", win_f]],
     }
     vectors["Darwin"] = vectors["OpenBSD"]
     os_name = platform.system()
     if os_name not in vectors:
         return None
-    
+
     try_vectors = vectors[os_name]
     for vector in try_vectors:
         lookup_cmd, proc_f = vector
@@ -63,6 +68,7 @@ async def get_mac_mixed(if_name: str) -> Optional[str]:
     if os_name not in ["Darwin", "Windows"]:
         try:
             import pyroute2
+
             with pyroute2.NDB() as ndb:
                 with ndb.interfaces[if_name] as interface:
                     return interface["address"]
@@ -70,17 +76,19 @@ async def get_mac_mixed(if_name: str) -> Optional[str]:
             log_exception()
             return None
 
+
 # Netifaces apparently doesn't use their own values...
 def af_to_netiface(af: int) -> int:
     if af == IP4:
         return int(IP4)
         return netifaces.AF_INET
-        
+
     if af == IP6:
         return int(IP6)
         return netifaces.AF_INET6
 
     return af
+
 
 def netiface_to_af(af: int, netifaces: Any) -> int:
     if af == netifaces.AF_INET:
@@ -91,9 +99,11 @@ def netiface_to_af(af: int, netifaces: Any) -> int:
 
     return af
 
+
 def is_af_routable(af: int, netifaces: Any) -> bool:
     af = af_to_netiface(af)
     return af in netifaces.gateways()
+
 
 async def get_mac_address(name: str, netifaces: Any) -> Optional[str]:
     if not hasattr(netifaces.ifaddresses(name), "AF_LINK"):
@@ -107,20 +117,28 @@ async def get_mac_address(name: str, netifaces: Any) -> Optional[str]:
 
     mac = netifaces.ifaddresses(name)[netifaces.AF_LINK][0]["addr"]
     return mac_norm(mac)
-    
+
+
 # Note: Discards subnet for single addresses.
-async def netiface_addr_to_ipr(af: int, nic_id: Any, info: Dict[str, str]) -> Optional[Any]:
+async def netiface_addr_to_ipr(
+    af: int, nic_id: Any, info: Dict[str, str]
+) -> Optional[Any]:
     # Some interfaces might not have valid information set.
     if "addr" not in info:
         return None
     if "netmask" not in info:
         return None
-    
-    #info["addr"] = ip_strip_if
+
+    # info["addr"] = ip_strip_if
     log(
         fstr(
             "Netiface loaded nic ipr {0} {1} {2} {3}",
-            (af, nic_id, info["addr"], info["netmask"],)
+            (
+                af,
+                nic_id,
+                info["addr"],
+                info["netmask"],
+            ),
         )
     )
     # Build the IPRange from the OS netmask.
@@ -149,7 +167,9 @@ async def netiface_addr_to_ipr(af: int, nic_id: Any, info: Dict[str, str]) -> Op
         nic_ipr.subnet = af_bitlen(af) - probe.bitlen
     else:
         nic_ipr = IPRange(info["addr"], bitlen=0)
-        nic_ipr.subnet = af_bitlen(af) - probe.bitlen if probe is not None else af_bitlen(af)
+        nic_ipr.subnet = (
+            af_bitlen(af) - probe.bitlen if probe is not None else af_bitlen(af)
+        )
 
     """
     If a range is detected test that the range is valid by
@@ -161,18 +181,22 @@ async def netiface_addr_to_ipr(af: int, nic_id: Any, info: Dict[str, str]) -> Op
             for host_index in [0, -1]:
                 ip_obj = nic_ipr[host_index]
                 bind_ip = str(ip_obj)
-                bind_tup = await binder_async(
-                    af,
-                    bind_ip,
-                    nic_id=nic_id
-                )
+                bind_tup = await binder_async(af, bind_ip, nic_id=nic_id)
 
                 s = socket.socket(af, TCP)
                 try:
                     s.bind(bind_tup)
                 except OSError:
                     log_exception()
-                    log(fstr("af = {0}, bind_ip = {1}", (af, bind_ip,)))
+                    log(
+                        fstr(
+                            "af = {0}, bind_ip = {1}",
+                            (
+                                af,
+                                bind_ip,
+                            ),
+                        )
+                    )
                     log(fstr("{0}", (bind_tup,)))
                     log(fstr("{0}", (s,)))
                     log(">get routes invalid subnet for {}".format(str(nic_ipr)))
@@ -188,7 +212,10 @@ async def netiface_addr_to_ipr(af: int, nic_id: Any, info: Dict[str, str]) -> Op
 
     return nic_ipr
 
-async def get_nic_private_ips(interface: Any, af: int, netifaces: Any, loop: Optional[Any] = None) -> List[Any]:
+
+async def get_nic_private_ips(
+    interface: Any, af: int, netifaces: Any, loop: Optional[Any] = None
+) -> List[Any]:
     loop = loop or asyncio.get_event_loop()
     nic_iprs = []
     if_name = interface.name
@@ -197,7 +224,9 @@ async def get_nic_private_ips(interface: Any, af: int, netifaces: Any, loop: Opt
         return nic_iprs
 
     for info in if_addresses[af]:
-        nic_ipr = await netiface_addr_to_ipr(af, info, interface, loop, skip_bind_test=0)
+        nic_ipr = await netiface_addr_to_ipr(
+            af, info, interface, loop, skip_bind_test=0
+        )
         if nic_ipr is None:
             continue
 
@@ -208,15 +237,18 @@ async def get_nic_private_ips(interface: Any, af: int, netifaces: Any, loop: Opt
 
     return nic_iprs
 
+
 """
 Netifaces doesn't return the right default interface
 on android. Need a patch for this.
 """
-def netiface_gateways(netifaces: Any, get_interface_type: Any, preference: int = AF_ANY) -> Dict[str, Any]:
+
+
+def netiface_gateways(
+    netifaces: Any, get_interface_type: Any, preference: int = AF_ANY
+) -> Dict[str, Any]:
     gws = netifaces.gateways()
-    gateway = None
-    iface = None
-    
+
     # Netifaces may not always find the default gateway.
     # Use first interface that get_interface_type finds.
     if gws["default"] == {}:
@@ -225,37 +257,36 @@ def netiface_gateways(netifaces: Any, get_interface_type: Any, preference: int =
             afs = VALID_AFS
         else:
             afs = [preference]
-            
+
         # Check the address families of related GWs.
         for af in afs:
             # No entry for AF found in GW info.
             log(fstr("Trying {0} in netiface_gateways", (af,)))
             if af not in gws:
                 continue
-                
+
             # Check that there is info to check.
             if not len(gws[af]):
                 continue
-                
+
             # Check the interface name.
             for net_info in gws[af]:
                 # Af already set.
                 if af in gws["default"]:
                     continue
-                
+
                 # Try to determine interface type from name.
                 if_name = net_info[1]
                 if_type = get_interface_type(if_name)
-                
+
                 # Unknown / bad interface type.
                 if if_type == INTERFACE_UNKNOWN:
                     log(fstr("iface type unknown {0}", (if_name,)))
                     continue
-                    
+
                 # Use this interface GW info as the default.
                 if net_info[2]:
                     gws["default"][af] = net_info
                 break
-                
-    return gws
 
+    return gws

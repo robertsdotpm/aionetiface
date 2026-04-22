@@ -3,36 +3,25 @@ nc -4 -u aionetiface.net 7
 
 """
 
-
-
 from typing import Any
 from aionetiface import *
+
 
 class TestAFsWork(unittest.IsolatedAsyncioTestCase):
     async def test_afs(self) -> None:
         # TODO: fix this in the future when servers are back up
         return
 
-
         # List of public echo servers.
         addr = {
             UDP: {
-                IP4: {
-                    "host": "52.43.121.77",
-                    "port": 10001
-                },
+                IP4: {"host": "52.43.121.77", "port": 10001},
                 # TODO: Find IPv6 UDP public echo server.
             },
             TCP: {
-                IP4: {
-                    "host": "tcpbin.com",
-                    "port": 4242
-                },
-                IP6: {
-                    "host": "aionetiface.net",
-                    "port": 7
-                }
-            }
+                IP4: {"host": "tcpbin.com", "port": 4242},
+                IP6: {"host": "aionetiface.net", "port": 7},
+            },
         }
 
         # Test all available AFs + protos.
@@ -61,14 +50,11 @@ class TestAFsWork(unittest.IsolatedAsyncioTestCase):
                         continue
 
                     # Set destination of echo server.
-                    echo_dest = (
-                        addr[proto][af]["host"],
-                        addr[proto][af]["port"]
-                    )
+                    echo_dest = (addr[proto][af]["host"], addr[proto][af]["port"])
 
                     # Open pipe to echo server.
                     pipe = await pipe_open(proto, echo_dest, route)
-                    
+
                     # Interested in any message.
                     pipe.subscribe(SUB_ALL)
 
@@ -78,7 +64,7 @@ class TestAFsWork(unittest.IsolatedAsyncioTestCase):
 
                     # Receive data back.
                     data = await pipe.recv(SUB_ALL, 4)
-                    assert(msg in data)
+                    assert msg in data
 
                     # Cleanup.
                     await pipe.close()
@@ -92,5 +78,6 @@ class TestAFsWork(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(one_worked)
         await asyncio.sleep(2)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

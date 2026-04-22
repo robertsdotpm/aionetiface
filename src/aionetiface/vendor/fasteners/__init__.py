@@ -34,15 +34,15 @@ from .process_lock import InterProcessReaderWriterLock
 from .version import _VERSION as __version__
 
 __all__ = [
-    '__version__',
-    'locked',
-    'read_locked',
-    'ReaderWriterLock',
-    'try_lock',
-    'write_locked',
-    'interprocess_locked',
-    'interprocess_read_locked',
-    'interprocess_write_locked',
-    'InterProcessLock',
-    'InterProcessReaderWriterLock',
+    "__version__",
+    "locked",
+    "read_locked",
+    "ReaderWriterLock",
+    "try_lock",
+    "write_locked",
+    "interprocess_locked",
+    "interprocess_read_locked",
+    "interprocess_write_locked",
+    "InterProcessLock",
+    "InterProcessReaderWriterLock",
 ]

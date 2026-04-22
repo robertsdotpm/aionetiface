@@ -29,7 +29,7 @@ def load_if_info_fallback(nic: Any) -> None:
             continue
 
     # Same API as netifaces.
-    class NetifaceShim():
+    class NetifaceShim:
         def __init__(self, if_addrs: Any) -> None:
             self.if_addrs = if_addrs
 
@@ -40,23 +40,13 @@ def load_if_info_fallback(nic: Any) -> None:
             ret = {
                 # MAC address (blanket)
                 # 17 = netifaces.AF_LINK enum.
-                AF_LINK: [
-                    {
-                        'addr': '',
-                        'broadcast': 'ff:ff:ff:ff:ff:ff'
-                    }
-                ],
+                AF_LINK: [{"addr": "", "broadcast": "ff:ff:ff:ff:ff:ff"}],
             }
 
             for af in self.if_addrs:
-                ret[af] = [
-                    {
-                        "addr": self.if_addrs[af],
-                        "netmask": "0"
-                    }
-                ]
+                ret[af] = [{"addr": self.if_addrs[af], "netmask": "0"}]
 
             return ret
-        
+
     nic.netifaces = NetifaceShim(if_addrs)
     nic.is_default = nic.is_default_patch

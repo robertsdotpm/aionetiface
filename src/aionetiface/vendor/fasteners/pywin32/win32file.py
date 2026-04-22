@@ -7,7 +7,7 @@ from ctypes.wintypes import HANDLE
 
 from .pywintypes import OVERLAPPED
 
-kernel32 = WinDLL('kernel32', use_last_error=True)
+kernel32 = WinDLL("kernel32", use_last_error=True)
 _ = pointer
 
 # Refer: https://docs.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-lockfileex

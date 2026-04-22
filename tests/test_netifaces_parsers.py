@@ -18,6 +18,7 @@ from aionetiface.net.net_utils import cidr_to_netmask, af_bitlen
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _has_addr(addr_list: List[Dict[str, Any]], ip: str) -> bool:
     return any(a["addr"] == ip for a in addr_list)
 
@@ -33,6 +34,7 @@ def _get_addr(addr_list: List[Dict[str, Any]], ip: str) -> Optional[Dict[str, An
 # netsh parser tests
 # ---------------------------------------------------------------------------
 
+
 class TestNetshParsers(unittest.TestCase):
     """Tests for win_netsh.NetshParse – regex-only, no I/O."""
 
@@ -41,6 +43,7 @@ class TestNetshParsers(unittest.TestCase):
             # Import still works on non-Windows; we just skip execution.
             pass
         from aionetiface.nic.netifaces.windows.win_netsh import NetshParse
+
         self.parser = NetshParse()
 
     # -----------------------------------------------------------------------
@@ -138,18 +141,26 @@ No  System  20  fe80::/64                       12  Ethernet
     # get_host_limit_from_route_infos
     # -----------------------------------------------------------------------
     def test_get_host_limit_from_route_infos_v4(self) -> None:
-        from aionetiface.nic.netifaces.windows.win_netsh import get_host_limit_from_route_infos
+        from aionetiface.nic.netifaces.windows.win_netsh import (
+            get_host_limit_from_route_infos,
+        )
+
         route_infos = [
             {"prefix": "0.0.0.0/0"},
             {"prefix": "192.168.1.0/24"},
             {"prefix": "192.168.0.0/16"},
         ]
-        host_limit, netmask = get_host_limit_from_route_infos("192.168.1.100", route_infos)
+        host_limit, netmask = get_host_limit_from_route_infos(
+            "192.168.1.100", route_infos
+        )
         self.assertEqual(host_limit, 24)
         self.assertEqual(netmask, "255.255.255.0")
 
     def test_get_host_limit_from_route_infos_v6(self) -> None:
-        from aionetiface.nic.netifaces.windows.win_netsh import get_host_limit_from_route_infos
+        from aionetiface.nic.netifaces.windows.win_netsh import (
+            get_host_limit_from_route_infos,
+        )
+
         route_infos = [
             {"prefix": "::/0"},
             {"prefix": "2402:1f00:8101:83f::/64"},
@@ -161,13 +172,18 @@ No  System  20  fe80::/64                       12  Ethernet
 
     def test_get_host_limit_from_route_infos_most_specific(self) -> None:
         """Most-specific (highest host_limit) matching prefix wins."""
-        from aionetiface.nic.netifaces.windows.win_netsh import get_host_limit_from_route_infos
+        from aionetiface.nic.netifaces.windows.win_netsh import (
+            get_host_limit_from_route_infos,
+        )
+
         route_infos = [
             {"prefix": "10.0.0.0/8"},
             {"prefix": "10.10.0.0/16"},
             {"prefix": "10.10.10.0/24"},
         ]
-        host_limit, netmask = get_host_limit_from_route_infos("10.10.10.50", route_infos)
+        host_limit, netmask = get_host_limit_from_route_infos(
+            "10.10.10.50", route_infos
+        )
         self.assertEqual(host_limit, 24)
 
     # -----------------------------------------------------------------------
@@ -214,11 +230,16 @@ Ethernet adapter Ethernet:
 # WMIC parser tests
 # ---------------------------------------------------------------------------
 
+
 class TestWMICParsers(unittest.TestCase):
     """Tests for win_wmic.WMICParse – regex-only, no I/O."""
 
     def setUp(self) -> None:
-        from aionetiface.nic.netifaces.windows.win_wmic import WMICParse, parse_wmic_addrs
+        from aionetiface.nic.netifaces.windows.win_wmic import (
+            WMICParse,
+            parse_wmic_addrs,
+        )
+
         self.parser = WMICParse()
         self.parse_wmic_addrs = parse_wmic_addrs
 
@@ -255,17 +276,20 @@ class TestWMICParsers(unittest.TestCase):
     # -----------------------------------------------------------------------
     def test_parse_wmic_list_braces(self) -> None:
         from aionetiface.nic.netifaces.windows.win_wmic import parse_wmic_list
+
         result = parse_wmic_list("{'192.168.1.1', '10.0.0.1'}")
         self.assertIn("192.168.1.1", result)
         self.assertIn("10.0.0.1", result)
 
     def test_parse_wmic_list_empty(self) -> None:
         from aionetiface.nic.netifaces.windows.win_wmic import parse_wmic_list
+
         result = parse_wmic_list("")
         self.assertEqual(result, [])
 
     def test_parse_wmic_list_single(self) -> None:
         from aionetiface.nic.netifaces.windows.win_wmic import parse_wmic_list
+
         result = parse_wmic_list("{'192.168.1.1'}")
         self.assertIn("192.168.1.1", result)
 
@@ -293,10 +317,7 @@ class TestWMICParsers(unittest.TestCase):
     # WMICParse.show_con_names
     # -----------------------------------------------------------------------
     CON_NAMES = (
-        "Index  Name\r\n"
-        "-----  ----\r\n"
-        "12     Ethernet   \r\n"
-        "14     Wi-Fi 2    \r\n"
+        "Index  Name\r\n-----  ----\r\n12     Ethernet   \r\n14     Wi-Fi 2    \r\n"
     )
 
     def test_show_con_names(self) -> None:
@@ -333,6 +354,7 @@ If  Met  Prefix                         Next Hop
 # ---------------------------------------------------------------------------
 # PowerShell (load_ifs_from_ps1) parsing – unit-level regex tests
 # -----------------------------------------------------------------------
+
 
 class TestPS1Parsing(unittest.TestCase):
     """
@@ -379,14 +401,14 @@ v6GW                 : null
         from aionetiface.net.net_utils import ip_strip_cidr, ip_strip_if
 
         addr_info = {IP4: [], IP6: []}
-        addr_s = block.replace(' ', '')
+        addr_s = block.replace(" ", "")
         addr_list = addr_s.splitlines(False)
         for addr in addr_list:
-            if addr == '':
+            if addr == "":
                 continue
             prefix_len = None
-            if '/' in addr:
-                raw_ip, raw_prefix = addr.rsplit('/', 1)
+            if "/" in addr:
+                raw_ip, raw_prefix = addr.rsplit("/", 1)
                 try:
                     prefix_len = int(raw_prefix)
                 except ValueError:
@@ -395,12 +417,14 @@ v6GW                 : null
             addr = ip_strip_cidr(ip_strip_if(addr))
             ipr = IPRange(addr)
             host_limit = prefix_len if prefix_len is not None else af_bitlen(ipr.af)
-            addr_info[ipr.af].append({
-                "addr": addr,
-                "af": ipr.af,
-                "host_limit": host_limit,
-                "netmask": cidr_to_netmask(host_limit, ipr.af)
-            })
+            addr_info[ipr.af].append(
+                {
+                    "addr": addr,
+                    "af": ipr.af,
+                    "host_limit": host_limit,
+                    "netmask": cidr_to_netmask(host_limit, ipr.af),
+                }
+            )
         return addr_info
 
     def test_ps1_ipv4_prefix_parsed(self) -> None:
@@ -434,7 +458,9 @@ v6GW                 : null
         self.assertEqual(result[IP4][0]["host_limit"], 32)
 
     def test_ps1_mixed_block(self) -> None:
-        block = "192.168.1.100/24\n2402:1f00:8101:83f::1/64\nfe80::ae1f:6bff:fe94:531a/64\n"
+        block = (
+            "192.168.1.100/24\n2402:1f00:8101:83f::1/64\nfe80::ae1f:6bff:fe94:531a/64\n"
+        )
         result = self._parse_ps1_addr_block(block)
         self.assertEqual(len(result[IP4]), 1)
         self.assertEqual(len(result[IP6]), 2)
@@ -442,6 +468,7 @@ v6GW                 : null
     def test_ps1_regex_captures_slash_in_ip_list(self) -> None:
         """Confirm the updated regex accepts /prefix in the IP list field."""
         import re
+
         # The full regex from load_ifs_from_ps1 (updated to allow / in IP list).
         p = (
             r"InterfaceDescription *: *([^\r\n]+?) *[\r\n]+"
@@ -468,6 +495,7 @@ v6GW                 : null
 # get_addr_info_by_if_index output parsing
 # ---------------------------------------------------------------------------
 
+
 class TestGetAddrInfoParsing(unittest.TestCase):
     """
     Tests for the regex in get_addr_info_by_if_index that parses
@@ -491,10 +519,11 @@ PrefixLength   : 64
     def _parse_addr_output(self, out: str) -> Dict[Any, List[Dict[str, Any]]]:
         import re
         from aionetiface.net.net_utils import cidr_to_netmask
+
         addr = {IP4: [], IP6: []}
         addr_infos = re.findall(
             r"IPAddress\s*:\s*([^\s]*)[\s\S]*?AddressFamily\s*:\s*([^\s]+)[\s\S]*?PrefixLength\s*:\s([0-9]+)",
-            out
+            out,
         )
         for info in addr_infos:
             ip_val, af_family, host_limit = info
@@ -503,12 +532,14 @@ PrefixLength   : 64
                 af = IP4
             if af_family == "IPv6":
                 af = IP6
-            addr[af].append({
-                "addr": ip_val,
-                "af": af,
-                "host_limit": host_limit,
-                "netmask": cidr_to_netmask(host_limit, af)
-            })
+            addr[af].append(
+                {
+                    "addr": ip_val,
+                    "af": af,
+                    "host_limit": host_limit,
+                    "netmask": cidr_to_netmask(host_limit, af),
+                }
+            )
         return addr
 
     def test_ipv4_extracted(self) -> None:
@@ -537,6 +568,7 @@ PrefixLength   : 64
 # netiface_addr_to_ipr  (Linux netifaces dict → IPRange)
 # ---------------------------------------------------------------------------
 
+
 class TestNetiaceAddrToIPR(unittest.IsolatedAsyncioTestCase):
     """
     Tests for netiface_addr_to_ipr using simulated netifaces info dicts,
@@ -545,14 +577,15 @@ class TestNetiaceAddrToIPR(unittest.IsolatedAsyncioTestCase):
 
     async def _to_ipr(self, af: Any, addr: str, netmask: str, nic_id: int = 0) -> Any:
         from aionetiface.nic.netifaces.netiface_extra import netiface_addr_to_ipr
+
         info = {"addr": addr, "netmask": netmask}
         return await netiface_addr_to_ipr(af, nic_id, info)
 
     async def test_ipv4_host_with_slash24_netmask(self) -> None:
         ipr = await self._to_ipr(IP4, "192.168.1.100", "255.255.255.0")
         self.assertIsNotNone(ipr)
-        self.assertEqual(ipr.bitlen, 0)      # single-host range
-        self.assertEqual(ipr.subnet, 24) # OS prefix stored separately
+        self.assertEqual(ipr.bitlen, 0)  # single-host range
+        self.assertEqual(ipr.subnet, 24)  # OS prefix stored separately
 
     async def test_ipv4_host_with_full_netmask(self) -> None:
         ipr = await self._to_ipr(IP4, "8.8.8.8", "255.255.255.255")
@@ -562,29 +595,27 @@ class TestNetiaceAddrToIPR(unittest.IsolatedAsyncioTestCase):
 
     async def test_ipv4_missing_addr(self) -> None:
         from aionetiface.nic.netifaces.netiface_extra import netiface_addr_to_ipr
+
         result = await netiface_addr_to_ipr(IP4, 0, {"netmask": "255.255.255.0"})
         self.assertIsNone(result)
 
     async def test_ipv4_missing_netmask(self) -> None:
         from aionetiface.nic.netifaces.netiface_extra import netiface_addr_to_ipr
+
         result = await netiface_addr_to_ipr(IP4, 0, {"addr": "192.168.1.1"})
         self.assertIsNone(result)
 
     async def test_ipv6_host_with_slash64_netmask(self) -> None:
         ipr = await self._to_ipr(
-            IP6,
-            "2402:1f00:8101:83f::1",
-            "ffff:ffff:ffff:ffff::/64"
+            IP6, "2402:1f00:8101:83f::1", "ffff:ffff:ffff:ffff::/64"
         )
         self.assertIsNotNone(ipr)
-        self.assertEqual(ipr.bitlen, 0)      # single-host
-        self.assertEqual(ipr.subnet, 64) # OS /64 prefix
+        self.assertEqual(ipr.bitlen, 0)  # single-host
+        self.assertEqual(ipr.subnet, 64)  # OS /64 prefix
 
     async def test_ipv6_host_with_full_netmask(self) -> None:
         ipr = await self._to_ipr(
-            IP6,
-            "2402:1f00:8101:83f::1",
-            "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
+            IP6, "2402:1f00:8101:83f::1", "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
         )
         self.assertIsNotNone(ipr)
         self.assertEqual(ipr.bitlen, 0)
@@ -592,9 +623,7 @@ class TestNetiaceAddrToIPR(unittest.IsolatedAsyncioTestCase):
 
     async def test_ipv6_link_local_with_slash64(self) -> None:
         ipr = await self._to_ipr(
-            IP6,
-            "fe80::ae1f:6bff:fe94:531a",
-            "ffff:ffff:ffff:ffff::/64"
+            IP6, "fe80::ae1f:6bff:fe94:531a", "ffff:ffff:ffff:ffff::/64"
         )
         self.assertIsNotNone(ipr)
         self.assertEqual(ipr.bitlen, 0)
@@ -603,9 +632,7 @@ class TestNetiaceAddrToIPR(unittest.IsolatedAsyncioTestCase):
     async def test_ipv6_link_local_with_interface_suffix(self) -> None:
         """Addresses with %interface suffixes must load correctly."""
         ipr = await self._to_ipr(
-            IP6,
-            "fe80::ae1f:6bff:fe94:531a%eth0",
-            "ffff:ffff:ffff:ffff::/64"
+            IP6, "fe80::ae1f:6bff:fe94:531a%eth0", "ffff:ffff:ffff:ffff::/64"
         )
         self.assertIsNotNone(ipr)
 
@@ -625,6 +652,7 @@ class TestNetiaceAddrToIPR(unittest.IsolatedAsyncioTestCase):
 
     async def test_net_cidr_preserved_across_deepcopy(self) -> None:
         import copy
+
         ipr = await self._to_ipr(IP4, "192.168.1.5", "255.255.255.0")
         copied = copy.deepcopy(ipr)
         self.assertEqual(copied.subnet, ipr.subnet)
@@ -634,6 +662,7 @@ class TestNetiaceAddrToIPR(unittest.IsolatedAsyncioTestCase):
 # group_pub_iprs_by_subnet  (route grouping logic)
 # ---------------------------------------------------------------------------
 
+
 class TestGroupPubIPRsByNetCidr(unittest.TestCase):
     """
     Tests for the subnet-based grouping used in discover_nic_wan_ips.
@@ -642,12 +671,14 @@ class TestGroupPubIPRsByNetCidr(unittest.TestCase):
 
     def _make_ipr(self, ip: str, subnet: int, af: Any = IP4) -> Any:
         from aionetiface.net.ip_range import IPRange
+
         ipr = IPRange(ip, bitlen=0)
         ipr.subnet = subnet
         return ipr
 
     def _group(self, iprs: List[Any], af: Any = IP4) -> Any:
         from aionetiface.nic.route.route_load import group_pub_iprs_by_subnet
+
         max_bits = 128 if af == IP6 else 32
         return group_pub_iprs_by_subnet(iprs, max_bits)
 
@@ -708,6 +739,7 @@ class TestGroupPubIPRsByNetCidr(unittest.TestCase):
     def test_none_net_cidr_falls_back_to_individual(self) -> None:
         """subnet=None is treated as max_bits → individual query."""
         from aionetiface.net.ip_range import IPRange
+
         ipr = IPRange("10.0.0.1")
         ipr.subnet = None
         _, individuals = self._group([ipr])
@@ -717,6 +749,7 @@ class TestGroupPubIPRsByNetCidr(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # get_mac_mixed regex tests (cross-platform MAC extraction)
 # ---------------------------------------------------------------------------
+
 
 class TestGetMacMixedRegex(unittest.TestCase):
     """
@@ -730,11 +763,13 @@ class TestGetMacMixedRegex(unittest.TestCase):
 
     def _extract_mac_ip_addr(self, output: str) -> Optional[str]:
         import re
+
         matches = re.findall(self.MAC_P, output)
         return matches[0].strip() if matches else None
 
     def _extract_mac_ifconfig(self, output: str) -> Optional[str]:
         import re
+
         matches = re.findall(self.IFCONFIG_P, output)
         return matches[0].strip() if matches else None
 
@@ -766,9 +801,7 @@ class TestGetMacMixedRegex(unittest.TestCase):
         self.assertIsNotNone(mac)
 
     # Raspberry Pi – MAC with Raspberry Pi OUI (b8:27:eb)
-    LINUX_IP_ADDR_RPI = (
-        "    link/ether b8:27:eb:12:34:56 brd ff:ff:ff:ff:ff:ff\n"
-    )
+    LINUX_IP_ADDR_RPI = "    link/ether b8:27:eb:12:34:56 brd ff:ff:ff:ff:ff:ff\n"
 
     def test_linux_ip_addr_rpi(self) -> None:
         mac = self._extract_mac_ip_addr(self.LINUX_IP_ADDR_RPI)
@@ -777,8 +810,7 @@ class TestGetMacMixedRegex(unittest.TestCase):
 
     # Linux with altname line also present in grep output
     LINUX_IP_ADDR_WITH_ALTNAME = (
-        "    link/ether 00:0c:29:57:d0:5c brd ff:ff:ff:ff:ff:ff\n"
-        "    altname enp3s0\n"
+        "    link/ether 00:0c:29:57:d0:5c brd ff:ff:ff:ff:ff:ff\n    altname enp3s0\n"
     )
 
     def test_linux_ip_addr_with_altname(self) -> None:
@@ -787,9 +819,7 @@ class TestGetMacMixedRegex(unittest.TestCase):
         self.assertIn("00:0c:29", mac.lower())
 
     # Linux – VLAN interface (ether appears same way)
-    LINUX_IP_ADDR_VLAN = (
-        "    link/ether 00:11:22:33:44:55 brd ff:ff:ff:ff:ff:ff\n"
-    )
+    LINUX_IP_ADDR_VLAN = "    link/ether 00:11:22:33:44:55 brd ff:ff:ff:ff:ff:ff\n"
 
     def test_linux_ip_addr_vlan(self) -> None:
         mac = self._extract_mac_ip_addr(self.LINUX_IP_ADDR_VLAN)
@@ -858,6 +888,7 @@ class TestGetMacMixedRegex(unittest.TestCase):
 
     def _extract_win_mac(self, output: str, if_name: str) -> Optional[str]:
         import re
+
         matches = re.findall(self.WIN_P + re.escape(if_name), output)
         if not matches:
             return None
@@ -934,11 +965,13 @@ class TestGetMacMixedRegex(unittest.TestCase):
 # Extended netsh parser tests – more real-world output variants
 # ---------------------------------------------------------------------------
 
+
 class TestNetshParsersExtended(unittest.TestCase):
     """Additional real-world output samples for NetshParse."""
 
     def setUp(self) -> None:
         from aionetiface.nic.netifaces.windows.win_netsh import NetshParse
+
         self.parser = NetshParse()
 
     # -----------------------------------------------------------------------
@@ -1445,7 +1478,10 @@ class TestNetshParsersExtended(unittest.TestCase):
     # -----------------------------------------------------------------------
 
     def test_host_limit_ipv6_slash48(self) -> None:
-        from aionetiface.nic.netifaces.windows.win_netsh import get_host_limit_from_route_infos
+        from aionetiface.nic.netifaces.windows.win_netsh import (
+            get_host_limit_from_route_infos,
+        )
+
         route_infos = [
             {"prefix": "::/0"},
             {"prefix": "2001:db8::/32"},
@@ -1455,7 +1491,10 @@ class TestNetshParsersExtended(unittest.TestCase):
         self.assertEqual(host_limit, 48)
 
     def test_host_limit_ipv6_slash56(self) -> None:
-        from aionetiface.nic.netifaces.windows.win_netsh import get_host_limit_from_route_infos
+        from aionetiface.nic.netifaces.windows.win_netsh import (
+            get_host_limit_from_route_infos,
+        )
+
         route_infos = [
             {"prefix": "2001:db8::/32"},
             {"prefix": "2001:db8:1::/48"},
@@ -1468,20 +1507,24 @@ class TestNetshParsersExtended(unittest.TestCase):
 
     def test_host_limit_ipv6_slash128(self) -> None:
         """Host route /128 is the most specific possible match."""
-        from aionetiface.nic.netifaces.windows.win_netsh import get_host_limit_from_route_infos
+        from aionetiface.nic.netifaces.windows.win_netsh import (
+            get_host_limit_from_route_infos,
+        )
+
         route_infos = [
             {"prefix": "2001:db8::/32"},
             {"prefix": "2001:db8:1:2::/64"},
             {"prefix": "2001:db8:1:2::5/128"},
         ]
-        host_limit, _ = get_host_limit_from_route_infos(
-            "2001:db8:1:2::5", route_infos
-        )
+        host_limit, _ = get_host_limit_from_route_infos("2001:db8:1:2::5", route_infos)
         self.assertEqual(host_limit, 128)
 
     def test_host_limit_ipv4_slash30(self) -> None:
         """Point-to-point /30 link: two host bits."""
-        from aionetiface.nic.netifaces.windows.win_netsh import get_host_limit_from_route_infos
+        from aionetiface.nic.netifaces.windows.win_netsh import (
+            get_host_limit_from_route_infos,
+        )
+
         route_infos = [
             {"prefix": "0.0.0.0/0"},
             {"prefix": "10.0.0.0/30"},
@@ -1492,9 +1535,14 @@ class TestNetshParsersExtended(unittest.TestCase):
 
     def test_host_limit_no_match_returns_zero(self) -> None:
         """IP not covered by any route → host_limit=0, netmask=None."""
-        from aionetiface.nic.netifaces.windows.win_netsh import get_host_limit_from_route_infos
+        from aionetiface.nic.netifaces.windows.win_netsh import (
+            get_host_limit_from_route_infos,
+        )
+
         route_infos = [{"prefix": "10.0.0.0/24"}]
-        host_limit, netmask = get_host_limit_from_route_infos("192.168.1.1", route_infos)
+        host_limit, netmask = get_host_limit_from_route_infos(
+            "192.168.1.1", route_infos
+        )
         self.assertEqual(host_limit, 0)
         self.assertIsNone(netmask)
 
@@ -1502,6 +1550,7 @@ class TestNetshParsersExtended(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # Extended netiface_addr_to_ipr: block IP assignments across OS netmask formats
 # ---------------------------------------------------------------------------
+
 
 class TestNetiaceAddrToIPRBlocks(unittest.IsolatedAsyncioTestCase):
     """
@@ -1511,6 +1560,7 @@ class TestNetiaceAddrToIPRBlocks(unittest.IsolatedAsyncioTestCase):
 
     async def _to_ipr(self, af: Any, addr: str, netmask: str, nic_id: int = 0) -> Any:
         from aionetiface.nic.netifaces.netiface_extra import netiface_addr_to_ipr
+
         info = {"addr": addr, "netmask": netmask}
         return await netiface_addr_to_ipr(af, nic_id, info)
 
@@ -1520,8 +1570,8 @@ class TestNetiaceAddrToIPRBlocks(unittest.IsolatedAsyncioTestCase):
         """/24 block: 198.51.100.0/24 with 255 usable hosts."""
         ipr = await self._to_ipr(IP4, "198.51.100.0", "255.255.255.0")
         self.assertIsNotNone(ipr)
-        self.assertEqual(ipr.bitlen, 8)         # 8 host bits
-        self.assertEqual(ipr.host_limit, 255)   # 2^8 - 1
+        self.assertEqual(ipr.bitlen, 8)  # 8 host bits
+        self.assertEqual(ipr.host_limit, 255)  # 2^8 - 1
         self.assertEqual(ipr.subnet, 24)
         self.assertEqual(ipr.i_host, 0)
 
@@ -1529,8 +1579,8 @@ class TestNetiaceAddrToIPRBlocks(unittest.IsolatedAsyncioTestCase):
         """/25 block: 192.168.1.128/25 – upper half of a /24."""
         ipr = await self._to_ipr(IP4, "192.168.1.128", "255.255.255.128")
         self.assertIsNotNone(ipr)
-        self.assertEqual(ipr.bitlen, 7)         # 7 host bits
-        self.assertEqual(ipr.host_limit, 127)   # 2^7 - 1
+        self.assertEqual(ipr.bitlen, 7)  # 7 host bits
+        self.assertEqual(ipr.host_limit, 127)  # 2^7 - 1
         self.assertEqual(ipr.subnet, 25)
         self.assertEqual(ipr.i_host, 0)
 
@@ -1538,8 +1588,8 @@ class TestNetiaceAddrToIPRBlocks(unittest.IsolatedAsyncioTestCase):
         """/28 block: 203.0.113.16/28 – 14 usable hosts."""
         ipr = await self._to_ipr(IP4, "203.0.113.16", "255.255.255.240")
         self.assertIsNotNone(ipr)
-        self.assertEqual(ipr.bitlen, 4)         # 4 host bits
-        self.assertEqual(ipr.host_limit, 15)    # 2^4 - 1
+        self.assertEqual(ipr.bitlen, 4)  # 4 host bits
+        self.assertEqual(ipr.host_limit, 15)  # 2^4 - 1
         self.assertEqual(ipr.subnet, 28)
         self.assertEqual(ipr.i_host, 0)
 
@@ -1547,8 +1597,8 @@ class TestNetiaceAddrToIPRBlocks(unittest.IsolatedAsyncioTestCase):
         """/30 point-to-point link: 10.0.0.0/30 – 3 usable IPs."""
         ipr = await self._to_ipr(IP4, "10.0.0.0", "255.255.255.252")
         self.assertIsNotNone(ipr)
-        self.assertEqual(ipr.bitlen, 2)         # 2 host bits
-        self.assertEqual(ipr.host_limit, 3)     # 2^2 - 1
+        self.assertEqual(ipr.bitlen, 2)  # 2 host bits
+        self.assertEqual(ipr.host_limit, 3)  # 2^2 - 1
         self.assertEqual(ipr.subnet, 30)
         self.assertEqual(ipr.i_host, 0)
 
@@ -1565,60 +1615,46 @@ class TestNetiaceAddrToIPRBlocks(unittest.IsolatedAsyncioTestCase):
         """A host IP inside a /24 subnet → collapsed to single-host range."""
         ipr = await self._to_ipr(IP4, "198.51.100.5", "255.255.255.0")
         self.assertIsNotNone(ipr)
-        self.assertEqual(ipr.bitlen, 0)    # single host
+        self.assertEqual(ipr.bitlen, 0)  # single host
         self.assertEqual(ipr.subnet, 24)  # OS prefix still stored
 
     # --- IPv6 block assignments ---
 
     async def test_ipv6_block_slash64_network_addr(self) -> None:
         """/64 block: 2001:db8:: assigned directly (network address on interface)."""
-        ipr = await self._to_ipr(
-            IP6, "2001:db8::", "ffff:ffff:ffff:ffff::"
-        )
+        ipr = await self._to_ipr(IP6, "2001:db8::", "ffff:ffff:ffff:ffff::")
         self.assertIsNotNone(ipr)
-        self.assertEqual(ipr.bitlen, 64)             # 64 host bits
+        self.assertEqual(ipr.bitlen, 64)  # 64 host bits
         self.assertEqual(ipr.host_limit, (2**64) - 1)
         self.assertEqual(ipr.subnet, 64)
         self.assertEqual(ipr.i_host, 0)
 
     async def test_ipv6_block_slash48(self) -> None:
         """/48 block: 2001:db8:: assigned as a /48 (router prefix delegation)."""
-        ipr = await self._to_ipr(
-            IP6, "2001:db8::", "ffff:ffff:ffff::"
-        )
+        ipr = await self._to_ipr(IP6, "2001:db8::", "ffff:ffff:ffff::")
         self.assertIsNotNone(ipr)
-        self.assertEqual(ipr.bitlen, 80)             # 80 host bits
+        self.assertEqual(ipr.bitlen, 80)  # 80 host bits
         self.assertEqual(ipr.subnet, 48)
         self.assertEqual(ipr.i_host, 0)
 
     async def test_ipv6_block_slash56(self) -> None:
         """/56 block: 2001:db8:1:200:: – common ISP delegation size."""
-        ipr = await self._to_ipr(
-            IP6, "2001:db8:1:200::", "ffff:ffff:ffff:ff00::"
-        )
+        ipr = await self._to_ipr(IP6, "2001:db8:1:200::", "ffff:ffff:ffff:ff00::")
         self.assertIsNotNone(ipr)
-        self.assertEqual(ipr.bitlen, 72)   # 72 host bits
+        self.assertEqual(ipr.bitlen, 72)  # 72 host bits
         self.assertEqual(ipr.subnet, 56)
         self.assertEqual(ipr.i_host, 0)
 
     async def test_ipv6_host_inside_slash64_is_single(self) -> None:
         """A host inside a /64 → single-host IPRange with subnet=64."""
-        ipr = await self._to_ipr(
-            IP6,
-            "2001:db8::1",
-            "ffff:ffff:ffff:ffff::/64"
-        )
+        ipr = await self._to_ipr(IP6, "2001:db8::1", "ffff:ffff:ffff:ffff::/64")
         self.assertIsNotNone(ipr)
-        self.assertEqual(ipr.bitlen, 0)    # single host
+        self.assertEqual(ipr.bitlen, 0)  # single host
         self.assertEqual(ipr.subnet, 64)
 
     async def test_ipv6_link_local_host_inside_slash64(self) -> None:
         """Link-local address in /64 → single-host, subnet=64."""
-        ipr = await self._to_ipr(
-            IP6,
-            "fe80::1",
-            "ffff:ffff:ffff:ffff::"
-        )
+        ipr = await self._to_ipr(IP6, "fe80::1", "ffff:ffff:ffff:ffff::")
         self.assertIsNotNone(ipr)
         self.assertEqual(ipr.bitlen, 0)
         self.assertEqual(ipr.subnet, 64)
@@ -1628,9 +1664,7 @@ class TestNetiaceAddrToIPRBlocks(unittest.IsolatedAsyncioTestCase):
     async def test_netmask_with_cidr_suffix_stripped(self) -> None:
         """netifaces on some systems returns 'ffff:ffff:ffff:ffff::/64' – /N stripped."""
         ipr = await self._to_ipr(
-            IP6,
-            "2400:a842:d1b4:0:20c:29ff:fe57:d05c",
-            "ffff:ffff:ffff:ffff::/64"
+            IP6, "2400:a842:d1b4:0:20c:29ff:fe57:d05c", "ffff:ffff:ffff:ffff::/64"
         )
         self.assertIsNotNone(ipr)
         self.assertEqual(ipr.subnet, 64)
@@ -1661,25 +1695,29 @@ class TestNetiaceAddrToIPRBlocks(unittest.IsolatedAsyncioTestCase):
 # Extended Get-NetIPAddress output parsing variants
 # ---------------------------------------------------------------------------
 
+
 class TestGetAddrInfoParsingExtended(unittest.TestCase):
     """More real-world Get-NetIPAddress output samples."""
 
     def _parse(self, out: str) -> Dict[Any, List[Dict[str, Any]]]:
         import re
         from aionetiface.net.net_utils import cidr_to_netmask
+
         addr = {IP4: [], IP6: []}
         for ip_val, af_family, host_limit in re.findall(
             r"IPAddress\s*:\s*([^\s]*)[\s\S]*?AddressFamily\s*:\s*([^\s]+)[\s\S]*?PrefixLength\s*:\s([0-9]+)",
-            out
+            out,
         ):
             host_limit = int(host_limit)
             af = IP4 if af_family == "IPv4" else IP6
-            addr[af].append({
-                "addr": ip_val,
-                "af": af,
-                "host_limit": host_limit,
-                "netmask": cidr_to_netmask(host_limit, af)
-            })
+            addr[af].append(
+                {
+                    "addr": ip_val,
+                    "af": af,
+                    "host_limit": host_limit,
+                    "netmask": cidr_to_netmask(host_limit, af),
+                }
+            )
         return addr
 
     # Windows Server – multiple IPs on one adapter (multi-homed)
@@ -1781,5 +1819,5 @@ PrefixLength   : 128
         self.assertEqual(result[IP6][0]["host_limit"], 128)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

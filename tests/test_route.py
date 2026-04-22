@@ -21,6 +21,7 @@ class TestRoute(unittest.IsolatedAsyncioTestCase):
 
         # Test invalid WAN is detected.
         ipr_nic = IPRange("192.168.0.20")
+
         def invalid_wan():
             ipr_wan = IPRange(0, "255.255.255.255")
             route = Route(IP4, [ipr_nic], [ipr_wan])
@@ -43,45 +44,36 @@ class TestRoute(unittest.IsolatedAsyncioTestCase):
         r = i.route(af)
         info = {
             "addr": str(r.nic_ips[0]),
-            "netmask": cidr_to_netmask(r.nic_ips[0].bitlen, af)
+            "netmask": cidr_to_netmask(r.nic_ips[0].bitlen, af),
         }
 
         ipr = await netiface_addr_to_ipr(af, i.id, info)
         self.assertTrue(ipr is not None)
 
-
     async def test_route_ops(self):
         r1 = Route(
-            af=IP4,
-            nic_ips=[IPRange("192.168.0.1")],
-            ext_ips=[IPRange("8.8.8.8")]
+            af=IP4, nic_ips=[IPRange("192.168.0.1")], ext_ips=[IPRange("8.8.8.8")]
         )
         self.assertEqual(len(r1), 1)
         self.assertEqual(r1, r1)
 
         r2 = Route(
-            af=IP4,
-            nic_ips=[IPRange("192.168.0.10")],
-            ext_ips=[IPRange("8.8.8.8")]
+            af=IP4, nic_ips=[IPRange("192.168.0.10")], ext_ips=[IPRange("8.8.8.8")]
         )
 
         r3 = Route(
-            af=IP4,
-            nic_ips=[IPRange("192.168.0.10")],
-            ext_ips=[IPRange("8.8.8.10")]
+            af=IP4, nic_ips=[IPRange("192.168.0.10")], ext_ips=[IPRange("8.8.8.10")]
         )
-        self.assertNotEqual(r1, r3  )
+        self.assertNotEqual(r1, r3)
 
         r4 = Route(
-            af=IP4,
-            nic_ips=[IPRange("192.168.0.10")],
-            ext_ips=[IPRange("8.8.8.12")]
+            af=IP4, nic_ips=[IPRange("192.168.0.10")], ext_ips=[IPRange("8.8.8.12")]
         )
 
         r5 = Route(
             af=IP6,
             nic_ips=[IPRange("2402:1f00:8101:83f::1")],
-            ext_ips=[IPRange("2402:1f00:8101:83f::1")]
+            ext_ips=[IPRange("2402:1f00:8101:83f::1")],
         )
 
         rp = RoutePool([r1, r2, r3, r4, r5])
@@ -101,7 +93,7 @@ class TestRoute(unittest.IsolatedAsyncioTestCase):
         # Test invert (find route with different wan ip).
         r = ~r1
         self.assertTrue(r.ext_ips[0] != ipr_c)
-        
+
         # Test not equal.
         self.assertTrue(r != r1)
 
@@ -114,11 +106,11 @@ class TestRoute(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(r3 in routes)
 
         # Check all different conversions.
-        self.assertFalse(r4 == ipr_c) # IPRange
-        self.assertFalse(r4 == "10.0.0.1") # Str
-        self.assertFalse(r4 == b"10.0.0.1") # bytes
-        self.assertFalse(r5 == int(ipr_d)) # int
-        self.assertFalse(r4 == ipaddress.IPv4Address(1)) # IPaddress
+        self.assertFalse(r4 == ipr_c)  # IPRange
+        self.assertFalse(r4 == "10.0.0.1")  # Str
+        self.assertFalse(r4 == b"10.0.0.1")  # bytes
+        self.assertFalse(r5 == int(ipr_d))  # int
+        self.assertFalse(r4 == ipaddress.IPv4Address(1))  # IPaddress
 
         # Check route pool iter code.
         i = 0
@@ -139,10 +131,10 @@ class TestRoute(unittest.IsolatedAsyncioTestCase):
     async def test_route_pool(self):
         # 511 hosts overall
         af = IP4
-        ipr_a = IPRange("8.8.8.0", bitlen=8) # 255 hosts
-        ipr_b = IPRange("7.7.7.0", bitlen=8) # 255 hosts
-        ipr_c = IPRange("9.9.9.9") # 1 host
-        
+        ipr_a = IPRange("8.8.8.0", bitlen=8)  # 255 hosts
+        ipr_b = IPRange("7.7.7.0", bitlen=8)  # 255 hosts
+        ipr_c = IPRange("9.9.9.9")  # 1 host
+
         # Setup route pool
         r1 = Route(af, [ipr_a], [copy.deepcopy(ipr_a)])
         r2 = Route(af, [ipr_b], [copy.deepcopy(ipr_b)])
@@ -172,13 +164,13 @@ class TestRoute(unittest.IsolatedAsyncioTestCase):
         x = rp[254:256]
         self.assertEqual(len(x), 2)
         self.assertEqual(x[0].ext_ips[0], IPRange("8.8.8.255"))
-        self.assertEqual(x[1].ext_ips[0], IPRange("7.7.7.1")) 
+        self.assertEqual(x[1].ext_ips[0], IPRange("7.7.7.1"))
 
         # Test tuple list fetching.
         x = rp[(254, 255)]
         self.assertEqual(len(x), 2)
         self.assertEqual(x[0].ext_ips[0], IPRange("8.8.8.255"))
-        self.assertEqual(x[1].ext_ips[0], IPRange("7.7.7.1")) 
+        self.assertEqual(x[1].ext_ips[0], IPRange("7.7.7.1"))
 
         # Test reversed iter.
         for r in reversed(rp):
@@ -196,5 +188,6 @@ class TestRoute(unittest.IsolatedAsyncioTestCase):
         x = rp.pop()
         self.assertEqual(x.ext_ips[0], IPRange("8.8.8.2"))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

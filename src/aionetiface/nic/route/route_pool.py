@@ -1,16 +1,14 @@
 import copy
-from typing import Any, Dict, Iterator, List, Optional, Union
+from typing import Any, Dict, List, Optional
 from ...utility.utils import sorted_search
 from ...net.ip_range import IPRange
-from ...net.address import Address
-from ...net.bind.bind import Bind
 from .route import Route
 
 
 # Allows referencing a list of routes as if all WAN IPs
 # were at their own index regardless of if they're in ranges.
 # Will be very slow if there's a lot of hosts.
-class RoutePoolIter():
+class RoutePoolIter:
     def __init__(self, rp: "RoutePool", reverse: bool = False) -> None:
         self.rp = rp
         self.reverse = reverse
@@ -34,12 +32,9 @@ class RoutePoolIter():
             host_offset = self.host_p
         else:
             host_offset = (len(self.rp) - 1) - self.host_p
-        
+
         # Get a route object encapsulating that WAN host.
-        route = self.rp.get_route_info(
-            self.route_offset,
-            self.host_p
-        )
+        route = self.rp.get_route_info(self.route_offset, host_offset)
 
         # Adjust position of pointers.
         self.host_p += 1
@@ -55,8 +50,13 @@ class RoutePoolIter():
         # Return the result.
         return route
 
-class RoutePool():
-    def __init__(self, routes: Optional[List[Any]] = None, link_locals: Optional[List[Any]] = None) -> None:
+
+class RoutePool:
+    def __init__(
+        self,
+        routes: Optional[List[Any]] = None,
+        link_locals: Optional[List[Any]] = None,
+    ) -> None:
         self.routes = routes or []
         self.link_locals = link_locals or []
 
@@ -144,13 +144,13 @@ class RoutePool():
 
     def get_route_info(self, route_offset: int, abs_host_offset: int) -> Any:
         # Route to use for the WAN addresses.
-        assert(route_offset <= (len(self.routes) - 1))
+        assert route_offset <= (len(self.routes) - 1)
         route = self.routes[route_offset]
-        
+
         # Convert host_offset to a index inside route's WAN subnet.
         prev_len = self.len_list[route_offset - 1] if route_offset else 0
         rel_host_offset = abs_host_offset - prev_len
-        assert(rel_host_offset <= self.len_list[route_offset] - 1)
+        assert rel_host_offset <= self.len_list[route_offset] - 1
 
         # Get references to member objs.
         wan_ipr = route.ext_ips[0]
@@ -159,18 +159,18 @@ class RoutePool():
         # For pub ranges assigned to NIC -- they will line up.
         # For N or more private addressess -> a WAN = probably won't.
         # In such a case it doesn't matter as any NIC IP = the same WAN.
-        assert(rel_host_offset + 1 <= self.wan_hosts)
-        assert(len(wan_ipr))
-        assert(len(nic_ipr))
+        assert rel_host_offset + 1 <= self.wan_hosts
+        assert len(wan_ipr)
+        assert len(nic_ipr)
         rel_host_offset = rel_host_offset % self.wan_hosts
-        
+
         # Build a route corrosponding to these offsets.
         wan_ip = IPRange(str(wan_ipr[rel_host_offset]), bitlen=0)
         new_route = Route(
             af=route.af,
             nic_ips=copy.deepcopy(route.nic_ips),
             ext_ips=[wan_ip],
-            interface=route.interface
+            interface=route.interface,
         )
         new_route.set_link_locals(copy.deepcopy(route.link_locals))
         new_route.set_offsets(route_offset, abs_host_offset)
@@ -203,11 +203,10 @@ class RoutePool():
         elif isinstance(key, tuple):
             return [self[x] for x in key]
         else:
-            raise TypeError('Invalid argument type: {}'.format(type(key)))
+            raise TypeError("Invalid argument type: {}".format(type(key)))
 
     def __iter__(self) -> RoutePoolIter:
         return RoutePoolIter(self)
 
     def __reversed__(self) -> RoutePoolIter:
         return RoutePoolIter(self, reverse=True)
-

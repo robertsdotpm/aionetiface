@@ -4,16 +4,15 @@ except ImportError:  # pragma: no cover
     ssl = None
 
 import asyncio
-import functools
 import socket
 import os
 import sys
 import stat
 import select
 import errno
-from selectors import SelectSelector
 
 
+from selectors import SelectSelector  # noqa: F401
 from typing import Any, List, Optional, Tuple
 from ...utility.utils import *
 
@@ -21,10 +20,12 @@ from ...utility.utils import *
 # -----------------------------
 # Patched select for modern Python
 # -----------------------------
-def patched_select_modern(self: Any, r: Any, w: Any, x: Any, timeout: Optional[float] = None) -> Tuple[List[Any], List[Any], List[Any]]:
+def patched_select_modern(
+    self: Any, r: Any, w: Any, x: Any, timeout: Optional[float] = None
+) -> Tuple[List[Any], List[Any], List[Any]]:
     """
     Patched SelectSelector._select for modern Python (>=3.7).
-    
+
     Handles:
     - Windows: closed socket (winerror 10038)
     - Unix: bad file descriptor (errno 9)
@@ -33,24 +34,27 @@ def patched_select_modern(self: Any, r: Any, w: Any, x: Any, timeout: Optional[f
     try:
         return select.select(r, w, x, timeout)
     except OSError as e:
-        if getattr(e, 'winerror', None) == 10038:
+        if getattr(e, "winerror", None) == 10038:
             return [], [], []
-        
-        if getattr(e, 'errno', None) == 9:
+
+        if getattr(e, "errno", None) == 9:
             return [], [], []
-        
-        if getattr(e, 'errno', None) == errno.EINTR:
+
+        if getattr(e, "errno", None) == errno.EINTR:
             return [], [], []
-        
+
         raise
+
 
 # -----------------------------
 # Patched select for old Python
 # -----------------------------
-def patched_select_old(self: Any, r: Any, w: Any, _: Any, timeout: Optional[float] = None) -> Tuple[List[Any], List[Any], List[Any]]:
+def patched_select_old(
+    self: Any, r: Any, w: Any, _: Any, timeout: Optional[float] = None
+) -> Tuple[List[Any], List[Any], List[Any]]:
     """
     Patched SelectSelector._select for older Python versions (<=3.5).
-    
+
     Handles:
     - Windows: closed socket (winerror 10038)
     - Unix: bad file descriptor (errno 9)
@@ -58,52 +62,81 @@ def patched_select_old(self: Any, r: Any, w: Any, _: Any, timeout: Optional[floa
     try:
         r_list, w_list, x_list = select.select(r, w, w, timeout)
     except OSError as e:
-        if getattr(e, 'winerror', None) == 10038:
+        if getattr(e, "winerror", None) == 10038:
             return [], [], []
-        
-        if getattr(e, 'errno', None) == 9:
+
+        if getattr(e, "errno", None) == 9:
             return [], [], []
-        
+
         raise
     else:
         return r_list, w_list + x_list, []
 
-async def create_datagram_endpoint(loop: Any, protocol_factory: Any,
-                                   local_addr: Optional[Any] = None, remote_addr: Optional[Any] = None, *,
-                                   family: int = 0, proto: int = 0, flags: int = 0,
-                                   reuse_port: Optional[bool] = None,
-                                   allow_broadcast: Optional[bool] = None, sock: Optional[Any] = None) -> Tuple[Any, Any]:
+
+async def create_datagram_endpoint(
+    loop: Any,
+    protocol_factory: Any,
+    local_addr: Optional[Any] = None,
+    remote_addr: Optional[Any] = None,
+    *,
+    family: int = 0,
+    proto: int = 0,
+    flags: int = 0,
+    reuse_port: Optional[bool] = None,
+    allow_broadcast: Optional[bool] = None,
+    sock: Optional[Any] = None,
+) -> Tuple[Any, Any]:
     """Create datagram connection."""
     if sock is not None:
         if sock.type == socket.SOCK_STREAM:
-            raise ValueError(
-                fstr('A datagram socket was expected, got {0}', (sock,))
-            )
-        if (local_addr or remote_addr or
-                family or proto or flags or
-                reuse_port or allow_broadcast):
+            raise ValueError(fstr("A datagram socket was expected, got {0}", (sock,)))
+        if (
+            local_addr
+            or remote_addr
+            or family
+            or proto
+            or flags
+            or reuse_port
+            or allow_broadcast
+        ):
             # show the problematic kwargs in exception msg
-            opts = dict(local_addr=local_addr, remote_addr=remote_addr,
-                        family=family, proto=proto, flags=flags,
-                        reuse_port=reuse_port,
-                        allow_broadcast=allow_broadcast)
-            problems = ', '.join(fstr('{0}={1}', (k, v,)) for k, v in opts.items() if v)
+            opts = dict(
+                local_addr=local_addr,
+                remote_addr=remote_addr,
+                family=family,
+                proto=proto,
+                flags=flags,
+                reuse_port=reuse_port,
+                allow_broadcast=allow_broadcast,
+            )
+            problems = ", ".join(
+                fstr(
+                    "{0}={1}",
+                    (
+                        k,
+                        v,
+                    ),
+                )
+                for k, v in opts.items()
+                if v
+            )
             raise ValueError(
-                fstr('socket modifier keyword arguments can not be used ') +
-                fstr('when sock is specified. ({0})', (problems,)))
+                fstr("socket modifier keyword arguments can not be used ")
+                + fstr("when sock is specified. ({0})", (problems,))
+            )
         sock.setblocking(False)
         r_addr = None
     else:
         if not (local_addr or remote_addr):
             if family == 0:
-                raise ValueError('unexpected address family')
+                raise ValueError("unexpected address family")
             addr_pairs_info = (((family, proto), (None, None)),)
-        elif hasattr(socket, 'AF_UNIX') and family == socket.AF_UNIX:
+        elif hasattr(socket, "AF_UNIX") and family == socket.AF_UNIX:
             for addr in (local_addr, remote_addr):
                 if addr is not None and not isinstance(addr, str):
-                    raise TypeError('string is expected')
+                    raise TypeError("string is expected")
 
-            if local_addr and local_addr[0] not in (0, '\x00'):
+            if local_addr and local_addr[0] not in (0, "\x00"):
                 try:
                     if stat.S_ISSOCK(os.stat(local_addr).st_mode):
                         os.remove(local_addr)
@@ -113,20 +146,22 @@ async def create_datagram_endpoint(loop: Any, protocol_factory: Any,
                     # Directory may have permissions only to create socket.
                     log(
                         fstr(
-                            'socket {0} {1)',
-                            (local_addr, str(err),)
+                            "socket {0} {1)",
+                            (
+                                local_addr,
+                                str(err),
+                            ),
                         )
                     )
 
-            addr_pairs_info = (((family, proto),
-                                (local_addr, remote_addr)), )
+            addr_pairs_info = (((family, proto), (local_addr, remote_addr)),)
         else:
             # join address by (family, protocol)
             addr_infos = {}  # Using order preserving dict
             for idx, addr in ((0, local_addr), (1, remote_addr)):
                 if addr is not None:
                     if not (isinstance(addr, tuple) and len(addr) == 2):
-                        raise TypeError('2-tuple is expected')
+                        raise TypeError("2-tuple is expected")
 
                     """
                     infos = await loop._ensure_resolved(
@@ -134,13 +169,17 @@ async def create_datagram_endpoint(loop: Any, protocol_factory: Any,
                         proto=proto, flags=flags, loop=loop)
                         
                     """
-                    
+
                     infos = await loop.getaddrinfo(
-                        *addr, family=family, type=socket.SOCK_DGRAM,
-                        proto=proto, flags=flags)
-                        
+                        *addr,
+                        family=family,
+                        type=socket.SOCK_DGRAM,
+                        proto=proto,
+                        flags=flags,
+                    )
+
                     if not infos:
-                        raise OSError('getaddrinfo() returned empty list')
+                        raise OSError("getaddrinfo() returned empty list")
 
                     for fam, _, pro, _, address in infos:
                         key = (fam, pro)
@@ -150,27 +189,28 @@ async def create_datagram_endpoint(loop: Any, protocol_factory: Any,
 
             # each addr has to have info for each (family, proto) pair
             addr_pairs_info = [
-                (key, addr_pair) for key, addr_pair in addr_infos.items()
-                if not ((local_addr and addr_pair[0] is None) or
-                        (remote_addr and addr_pair[1] is None))]
+                (key, addr_pair)
+                for key, addr_pair in addr_infos.items()
+                if not (
+                    (local_addr and addr_pair[0] is None)
+                    or (remote_addr and addr_pair[1] is None)
+                )
+            ]
 
             if not addr_pairs_info:
-                raise ValueError('can not get address information')
+                raise ValueError("can not get address information")
 
         exceptions = []
 
-        for ((family, proto),
-             (local_address, remote_address)) in addr_pairs_info:
+        for (family, proto), (local_address, remote_address) in addr_pairs_info:
             sock = None
             r_addr = None
             try:
-                sock = socket.socket(
-                    family=family, type=socket.SOCK_DGRAM, proto=proto)
+                sock = socket.socket(family=family, type=socket.SOCK_DGRAM, proto=proto)
                 if reuse_port:
                     asyncio.base_events._set_reuseport(sock)
                 if allow_broadcast:
-                    sock.setsockopt(
-                        socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                 sock.setblocking(False)
 
                 if local_addr:
@@ -197,14 +237,19 @@ async def create_datagram_endpoint(loop: Any, protocol_factory: Any,
         waiter = asyncio.futures.Future()
     else:
         waiter = asyncio.futures.Future(loop=loop)
-    transport = loop._make_datagram_transport(
-        sock, protocol, r_addr, waiter)
+    transport = loop._make_datagram_transport(sock, protocol, r_addr, waiter)
     if loop._debug:
         err_str = fstr("remote_addr={0} ", (remote_addr,))
-        err_str += fstr("created: {0} {1} ", (str(transport), str(protocol),))
+        err_str += fstr(
+            "created: {0} {1} ",
+            (
+                str(transport),
+                str(protocol),
+            ),
+        )
         if local_addr:
             err_str += fstr("Datagram endpoint local_addr={0} ", (local_addr,))
-        
+
         log(err_str)
     try:
         await waiter
@@ -214,9 +259,11 @@ async def create_datagram_endpoint(loop: Any, protocol_factory: Any,
 
     return transport, protocol
 
+
 def _check_ssl_socket(sock: Any) -> None:
     if ssl is not None and isinstance(sock, ssl.SSLSocket):
         raise TypeError("Socket cannot be of type SSLSocket")
+
 
 def _ensure_fd_no_transport(loop: Any, fd: Any) -> None:
     fileno = fd
@@ -229,12 +276,12 @@ def _ensure_fd_no_transport(loop: Any, fd: Any) -> None:
     transport = loop._transports.get(fileno)
     if transport and not transport.is_closing():
         raise RuntimeError(
-            fstr('File descriptor {0} is used by transport ', (fd,)) +
-            fstr('{0}', (transport,))
+            fstr("File descriptor {0} is used by transport ", (fd,))
+            + fstr("{0}", (transport,))
         )
+
 
 def remove_writer(loop: Any, fd: Any) -> None:
     """Remove a writer callback."""
     _ensure_fd_no_transport(loop, fd)
     return loop._remove_writer(fd)
-

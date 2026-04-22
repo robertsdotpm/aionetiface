@@ -16,10 +16,16 @@ import copy
 import os
 import pathlib
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from ..utility.utils import (
-    async_test, async_wrap_errors, bind_str, dict_child, fstr,
-    log, log_exception, strip_none,
+    async_test,
+    async_wrap_errors,
+    bind_str,
+    dict_child,
+    fstr,
+    log,
+    log_exception,
+    strip_none,
 )
 from .net_defs import IP4, IP6, TCP, UDP, VALID_AFS, VALID_ANY_ADDR, NET_CONF
 from .net_utils import avoid_time_wait, ip_norm
@@ -29,9 +35,8 @@ from ..nic.interface import Interface
 from ..install import get_aionetiface_install_root
 
 
-DAEMON_CONF = dict_child({
-    "reuse_addr": True
-}, NET_CONF)
+DAEMON_CONF = dict_child({"reuse_addr": True}, NET_CONF)
+
 
 async def is_serv_listening(proto: int, listen_route: Any) -> bool:
     """
@@ -69,7 +74,10 @@ async def is_serv_listening(proto: int, listen_route: Any) -> bool:
     except (OSError, ConnectionError, asyncio.TimeoutError):
         return False
 
-def get_serv_lock(af: int, proto: int, serv_port: int, serv_ip: Any, install_path: str) -> Any:
+
+def get_serv_lock(
+    af: int, proto: int, serv_port: int, serv_ip: Any, install_path: str
+) -> Any:
     """
     Return a filesystem-based inter-process lock for the given server endpoint.
 
@@ -99,21 +107,27 @@ def get_serv_lock(af: int, proto: int, serv_port: int, serv_ip: Any, install_pat
     pidfile_path = os.path.realpath(
         os.path.join(
             install_path,
-
             # TODO: use hashes here instead..
             fstr(
                 "{0}_{1}_{2}_{3}_pid.txt",
-                (af, proto, serv_port, serv_ip,)
-            )
+                (
+                    af,
+                    proto,
+                    serv_port,
+                    serv_ip,
+                ),
+            ),
         )
     )
 
     # TODO: use a more portable approach that's safer.
     try:
         from ..vendor.fasteners import InterProcessLock
+
         return InterProcessLock(pidfile_path)
     except (ImportError, OSError):
         return None
+
 
 async def for_server_in_daemon(daemon: "Daemon", func: Any) -> None:
     """
@@ -128,15 +142,12 @@ async def for_server_in_daemon(daemon: "Daemon", func: Any) -> None:
             for port in daemon.servers[af][proto]:
                 for ip in daemon.servers[af][proto][port]:
                     server = daemon.servers[af][proto][port][ip]
-                    tasks.append(
-                        async_wrap_errors(
-                            func(server)
-                        )
-                    )
-    
+                    tasks.append(async_wrap_errors(func(server)))
+
     await asyncio.gather(*tasks, return_exceptions=True)
 
-class Daemon():
+
+class Daemon:
     def __init__(self, conf: Any = DAEMON_CONF) -> None:
         # Special net conf for daemon servers.
         self.conf = conf
@@ -146,18 +157,22 @@ class Daemon():
 
         # AF: proto: port: ip: pipe_events.
         self.servers = {
-            IP4: {
-                TCP: {}, UDP: {}
-            }, 
-            IP6: {
-                TCP: {}, UDP: {}
-            }, 
+            IP4: {TCP: {}, UDP: {}},
+            IP6: {TCP: {}, UDP: {}},
         }
 
     # On message received (placeholder.)
     async def msg_cb(self, msg: Any, client_tup: Any, pipe: Any) -> None:
         print("Specify your own msg_cb in a child class.")
-        print(fstr("{0} {1}", (msg, client_tup,)))
+        print(
+            fstr(
+                "{0} {1}",
+                (
+                    msg,
+                    client_tup,
+                ),
+            )
+        )
         await pipe.send(msg, client_tup)
 
     # On connection success (placeholder.)
@@ -174,7 +189,7 @@ class Daemon():
         Used internally by listen_all and listen_loopback.
         """
         # Ensure route is bound.
-        assert(route.resolved)
+        assert route.resolved
 
         # bind() accepts port=0 to let the OS choose, or a specific port.
         # A specific port may conflict with a previous run that didn't exit
@@ -189,26 +204,36 @@ class Daemon():
             lock = get_serv_lock(route.af, proto, port, ip, self.install_path)
             if lock is not None:
                 if not lock.acquire(blocking=False):
-                    error = fstr("{0}:{1} zombie pid", (proto, bind_str(route),))
+                    error = fstr(
+                        "{0}:{1} zombie pid",
+                        (
+                            proto,
+                            bind_str(route),
+                        ),
+                    )
                     raise Exception(error)
 
             # A simple TCP con is made to TCP servers to check if it's
             # still listening before binding.
-            is_listening = await async_wrap_errors(
-                is_serv_listening(proto, route)
-            )
+            is_listening = await async_wrap_errors(is_serv_listening(proto, route))
 
             # If it is then raise exception.
             if is_listening:
-                error = fstr("{0}:{1} listen conflict.", (proto, bind_str(route),))
+                error = fstr(
+                    "{0}:{1} listen conflict.",
+                    (
+                        proto,
+                        bind_str(route),
+                    ),
+                )
                 raise Exception(error)
-        
+
         # Start a new server listening.
         pipe = await Pipe(proto, None, route, conf=self.conf).connect(
             self.msg_cb, self.up_cb
         )
 
-        assert(pipe is not None)
+        assert pipe is not None
 
         # TIME_WAIT: after a server closes, the OS holds the port for
         # several minutes.  Restarting with the same ports would normally
@@ -247,11 +272,7 @@ class Daemon():
         for af in nic.supported():
             route = nic.route(af)
             await route.bind(ips="*", port=port)
-            outs.append(
-                await async_wrap_errors(
-                    self.add_listener(proto, route)
-                )
-            )
+            outs.append(await async_wrap_errors(self.add_listener(proto, route)))
 
         return strip_none(outs)
 
@@ -266,15 +287,13 @@ class Daemon():
         for af in nic.supported():
             route = nic.route(af)
             await route.bind(ips="localhost", port=port)
-            outs.append(
-                await async_wrap_errors(
-                    self.add_listener(proto, route)
-                )
-            )
+            outs.append(await async_wrap_errors(self.add_listener(proto, route)))
 
         return strip_none(outs)
 
-    async def listen_local(self, proto: int, port: int, nic: Any, limit: Any = 1) -> list:
+    async def listen_local(
+        self, proto: int, port: int, nic: Any, limit: Any = 1
+    ) -> list:
         """
         Listen on LAN-accessible addresses only.
 
@@ -316,9 +335,7 @@ class Daemon():
 
                         # Save add output.
                         outs.append(
-                            await async_wrap_errors(
-                                self.add_listener(proto, local)
-                            )
+                            await async_wrap_errors(self.add_listener(proto, local))
                         )
 
             # Supports link-locals and unique local addresses.
@@ -333,15 +350,11 @@ class Daemon():
                     # Bind to link local.
                     local = nic.route(af)
                     ips = ipr_norm(link_local)
-                    await async_wrap_errors(
-                        local.bind(ips=ips, port=port)
-                    )
+                    await async_wrap_errors(local.bind(ips=ips, port=port))
 
                     # Save listener output.
                     outs.append(
-                        await async_wrap_errors(
-                            self.add_listener(proto, local)
-                        )
+                        await async_wrap_errors(self.add_listener(proto, local))
                     )
 
         return strip_none(outs)
@@ -354,6 +367,7 @@ class Daemon():
         registered before the first message arrives can await it.
         Callers that don't require that ordering can ignore the return value.
         """
+
         async def func(server):
             server.add_msg_cb(msg_cb)
 
@@ -363,9 +377,7 @@ class Daemon():
         # Background: create_task schedules registration for a future event-loop
         # tick.  Any messages that arrive before that tick are delivered without
         # the handler, causing a silent miss.
-        return asyncio.create_task(
-            for_server_in_daemon(self, func)
-        )
+        return asyncio.create_task(for_server_in_daemon(self, func))
 
     async def close(self) -> None:
         async def func(server):
@@ -382,6 +394,7 @@ class Daemon():
     async def __aexit__(self, *_: Any) -> bool:
         await self.close()
         return False
+
 
 async def daemon_rewrite_workspace() -> None:
     nic = await Interface("wlx00c0cab5760d")

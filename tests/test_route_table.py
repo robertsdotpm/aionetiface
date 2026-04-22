@@ -5,11 +5,12 @@ from aionetiface import *
 
 RELATED_PLATFORMS = ["Linux", "Darwin", "FreeBSD"]
 
+
 class TestRouteTable(unittest.IsolatedAsyncioTestCase):
     async def test_route_table(self):
         if platform.system() in RELATED_PLATFORMS:
             netifaces = await aionetiface_setup_netifaces()
-        
+
         applies = False
         one_worked = False
         for af in VALID_AFS:
@@ -29,7 +30,7 @@ class TestRouteTable(unittest.IsolatedAsyncioTestCase):
                         r = await is_internet_if(i.nic_no)
                     else:
                         r = await is_internet_if(i.name)
-                        
+
                     one_worked = True
                 except (OSError, ValueError):
                     log_exception()
@@ -41,5 +42,5 @@ class TestRouteTable(unittest.IsolatedAsyncioTestCase):
                 print("If the system has a route command this may be an error.")
 
 
-if __name__ == '__main__':  
+if __name__ == "__main__":
     main()

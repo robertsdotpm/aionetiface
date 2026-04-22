@@ -2,13 +2,9 @@ import ast
 import asyncio
 import time
 import unittest
-import platform
 import socket
 import hashlib
 from typing import Any, List, Optional, Tuple
-from unittest import main
-from os import environ
-import sys
 
 from ..errors import *
 from ..settings import *
@@ -27,7 +23,7 @@ from ..protocol.stun.stun_client import *
 from ..install import *
 
 
-aionetiface_NET_ADDR_BYTES = b'0,3-[0,149.56.128.148,149.56.128.148,10001,1,1,0]-[0,2607:5300:0201:3100:0000:0000:0000:8d2f,fe80:0000:0000:0000:f816:3eff:feae:b2d9,10001,1,1,0]-aionetiface_test_node'
+aionetiface_NET_ADDR_BYTES = b"0,3-[0,149.56.128.148,149.56.128.148,10001,1,1,0]-[0,2607:5300:0201:3100:0000:0000:0000:8d2f,fe80:0000:0000:0000:f816:3eff:feae:b2d9,10001,1,1,0]-aionetiface_test_node"
 
 # Only load the test interface on the right machine.
 # Otherwise the name (probably) won't exist.
@@ -36,6 +32,7 @@ aionetiface_IFS = []
 PatchedAsyncTest = None
 
 if hasattr(unittest, "IsolatedAsyncioTestCase"):
+
     class PatchedAsyncTest(unittest.IsolatedAsyncioTestCase):
         def _setupAsyncioLoop(self) -> None:
             assert self._asyncioTestLoop is None
@@ -47,8 +44,10 @@ if hasattr(unittest, "IsolatedAsyncioTestCase"):
             self._asyncioCallsTask = loop.create_task(self._asyncioLoopRunner(fut))
             loop.run_until_complete(safe_run(fut))
 
+
 # Basic echo client test.
 async def check_pipe(pipe: Any, dest_tup: Optional[Tuple[str, int]] = None) -> bool:
+    """Send an echo request over the pipe and return True if the response matches."""
     # Sanity check.
     data = b"Meow"
     if pipe is None:
@@ -83,21 +82,38 @@ async def check_pipe(pipe: Any, dest_tup: Optional[Tuple[str, int]] = None) -> b
         log(fstr("Check pipe: invalid recv buf {0}", (buf,)))
         return False
 
+
 # If a random node ID is generated and subbed to over and over.
 # The server may limit new subs from the same IP.
 # But if all test nodes use the same IDs the there will be collisons.
 # Hence generate a unique IQ deterministically.
 def node_name(x: Any, i: Any) -> bytes:
-    assert(i.resolved)
-    name_base = to_b(fstr("{0} {1}", (i.mac, socket.gethostname(),)))
+    """Derive a deterministic 10-byte node identifier from a seed and the interface's MAC address."""
+    assert i.resolved
+    name_base = to_b(
+        fstr(
+            "{0} {1}",
+            (
+                i.mac,
+                socket.gethostname(),
+            ),
+        )
+    )
     node_name = hashlib.sha256(x + name_base).hexdigest()
     return to_b(node_name)[:10]
 
-class FakeSTUNClient():
-    def __init__(self, dest: Optional[Any] = None, proto: int = UDP, mode: Any = RFC3489, conf: Any = NET_CONF) -> None:
+
+class FakeSTUNClient:
+    def __init__(
+        self,
+        dest: Optional[Any] = None,
+        proto: int = UDP,
+        mode: Any = RFC3489,
+        conf: Any = NET_CONF,
+    ) -> None:
         self.rip = "1.3.3.7"
         self.sock = None
-        self.mappings = [] # [local, mapped] ...
+        self.mappings = []  # [local, mapped] ...
         self.p = 0
         self.wan_ip = None
         self.interface = None
@@ -116,14 +132,15 @@ class FakeSTUNClient():
         return ip_norm(self.wan_ip)
 
     async def get_mapping(self, pipe: Optional[Any] = None) -> List[Any]:
-        run_time = time.time()
         local, mapped = self.mappings[self.p]
         out = [local, mapped, self.sock]
         self.p = (self.p + 1) % len(self.mappings)
 
         return out
-    
+
+
 async def duel_if_setup(netifaces: Any) -> Optional[Tuple[List[Any], int]]:
+    """Return two interfaces sharing a common address family, or None if unavailable."""
     # Load interface list
     if_names = await list_interfaces(netifaces)
     ifs = await load_interfaces(if_names, Interface)
@@ -137,7 +154,8 @@ async def duel_if_setup(netifaces: Any) -> Optional[Tuple[List[Any], int]]:
         if len(found) >= 2:
             return found[:2], af
 
-class FakeNetifaces():
+
+class FakeNetifaces:
     def __init__(self) -> None:
         self.addr_info = None
 
@@ -146,13 +164,15 @@ class FakeNetifaces():
 
     def ifaddresses(self, if_name: str) -> Any:
         return self.addr_info
-    
+
+
 def get_cached_if() -> Optional[Any]:
+    """Load and return a previously cached interface dict from disk, or None if absent."""
     install_path = get_aionetiface_install_root()
     nic_path = os.path.join(install_path, "if_info")
     if not os.path.exists(nic_path):
         return None
-    
+
     with open(nic_path, "rb") as f:
         buf = f.read()
         return ast.literal_eval(buf)

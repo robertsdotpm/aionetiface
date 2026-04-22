@@ -9,10 +9,19 @@ from .bind_utils import bind_closure
 Mostly this class will not be used directly by users.
 It's code is also shitty for res. Routes have superseeded this.
 """
-class Bind():
-    def __init__(self, interface: Optional[Any], af: int, port: int = 0, ips: Optional[Any] = None, leave_none: int = 0) -> None:
-        #if IS_DEBUG:
-        #assert("Interface" in str(type(interface)))
+
+
+class Bind:
+    def __init__(
+        self,
+        interface: Optional[Any],
+        af: int,
+        port: int = 0,
+        ips: Optional[Any] = None,
+        leave_none: int = 0,
+    ) -> None:
+        # if IS_DEBUG:
+        # assert("Interface" in str(type(interface)))
         self.__name__ = "Bind"
         self.ips = ips
         self.interface = interface
@@ -34,7 +43,9 @@ class Bind():
     async def start(self) -> None:
         await self.res()
 
-    def bind_tup(self, port: Optional[int] = None, flag: int = NIC_BIND) -> Tuple[Any, ...]:
+    def bind_tup(
+        self, port: Optional[int] = None, flag: int = NIC_BIND
+    ) -> Tuple[Any, ...]:
         # Handle loopback support.
         if flag == LOOPBACK_BIND:
             if self.af == IP6:
@@ -58,9 +69,8 @@ class Bind():
             e += "Also possible there were no link locals."
             raise Exception(e)
 
-        #log("> binding to tup = {}".format(tup))
+        # log("> binding to tup = {}".format(tup))
         return tup
 
     def supported(self) -> List[int]:
         return [self.af]
-    

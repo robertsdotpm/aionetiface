@@ -10,10 +10,20 @@ import os
 import unittest
 
 from aionetiface import (
-    IP4, IP6, IPRange, Route, VALID_AFS,
-    rand_b, to_b, to_h, h_to_b, to_s,
-    range_intersects, hamming_weight,
-    sorted_search, rendezvous_score,
+    IP4,
+    IP6,
+    IPRange,
+    Route,
+    VALID_AFS,
+    rand_b,
+    to_b,
+    to_h,
+    h_to_b,
+    to_s,
+    range_intersects,
+    hamming_weight,
+    sorted_search,
+    rendezvous_score,
 )
 from aionetiface.servers import INFRA, INFRA_BUF, filter_by_score, get_infra
 from aionetiface.utility.utils import (
@@ -27,8 +37,8 @@ from aionetiface.utility.utils import (
 # servers.py / servers.json
 # ---------------------------------------------------------------------------
 
-class TestServersData(unittest.TestCase):
 
+class TestServersData(unittest.TestCase):
     def test_infra_buf_is_valid_json(self):
         data = json.loads(INFRA_BUF)
         self.assertIsInstance(data, dict)
@@ -44,6 +54,7 @@ class TestServersData(unittest.TestCase):
 
     def test_servers_json_file_exists(self):
         import aionetiface.servers as srv_mod
+
         json_path = os.path.join(os.path.dirname(srv_mod.__file__), "servers.json")
         self.assertTrue(os.path.exists(json_path))
 
@@ -68,16 +79,19 @@ class TestServersData(unittest.TestCase):
 
     def test_get_infra_returns_list(self):
         from aionetiface.net.net_defs import UDP
+
         result = get_infra(IP4, UDP, "STUN(see_ip)", no=2)
         self.assertIsInstance(result, list)
 
     def test_get_infra_respects_no_limit(self):
         from aionetiface.net.net_defs import UDP
+
         result = get_infra(IP4, UDP, "STUN(see_ip)", no=3)
         self.assertLessEqual(len(result), 3)
 
     def test_get_infra_different_attempts_yield_different_order(self):
         from aionetiface.net.net_defs import UDP
+
         r1 = get_infra(IP4, UDP, "STUN(see_ip)", no=10, attempt=0)
         r2 = get_infra(IP4, UDP, "STUN(see_ip)", no=10, attempt=1)
         # Results may differ (probabilistic, but different seeds usually shuffle differently)
@@ -90,8 +104,8 @@ class TestServersData(unittest.TestCase):
 # Route constructor validation (asserts → ValueError/TypeError)
 # ---------------------------------------------------------------------------
 
-class TestRouteValidation(unittest.TestCase):
 
+class TestRouteValidation(unittest.TestCase):
     def _good_route(self, af=IP4):
         if af == IP4:
             ext = IPRange("8.8.8.8", bitlen=0)
@@ -157,8 +171,8 @@ class TestRouteValidation(unittest.TestCase):
 # IPRange edge cases
 # ---------------------------------------------------------------------------
 
-class TestIPRangeEdgeCases(unittest.TestCase):
 
+class TestIPRangeEdgeCases(unittest.TestCase):
     def test_v4_loopback_is_private(self):
         ipr = IPRange("127.0.0.1", bitlen=0)
         self.assertTrue(ipr.is_private)
@@ -217,8 +231,8 @@ class TestIPRangeEdgeCases(unittest.TestCase):
 # hamming_weight
 # ---------------------------------------------------------------------------
 
-class TestHammingWeight(unittest.TestCase):
 
+class TestHammingWeight(unittest.TestCase):
     def test_zero(self):
         self.assertEqual(hamming_weight(0), 0)
 
@@ -244,8 +258,8 @@ class TestHammingWeight(unittest.TestCase):
 # range_intersects — takes two [start, end] numeric range pairs
 # ---------------------------------------------------------------------------
 
-class TestRangeIntersects(unittest.TestCase):
 
+class TestRangeIntersects(unittest.TestCase):
     def test_overlapping_ranges(self):
         self.assertTrue(range_intersects([0, 10], [5, 15]))
 
@@ -270,8 +284,8 @@ class TestRangeIntersects(unittest.TestCase):
 # sorted_search
 # ---------------------------------------------------------------------------
 
-class TestSortedSearch(unittest.TestCase):
 
+class TestSortedSearch(unittest.TestCase):
     def test_finds_existing_element(self):
         lst = [1, 3, 5, 7, 9]
         idx = sorted_search(lst, 5)
@@ -309,8 +323,8 @@ class TestSortedSearch(unittest.TestCase):
 # rendezvous_score
 # ---------------------------------------------------------------------------
 
-class TestRendezvousScore(unittest.TestCase):
 
+class TestRendezvousScore(unittest.TestCase):
     def test_same_inputs_same_output(self):
         s1 = rendezvous_score(b"node1", b"key", b"server")
         s2 = rendezvous_score(b"node1", b"key", b"server")
@@ -339,8 +353,8 @@ class TestRendezvousScore(unittest.TestCase):
 # to_b / to_h / h_to_b / to_s round-trips
 # ---------------------------------------------------------------------------
 
-class TestConversionUtils(unittest.TestCase):
 
+class TestConversionUtils(unittest.TestCase):
     def test_to_b_bytes_passthrough(self):
         b = b"hello"
         self.assertIs(to_b(b), b)

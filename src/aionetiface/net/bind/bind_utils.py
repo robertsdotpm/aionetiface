@@ -13,18 +13,13 @@ def ip6_patch_bind_ip(bind_ip: str, nic_id: Any) -> str:
     if to_s(bind_ip[0:2]).lower() in ["fe", "fd"]:
         # Interface specified by no on windows.
         if platform.system() == "Windows":
-            bind_ip = "%s%%%d" % (
-                bind_ip,
-                nic_id
-            )
+            bind_ip = "%s%%%d" % (bind_ip, nic_id)
         else:
             # Other platforms just use the name
-            bind_ip = "%s%%%s" % (
-                bind_ip,
-                nic_id
-            )
+            bind_ip = "%s%%%s" % (bind_ip, nic_id)
 
     return bind_ip
+
 
 def patch_connect_ip(af: int, ip: str, nic_id: Any, ipr: Optional[Any] = None) -> str:
     """
@@ -38,42 +33,34 @@ def patch_connect_ip(af: int, ip: str, nic_id: Any, ipr: Optional[Any] = None) -
             return "127.0.0.1"
         else:
             return "::1"
-        
+
     # Patch link local addresses.
     if ipr.af == IP6 and ip not in ["::", "::1"]:
         if ipr.is_private:
-            return ip6_patch_bind_ip(
-                ip,
-                nic_id
-            )
+            return ip6_patch_bind_ip(ip, nic_id)
 
     return ip
 
-async def get_high_port_socket(route: Any, socket_factory: Any, sock_type: int = TCP) -> Tuple[Any, int]:
+
+async def get_high_port_socket(
+    route: Any, socket_factory: Any, sock_type: int = TCP
+) -> Tuple[Any, int]:
     # Minimal config to pass socket factory.
-    conf = {
-        "broadcast": False,
-        "linger": None,
-        "sock_proto": 0,
-        "reuse_addr": True
-    }
+    conf = {"broadcast": False, "linger": None, "sock_proto": 0, "reuse_addr": True}
 
     # Get a new socket bound to a high order port.
     for i in range(0, 20):
         n = rand_rang(2000, MAX_PORT - 1000)
         await route.bind(n)
         try:
-            s = await socket_factory(
-                route,
-                sock_type=sock_type,
-                conf=conf
-            )
+            s = await socket_factory(route, sock_type=sock_type, conf=conf)
         except (OSError, asyncio.TimeoutError):
             continue
 
         return s, n
-    
+
     raise Exception("Could not bind high range port.")
+
 
 """
 Provides an interface that allows for bind() to be called
@@ -84,11 +71,13 @@ which would only be the case if this method were used from a
 Bind object and not a Route object. So a lot of hacks here.
 But that's the API I wanted.
 """
+
+
 def bind_closure(self: Any, binder: Any) -> Any:
     async def bind(port=None, ips=None):
         if self.resolved:
             return
-        
+
         # Bind parameters.
         port = port or self.bind_port
         ips = ips or self.ips
@@ -108,19 +97,18 @@ def bind_closure(self: Any, binder: Any) -> Any:
             nic_id = None
 
         # Get bind tuple for NIC bind.
-        self._bind_tups = await binder(
-            af=self.af, ip=ips, port=port, nic_id=nic_id
-        )
+        self._bind_tups = await binder(af=self.af, ip=ips, port=port, nic_id=nic_id)
 
         # Save state.
         self.bind_port = port
         self.resolved = True
         return self
-        
+
     return bind
 
+
 # Convert compact bind rule list to named access.
-class BindRule():
+class BindRule:
     def __init__(self, bind_rule: Any) -> None:
         self.platform = bind_rule[0]
         self.af = bind_rule[1]
@@ -129,8 +117,11 @@ class BindRule():
         self.norm = bind_rule[4]
         self.change = bind_rule[5]
 
+
 # Return a BindRule if it matches the requirements.
-def match_bind_rule(ip: str, af: int, plat: str, bind_rule: Any, rule_type: Any) -> Optional["BindRule"]:
+def match_bind_rule(
+    ip: str, af: int, plat: str, bind_rule: Any, rule_type: Any
+) -> Optional["BindRule"]:
     bind_rule = BindRule(bind_rule)
 
     # Skip rule types we're not processing.
@@ -138,7 +129,7 @@ def match_bind_rule(ip: str, af: int, plat: str, bind_rule: Any, rule_type: Any)
         return
 
     # Skip address types that don't apply to us.
-    if type(bind_rule.af) == list:
+    if isinstance(bind_rule.af, list):
         if af not in bind_rule.af:
             return
     else:
@@ -150,10 +141,10 @@ def match_bind_rule(ip: str, af: int, plat: str, bind_rule: Any, rule_type: Any)
         return
 
     # Check hey for matches.
-    if type(bind_rule.hey) == list:
+    if isinstance(bind_rule.hey, list):
         if ip not in bind_rule.hey:
             return
-    if type(bind_rule.hey) == int:
+    if isinstance(bind_rule.hey, int):
         if bind_rule.hey == IP_PRIVATE:
             try:
                 ipr = ip_f(ip)

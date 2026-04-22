@@ -10,12 +10,9 @@ from .http_client_lib import *
 from ...net.daemon import Daemon
 
 aionetiface_PORT = 12333
-aionetiface_CORS = ['null', 'http://127.0.0.1']
-aionetiface_MIME = [
-    [dict, "json"],
-    [bytes, "binary"],
-    [str, "text"]
-]
+aionetiface_CORS = ["null", "http://127.0.0.1"]
+aionetiface_MIME = [[dict, "json"], [bytes, "binary"], [str, "text"]]
+
 
 # Support passing in GET params using path seperators.
 # Ex: /timeout/10/sub/all -> {'timeout': '10', 'sub': 'all'}
@@ -77,11 +74,10 @@ def api_closure(url_path: str) -> Callable[..., Any]:
                 out = out[0]
 
             if len(field_names):
-                for i in range(  min( len(out), len(field_names) )  ):
+                for i in range(min(len(out), len(field_names))):
                     as_dict[field_names[i]] = out[i]
             else:
                 as_dict["out"] = out
-            
 
         params = get_params(get_names, url_path)
         if len(params) and len(as_dict):
@@ -91,6 +87,7 @@ def api_closure(url_path: str) -> Callable[..., Any]:
 
     return api
 
+
 # p = {}, optional = [ named ... ]
 # default = [ matching values ... ]
 def set_defaults(p: Dict[str, Any], optional: List[str], default: List[Any]) -> None:
@@ -98,6 +95,7 @@ def set_defaults(p: Dict[str, Any], optional: List[str], default: List[Any]) -> 
     for i, named in enumerate(optional):
         if named not in p:
             p[named] = default[i]
+
 
 class ParseHTTPRequest(BaseHTTPRequestHandler):
     def __init__(self, request_text: bytes) -> None:
@@ -111,9 +109,12 @@ class ParseHTTPRequest(BaseHTTPRequestHandler):
         self.error_code = code
         self.error_message = message
 
+
 # Create a HTTP server response.
 # Supports JSON or binary.
-def http_res(payload: Any, mime: str, req: Any, client_tup: Optional[Tuple[str, int]] = None) -> bytes:
+def http_res(
+    payload: Any, mime: str, req: Any, client_tup: Optional[Tuple[str, int]] = None
+) -> bytes:
     # Support JSON responses.
     if mime == "json":
         # Document content is a JSON string with good indenting.
@@ -131,28 +132,26 @@ def http_res(payload: Any, mime: str, req: Any, client_tup: Optional[Tuple[str, 
         content_type = b"text/html"
 
     # CORS policy header line.
-    allow_origin = b"Access-Control-Allow-Origin: %s" % (
-        to_b(req.hdrs["Origin"])
-    )
+    allow_origin = b"Access-Control-Allow-Origin: %s" % (to_b(req.hdrs["Origin"]))
 
     # List of HTTP headers to send for our el8 web server.
-    res  = b"HTTP/1.1 200 OK\r\n"
+    res = b"HTTP/1.1 200 OK\r\n"
     res += b"%s\r\n" % (allow_origin)
     if client_tup is not None:
-        res += b"x-client-tup: %s:%d\r\n" % ( 
-            to_b(client_tup[0]),
-            client_tup[1]
-        )
+        res += b"x-client-tup: %s:%d\r\n" % (to_b(client_tup[0]), client_tup[1])
     else:
         res += b"x-client-tup: unknown\r\n"
     res += b"Content-Type: %s\r\n" % (content_type)
     res += b"Connection: close\r\n"
     res += b"Content-Length: %d\r\n\r\n" % (len(payload))
     res += payload
-    
+
     return res
 
-async def send_json(a_dict: Dict[str, Any], req: Any, client_tup: Tuple[str, int], pipe: Any) -> None:
+
+async def send_json(
+    a_dict: Dict[str, Any], req: Any, client_tup: Tuple[str, int], pipe: Any
+) -> None:
     remote_client_tup = None
     if "client_tup" in a_dict:
         remote_client_tup = a_dict["client_tup"]
@@ -161,17 +160,27 @@ async def send_json(a_dict: Dict[str, Any], req: Any, client_tup: Tuple[str, int
     await pipe.send(res, client_tup)
     await pipe.close()
 
-async def send_binary(out: bytes, req: Any, client_tup: Tuple[str, int], pipe: Any) -> None:
+
+async def send_binary(
+    out: bytes, req: Any, client_tup: Tuple[str, int], pipe: Any
+) -> None:
     res = http_res(out, "binary", req, client_tup)
     await pipe.send(res, client_tup)
     await pipe.close()
+
 
 async def send_text(out: str, req: Any, client_tup: Tuple[str, int], pipe: Any) -> None:
     res = http_res(out, "text", req, client_tup)
     await pipe.send(res, client_tup)
     await pipe.close()
 
-async def rest_service(msg: bytes, client_tup: Tuple[str, int], pipe: Any, api_closure: Callable[..., Any] = api_closure) -> Optional[Any]:
+
+async def rest_service(
+    msg: bytes,
+    client_tup: Tuple[str, int],
+    pipe: Any,
+    api_closure: Callable[..., Any] = api_closure,
+) -> Optional[Any]:
     # Parse http request.
     try:
         req = ParseHTTPRequest(msg)
@@ -181,10 +190,7 @@ async def rest_service(msg: bytes, client_tup: Tuple[str, int], pipe: Any, api_c
 
     # Deny restricted origins.
     if req.hdrs["Origin"] not in aionetiface_CORS:
-        resp = {
-            "msg": "Invalid origin.",
-            "error": 5
-        }
+        resp = {"msg": "Invalid origin.", "error": 5}
         await send_json(resp, req, client_tup, pipe)
         return None
 
@@ -193,12 +199,10 @@ async def rest_service(msg: bytes, client_tup: Tuple[str, int], pipe: Any, api_c
     cond_2 = "Access-Control-Request-Headers" in req.hdrs
     if cond_1 and cond_2:
         # CORS policy header line.
-        allow_origin = "Access-Control-Allow-Origin: %s" % (
-            req.hdrs["Origin"]
-        )
+        allow_origin = "Access-Control-Allow-Origin: %s" % (req.hdrs["Origin"])
 
         # HTTP response.
-        out  = b"HTTP/1.1 200 OK\r\n"
+        out = b"HTTP/1.1 200 OK\r\n"
         out += b"Content-Length: 0\r\n"
         out += b"Connection: keep-alive\r\n"
         out += b"Access-Control-Allow-Methods: POST, GET, DELETE\r\n"
@@ -211,21 +215,18 @@ async def rest_service(msg: bytes, client_tup: Tuple[str, int], pipe: Any, api_c
     url_parts = urllib.parse.urlparse(req.path)
     url_path = urllib.parse.unquote(url_parts.path)
     url_query = urllib.parse.parse_qs(url_parts.query)
-    req.url = {
-        "parts": url_parts,
-        "path": url_path,
-        "query": url_query
-    }
+    req.url = {"parts": url_parts, "path": url_path, "query": url_query}
 
     req.api = api_closure(url_path)
     return req
+
 
 # Routes a URL path to named and unnamed parameters based on scheme definitions.
 # Each scheme entry is [name] or [name, default] or [name, default, regex].
 def api_route_closure(url_path: str) -> Callable[..., Any]:
     # Fields list names a p result and is in a fixed order.
     # Get names matches named values and is in a variable order.
-    def api(schemes): 
+    def api(schemes):
         # Break up the URL based on slashes.
         out = re.findall(r"(?:/([^/]+))", url_path)
         as_dict = {}
@@ -238,10 +239,10 @@ def api_route_closure(url_path: str) -> Callable[..., Any]:
                 # Use regex to check value.
                 scheme = schemes[i]
                 if len(scheme) == 3:
-                    if scheme[2] == '*':
+                    if scheme[2] == "*":
                         return (i, v, True)
-                    
-                    if re.match(scheme[2], v) != None:
+
+                    if re.match(scheme[2], v) is not None:
                         return (i, v, True)
                     else:
                         return (i, scheme[1], True)
@@ -249,7 +250,7 @@ def api_route_closure(url_path: str) -> Callable[..., Any]:
                 # Compare value only.
                 if v == scheme[0]:
                     return (i, v, True)
-                    
+
             return (None, v, False)
 
         # Supports routing via named params with regex and defaults.
@@ -298,13 +299,18 @@ def api_route_closure(url_path: str) -> Callable[..., Any]:
 
     return api
 
+
 class RESTD(Daemon):
     def __init__(self) -> None:
         super().__init__()
 
         # Get a list of function methods for this class.
         # This is needed because sub-classes dynamically add methods.
-        methods = [member for member in [getattr(self, attr) for attr in dir(self)] if inspect.ismethod(member)]
+        methods = [
+            member
+            for member in [getattr(self, attr) for attr in dir(self)]
+            if inspect.ismethod(member)
+        ]
 
         # Loop over class instance methods.
         # Build a list of decorated methods that will form REST API.
@@ -339,7 +345,7 @@ class RESTD(Daemon):
             return RESTD.rest_api_decorator(f, args)
 
         return decorate
-    
+
     @staticmethod
     def POST(*args: Any, **kw: Any) -> Callable[..., Any]:
         def decorate(f):
@@ -348,7 +354,7 @@ class RESTD(Daemon):
             return RESTD.rest_api_decorator(f, args)
 
         return decorate
-    
+
     @staticmethod
     def DELETE(*args: Any, **kw: Any) -> Callable[..., Any]:
         def decorate(f):
@@ -405,7 +411,7 @@ class RESTD(Daemon):
                     "name": named,
                     "pos": positional,
                     "client": client_tup,
-                    "body": body
+                    "body": body,
                 }
 
         # Call matching API method.
@@ -424,12 +430,7 @@ class RESTD(Daemon):
             for out_info in aionetiface_MIME:
                 if isinstance(resp, out_info[0]):
                     # Full HTTP reply to client.
-                    buf = http_res(
-                        resp,
-                        out_info[1],
-                        req,
-                        client_tup
-                    )
+                    buf = http_res(resp, out_info[1], req, client_tup)
 
                     # Send it back to the client.
                     await pipe.send(buf, client_tup)

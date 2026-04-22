@@ -1,8 +1,25 @@
 __all__ = [
-    "STUN_PORT", "MAX_MAP_NO", "USE_MAP_NO", "OPEN_INTERNET", "SYMMETRIC_UDP_FIREWALL",
-    "FULL_CONE", "RESTRICT_NAT", "RESTRICT_PORT_NAT", "SYMMETRIC_NAT", "BLOCKED_NAT",
-    "NA_DELTA", "EQUAL_DELTA", "PRESERV_DELTA", "INDEPENDENT_DELTA", "DEPENDENT_DELTA",
-    "RANDOM_DELTA", "EASY_NATS", "DELTA_N", "PREDICTABLE_NATS", "FUSSY_NATS", "BLOCKING_NATS",
+    "STUN_PORT",
+    "MAX_MAP_NO",
+    "USE_MAP_NO",
+    "OPEN_INTERNET",
+    "SYMMETRIC_UDP_FIREWALL",
+    "FULL_CONE",
+    "RESTRICT_NAT",
+    "RESTRICT_PORT_NAT",
+    "SYMMETRIC_NAT",
+    "BLOCKED_NAT",
+    "NA_DELTA",
+    "EQUAL_DELTA",
+    "PRESERV_DELTA",
+    "INDEPENDENT_DELTA",
+    "DEPENDENT_DELTA",
+    "RANDOM_DELTA",
+    "EASY_NATS",
+    "DELTA_N",
+    "PREDICTABLE_NATS",
+    "FUSSY_NATS",
+    "BLOCKING_NATS",
 ]
 
 STUN_PORT = 3478
@@ -45,9 +62,9 @@ BLOCKED_NAT = 7
 
 # DELTA types: ------------------
 # Mappings are easy to reuse and reach.
-NA_DELTA = 1 # Not applicable.
+NA_DELTA = 1  # Not applicable.
 EQUAL_DELTA = 2
-PRESERV_DELTA = 3 # Or not applicable like in open internet.
+PRESERV_DELTA = 3  # Or not applicable like in open internet.
 INDEPENDENT_DELTA = 4
 DEPENDENT_DELTA = 5
 RANDOM_DELTA = 6
@@ -57,13 +74,10 @@ EASY_NATS = [OPEN_INTERNET, FULL_CONE]
 DELTA_N = [
     # Remote = Local.
     EQUAL_DELTA,
-
     # Remote x - y = local x - y
     PRESERV_DELTA,
-
     # Remote x; y = remote x + delta, local = anything
     INDEPENDENT_DELTA,
-
     # Remote x; y = remote x + delta only when local x + delta
     DEPENDENT_DELTA,
 ]
@@ -73,13 +87,10 @@ DELTA_N = [
 PREDICTABLE_NATS = [
     # Once open - anyone can use the mapping.
     FULL_CONE,
-
     # Same local IP + port = same mapping.
     RESTRICT_NAT,
-    
     # Same as above but reply port needs to match original dest.
     RESTRICT_PORT_NAT,
-
     # Open doesn't really apply so yes.
     OPEN_INTERNET,
 ]
@@ -90,6 +101,4 @@ FUSSY_NATS = [
 ]
 
 # Peer will be unreachable.
-BLOCKING_NATS = [
-    BLOCKED_NAT
-]
+BLOCKING_NATS = [BLOCKED_NAT]

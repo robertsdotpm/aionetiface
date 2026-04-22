@@ -8,7 +8,13 @@ import socket
 from typing import Any, Optional
 from ..utility.utils import *
 
-def set_keepalive_linux(sock: Any, after_idle_sec: Optional[int], interval_sec: Optional[int], max_fails: Optional[int]) -> None:
+
+def set_keepalive_linux(
+    sock: Any,
+    after_idle_sec: Optional[int],
+    interval_sec: Optional[int],
+    max_fails: Optional[int],
+) -> None:
     """Set TCP keepalive on an open socket.
 
     It activates after 1 second (after_idle_sec) of idleness,
@@ -23,7 +29,13 @@ def set_keepalive_linux(sock: Any, after_idle_sec: Optional[int], interval_sec: 
     if max_fails is not None:
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, max_fails)
 
-def set_keepalive_osx(sock: Any, after_idle_sec: Optional[int], interval_sec: Optional[int], max_fails: Optional[int]) -> None:
+
+def set_keepalive_osx(
+    sock: Any,
+    after_idle_sec: Optional[int],
+    interval_sec: Optional[int],
+    max_fails: Optional[int],
+) -> None:
     """Set TCP keepalive on an open socket.
 
     sends a keepalive ping once every 3 seconds (interval_sec)
@@ -35,20 +47,30 @@ def set_keepalive_osx(sock: Any, after_idle_sec: Optional[int], interval_sec: Op
         interval_sec = 3
     sock.setsockopt(socket.IPPROTO_TCP, TCP_KEEPALIVE, interval_sec)
 
-def set_keepalive_win(sock: Any, after_idle_sec: Optional[int], interval_sec: Optional[int], max_fails: Optional[int]) -> None:
+
+def set_keepalive_win(
+    sock: Any,
+    after_idle_sec: Optional[int],
+    interval_sec: Optional[int],
+    max_fails: Optional[int],
+) -> None:
     if after_idle_sec is not None and interval_sec is not None:
-        sock.ioctl(socket.SIO_KEEPALIVE_VALS, (1, after_idle_sec * 1000, interval_sec * 1000))
-        
-def set_keep_alive(sock: Any, after_idle_sec: int = 60, interval_sec: int = 60, max_fails: int = 5) -> None:
+        sock.ioctl(
+            socket.SIO_KEEPALIVE_VALS, (1, after_idle_sec * 1000, interval_sec * 1000)
+        )
+
+
+def set_keep_alive(
+    sock: Any, after_idle_sec: int = 60, interval_sec: int = 60, max_fails: int = 5
+) -> None:
     try:
         plat = platform.system()
-        if plat == 'Windows':
+        if plat == "Windows":
             return set_keepalive_win(sock, after_idle_sec, interval_sec, max_fails)
-        elif plat == 'Darwin':
+        elif plat == "Darwin":
             return set_keepalive_osx(sock, after_idle_sec, interval_sec, max_fails)
         else:
             # Should also work for BSD and Android.
             return set_keepalive_linux(sock, after_idle_sec, interval_sec, max_fails)
     except OSError:
         pass
-

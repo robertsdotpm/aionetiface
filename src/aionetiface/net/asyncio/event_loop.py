@@ -1,20 +1,19 @@
 import asyncio
-import socket
 import selectors
 import traceback
-import weakref
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from ...utility.utils import *
 
 
 # Map: id(socket_object) -> Future
-# We use id() because FDs are recycled, but Python object memory IDs 
+# We use id() because FDs are recycled, but Python object memory IDs
 # are unique for the lifetime of that specific socket object.
 CLOSE_FUTURES = {}
 
+
 class ProxySelector:
     """A wrapper around elector object to intercept unregister calls."""
-    
+
     def __init__(self, selector_instance: Any, loop: Any) -> None:
         self.selector = selector_instance
         self.loop = loop
@@ -28,7 +27,7 @@ class ProxySelector:
 
     def maybe_signal_removal(self, fd: Any, events: int, data: Any) -> None:
         """Helper to signal if FD is being completely unregistered."""
-        
+
         # Check if the FD's future exists in the global map
         if fd not in CLOSE_FUTURES:
             return
@@ -39,7 +38,7 @@ class ProxySelector:
             entries = CLOSE_FUTURES.pop(fd, [])
             for sock_id, future in entries:
                 if not future.done():
-                    # Use call_soon to set result in the next tick to avoid 
+                    # Use call_soon to set result in the next tick to avoid
                     # potential recursion issues during selector processing
                     self.loop.call_soon(future.set_result, True)
 
@@ -50,22 +49,23 @@ class ProxySelector:
         real_fd = fd if isinstance(fd, int) else fd.fileno()
         self.maybe_signal_removal(real_fd, 0, None)
         return self.selector.unregister(fd)
-    
+
     def modify(self, fd: Any, events: int, data: Optional[Any] = None) -> Any:
         """Intercepts modification, checking if FD is effectively unregistered."""
         # fileobj/fd check
         real_fd = fd if isinstance(fd, int) else fd.fileno()
 
         if events == 0:
-            # In many SelectorLoop implementations, modify(fd, 0) is the 
+            # In many SelectorLoop implementations, modify(fd, 0) is the
             # precursor to a full close or a complete stop of the transport.
             self.maybe_signal_removal(real_fd, 0, None)
-            
+
         return self.selector.modify(fd, events, data)
+
 
 class CustomEventLoop(asyncio.SelectorEventLoop):
     """Event loop that uses the ProxySelector."""
-    
+
     def __init__(self, selector: Optional[Any] = None) -> None:
         # Determine the default selector class if none is provided
         if selector is None:
@@ -75,10 +75,10 @@ class CustomEventLoop(asyncio.SelectorEventLoop):
         else:
             # Assume 'selector' is the actual selector instance
             real_selector = selector
-            
+
         # 1. Wrap the real selector with our proxy
         proxy_selector = ProxySelector(real_selector, self)
-        
+
         # 2. Initialize the base class with our proxy
         # The base SelectorEventLoop expects a selector object here.
         super().__init__(proxy_selector)
@@ -109,7 +109,7 @@ class CustomEventLoop(asyncio.SelectorEventLoop):
         # Ensure we are not returning a coroutine
         fd = sock.fileno()
         if fd == -1:
-            f = self.create_future() # Use self.loop or self
+            f = self.create_future()  # Use self.loop or self
             f.set_result(True)
             return f
 
@@ -118,9 +118,10 @@ class CustomEventLoop(asyncio.SelectorEventLoop):
 
         if fd not in CLOSE_FUTURES:
             CLOSE_FUTURES[fd] = []
-            
+
         CLOSE_FUTURES[fd].append((sock_id, fut))
         return fut
+
 
 class CustomEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
     @staticmethod
@@ -154,11 +155,20 @@ class CustomEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
             lineno = tb.tb_lineno
             filename = frame.f_code.co_filename
             funcname = frame.f_code.co_name
-            buf.append("Occurred in " + filename + ", function " + funcname + ", line " + str(lineno))
+            buf.append(
+                "Occurred in "
+                + filename
+                + ", function "
+                + funcname
+                + ", line "
+                + str(lineno)
+            )
 
         # Log full traceback
         buf.append("Full traceback:")
-        buf.append("".join(traceback.format_exception(type(exc), exc, exc.__traceback__)))
+        buf.append(
+            "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+        )
 
         # Write all at once
         log("\n".join(buf))

@@ -10,7 +10,10 @@ class TestNet(unittest.IsolatedAsyncioTestCase):
             ["::", ("0000:" * 8)[:-1]],
             ["::%test/24", ("0000:" * 8)[:-1]],
             ["::", ("0000:" * 8)[:-1]],
-            ["2402:1f00:8101:083f:0000:0000:0000:0001", "2402:1f00:8101:083f:0000:0000:0000:0001"]
+            [
+                "2402:1f00:8101:083f:0000:0000:0000:0001",
+                "2402:1f00:8101:083f:0000:0000:0000:0001",
+            ],
         ]
 
         for src_ip, out_ip in tests:
@@ -26,7 +29,6 @@ class TestNet(unittest.IsolatedAsyncioTestCase):
         out = toggle_host_bits(nm, "192.168.0.0", toggle=1)
         self.assertEqual(out, "192.168.255.255")
 
-
     """
     TODO: 
     async def test_nt_net(self):
@@ -39,6 +41,5 @@ class TestNet(unittest.IsolatedAsyncioTestCase):
     """
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

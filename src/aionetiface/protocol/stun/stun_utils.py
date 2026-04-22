@@ -28,32 +28,35 @@ def stun_proc_attrs(af: int, attr_code: Any, attr_data: Any, msg: Any) -> None:
             msg.rtup = stun_addr_field.tup
 
         if attr_code == STUNAttrs.MappedAddress:
-            stun_addr_field = STUNAddrTup(
-                af=af
-            ).unpack(attr_code, attr_data)
+            stun_addr_field = STUNAddrTup(af=af).unpack(attr_code, attr_data)
             msg.rtup = stun_addr_field.tup
 
     # Set the additional IP and port for this server.
     if not hasattr(msg, "ctup"):
         if attr_code == STUNAttrs.ChangedAddress:
-            stun_addr_field = STUNAddrTup(
-                af=af
-            ).unpack(attr_code, attr_data)
+            stun_addr_field = STUNAddrTup(af=af).unpack(attr_code, attr_data)
             msg.ctup = stun_addr_field.tup
+
 
 def stun_proto(buf: bytes, af: int) -> Tuple[Any, bytes]:
     msg, buf = STUNMsg.unpack(buf)
     msg.af = af
     while not msg.eof():
         attr_code, _, attr_data = msg.read_attr()
-        attr_name = buf_in_class(STUNAttrs, bytes(attr_code))
         stun_proc_attrs(af, attr_code, attr_data, msg)
-        
+
     return msg, buf
+
 
 # Handles making a STUN request to a server.
 # Pipe also accepts route and its upgraded to a pipe.
-async def get_stun_reply(mode: int, dest_addr: Tuple[str, int], reply_addr: Tuple[str, int], pipe: Any, attrs: Optional[List[Any]] = None) -> Any:
+async def get_stun_reply(
+    mode: int,
+    dest_addr: Tuple[str, int],
+    reply_addr: Tuple[str, int],
+    pipe: Any,
+    attrs: Optional[List[Any]] = None,
+) -> Any:
     """
     The function uses subscriptions to the TXID so that even
     on unordered protocols like UDP the right reply is returned.
@@ -85,6 +88,7 @@ async def get_stun_reply(mode: int, dest_addr: Tuple[str, int], reply_addr: Tupl
     reply.stup = reply_addr
     return reply
 
+
 async def stun_reply_to_ret_dic(reply: Any) -> Optional[Dict[str, Any]]:
     ret = {}
     if reply is None:
@@ -95,19 +99,19 @@ async def stun_reply_to_ret_dic(reply: Any) -> Optional[Dict[str, Any]]:
         ret["cport"] = reply.ctup[1]
     else:
         return None
-    
+
     if hasattr(reply, "rtup"):
         ret["rip"] = reply.rtup[0]
         ret["rport"] = reply.rtup[1]
     else:
         return None
-    
+
     if hasattr(reply, "stup"):
         ret["sip"] = reply.stup[0]
         ret["sport"] = reply.stup[1]
     else:
         return None
-    
+
     if hasattr(reply, "pipe"):
         try:
             ltup = reply.pipe.sock.getsockname()[0:2]
@@ -117,9 +121,10 @@ async def stun_reply_to_ret_dic(reply: Any) -> Optional[Dict[str, Any]]:
             return None
     else:
         return None
-    
+
     ret["resp"] = True
     return ret
+
 
 def validate_stun_reply(reply: Any, mode: int) -> Optional[Any]:
     if reply is None:
@@ -128,7 +133,7 @@ def validate_stun_reply(reply: Any, mode: int) -> Optional[Any]:
     # Pipe needs to exist to check change addrs.
     if not hasattr(reply, "pipe"):
         return None
-    
+
     # Reply addr is stup of the server.
     req_attrs = ["stup", "rtup"]
     extra_attrs = req_attrs[:]
@@ -138,7 +143,15 @@ def validate_stun_reply(reply: Any, mode: int) -> Optional[Any]:
     # Check attrs exist in the reply.
     for req_attr in extra_attrs:
         if not hasattr(reply, req_attr):
-            log(fstr('{0}: no attr {1}', (to_h(reply.txn_id), req_attr,)))
+            log(
+                fstr(
+                    "{0}: no attr {1}",
+                    (
+                        to_h(reply.txn_id),
+                        req_attr,
+                    ),
+                )
+            )
             return None
 
     # The follow tups should all have pub IPs.
@@ -147,18 +160,37 @@ def validate_stun_reply(reply: Any, mode: int) -> Optional[Any]:
         host_limit = 0
         ipr = IPRange(tup_ip, bitlen=host_limit)
         if ipr.is_private:
-            log(fstr('{0} {1}: {2} priv', (req_attr, to_h(reply.txn_id), tup_ip,)))
+            log(
+                fstr(
+                    "{0} {1}: {2} priv",
+                    (
+                        req_attr,
+                        to_h(reply.txn_id),
+                        tup_ip,
+                    ),
+                )
+            )
             return None
         if not valid_port(tup_port):
-            log(fstr('{0} {1}: {2} bad', (req_attr, to_h(reply.txn_id), tup_port,)))
+            log(
+                fstr(
+                    "{0} {1}: {2} bad",
+                    (
+                        req_attr,
+                        to_h(reply.txn_id),
+                        tup_port,
+                    ),
+                )
+            )
             return None
 
     return reply
-    
+
 
 async def run_stun_utils() -> None:
     m = STUNMsg()
-    buf = m.encode()
+    m.encode()
+
 
 if __name__ == "__main__":
     async_test(run_stun_utils)

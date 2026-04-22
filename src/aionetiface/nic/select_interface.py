@@ -2,11 +2,10 @@ import asyncio
 import platform
 from typing import Any, List, Optional, Tuple
 from ..utility.utils import fstr, log, log_exception, to_unique
-from ..net.net_defs import INTERFACE_UNKNOWN, VALID_AFS, IP4, IP6
+from ..net.net_defs import INTERFACE_UNKNOWN, VALID_AFS
 from ..net.ip_range import IPRange
 from ..net.net_utils import determine_if_path
 from .route.route import Route
-from .route.route_table import is_internet_if
 from .interface import Interface
 from .interface_utils import get_interface_type, log_interface_rp
 from ..entrypoint import aionetiface_setup_netifaces
@@ -27,7 +26,8 @@ def get_if_by_nic_ipr(nic_ipr: Any, netifaces: Any) -> Optional[Any]:
                     i.netifaces = netifaces
                     i.load_if_info()
                     return i
-                
+
+
 """
 On a computer that has multiple network interfaces
 the right interface needs to be selected depending
@@ -39,7 +39,15 @@ correspond to a certain network interface which
 can be double-checked against what interface is
 intended as the source for a connection.
 """
-async def select_if_by_dest(af: int, src_index: int, dest_ip: str, interface: Any, ifs: Optional[List[Any]] = None) -> Tuple[Any, int]:
+
+
+async def select_if_by_dest(
+    af: int,
+    src_index: int,
+    dest_ip: str,
+    interface: Any,
+    ifs: Optional[List[Any]] = None,
+) -> Tuple[Any, int]:
     """
     All valid interfaces for the software can reach
     internet -- use original interface if the dest_ip
@@ -51,7 +59,7 @@ async def select_if_by_dest(af: int, src_index: int, dest_ip: str, interface: An
     dest_ipr = IPRange(dest_ip, bitlen=host_limit)
     if dest_ipr.is_public:
         return interface, src_index
-    
+
     # Simply connects a non-blocking socket to the dest_ip
     # and checks the local IP used to select an Interface.
     bind_ip = determine_if_path(af, dest_ip)
@@ -69,7 +77,7 @@ async def select_if_by_dest(af: int, src_index: int, dest_ip: str, interface: An
     # Return the chosen interface with no changes.
     if bind_interface.name == interface.name:
         return interface, src_index
-    
+
     # If already exists return it instead.
     for if_index, needle_if in enumerate(ifs):
         if needle_if.name == bind_interface.name:
@@ -79,7 +87,7 @@ async def select_if_by_dest(af: int, src_index: int, dest_ip: str, interface: An
 
     # No longer load an IF if its not in their ifs set.
     return await bind_interface
-        
+
     """
     If the interface that was auto-chosen by the OS
     was different to the one that the caller
@@ -89,7 +97,7 @@ async def select_if_by_dest(af: int, src_index: int, dest_ip: str, interface: An
     the interface for sockets as we don't want to
     load all addressing info just to determine
     if its a default interface for the address family.
-    """    
+    """
     bind_interface.is_default = lambda x: False
 
     """
@@ -102,11 +110,13 @@ async def select_if_by_dest(af: int, src_index: int, dest_ip: str, interface: An
     route = interface.route(af)
     route = Route(af, [bind_ipr], route.ext_ips)
     route.interface = bind_interface
+
     def route_patch(af):
         return route
-    
+
     bind_interface.route = route_patch
     return bind_interface
+
 
 """
 Given a list of interfaces returned from netifaces
@@ -115,6 +125,8 @@ so that only interfaces that are used for the Internet remain.
 Already done in win_netifaces. Uses route tables for Linux and Mac.
 Other OS is based on the interface name (not that accurate.)
 """
+
+
 async def filter_trash_interfaces(netifaces: Optional[Any] = None) -> List[str]:
     netifaces = netifaces or Interface.get_netifaces()
     ifs = netifaces.interfaces()
@@ -160,6 +172,7 @@ async def filter_trash_interfaces(netifaces: Optional[Any] = None) -> List[str]:
 
     return clean_ifs
 
+
 async def list_interfaces(netifaces: Optional[Any] = None) -> List[str]:
     if netifaces is None:
         netifaces = await aionetiface_setup_netifaces()
@@ -181,6 +194,7 @@ async def list_interfaces(netifaces: Optional[Any] = None) -> List[str]:
         if_info = str(netifaces.ifaddresses(if_name))
         log(fstr("Attempt to start if name {0}", (if_name,)))
         log(fstr("Net iface results for that if = {0}", (if_info,)))
+
         async def worker(if_name):
             try:
                 interface = await Interface(if_name, netifaces=netifaces).start()

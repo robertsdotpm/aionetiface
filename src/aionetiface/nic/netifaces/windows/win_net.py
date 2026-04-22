@@ -1,20 +1,20 @@
 # pragma: no cover
 import re
 import sys
-if sys.platform == 'win32':
-    import winreg
+
+if sys.platform == "win32":
+    pass
 from typing import Any, Dict, List, Optional
 from ....utility.utils import *
 from ....utility.cmd_tools import *
 from ....net.net_utils import *
 
 
-
-async def nt_ipv6_routes(no: int) -> List[Any]: # pragma: no cover
+async def nt_ipv6_routes(no: int) -> List[Any]:  # pragma: no cover
     out = await cmd("route print")
     route_infos = re.findall(r"([0-9]+)\s+([0-9]+)\s+([^\s=]*)\s+([^\s=]*)[\r\n]+", out)
     ret = []
-    if route_infos != None and len(route_infos):
+    if route_infos is not None and len(route_infos):
         for route_info in route_infos:
             if_no, _, _, _ = route_info
             if int(if_no) == no:
@@ -22,7 +22,8 @@ async def nt_ipv6_routes(no: int) -> List[Any]: # pragma: no cover
 
     return ret
 
-async def nt_ipv6_find_cidr(no: int, gw_ip: str) -> Optional[int]: # pragma: no cover
+
+async def nt_ipv6_find_cidr(no: int, gw_ip: str) -> Optional[int]:  # pragma: no cover
     route_infos = await nt_ipv6_routes(no)
     for route_info in route_infos:
         _, _, route_dest, route_gw = route_info
@@ -33,12 +34,17 @@ async def nt_ipv6_find_cidr(no: int, gw_ip: str) -> Optional[int]: # pragma: no 
 
     return None
 
-async def nt_ipconfig(desc: Optional[str] = None, ipv4: Optional[str] = None, ipv6: Optional[str] = None) -> Optional[Dict[str, Any]]: # pragma: no cover
+
+async def nt_ipconfig(
+    desc: Optional[str] = None, ipv4: Optional[str] = None, ipv6: Optional[str] = None
+) -> Optional[Dict[str, Any]]:  # pragma: no cover
     all_none = desc is None and ipv4 is None and ipv6 is None
     out = await cmd("ipconfig /all")
     out = out.split("\r\n\r\n")
     for nic_info in out:
-        key_values = re.findall(r"\s+([^.]+)[\s.]+:([^\r\n]+[\r\n]+(\s{5,}[^\r\n]+)?)", nic_info)
+        key_values = re.findall(
+            r"\s+([^.]+)[\s.]+:([^\r\n]+[\r\n]+(\s{5,}[^\r\n]+)?)", nic_info
+        )
 
         info = {}
         for key_value in key_values:
@@ -56,17 +62,11 @@ async def nt_ipconfig(desc: Optional[str] = None, ipv4: Optional[str] = None, ip
 
                         ip_obj = ipaddress.ip_address(gw1)
                         if ip_obj.version == 4:
-                            value = {
-                                AF_INET: gw1,
-                                AF_INET6: gw2
-                            }
+                            value = {AF_INET: gw1, AF_INET6: gw2}
                             info[to_s(key)] = value
                             continue
                         else:
-                            value = {
-                                AF_INET: gw2,
-                                AF_INET6: gw1
-                            }
+                            value = {AF_INET: gw2, AF_INET6: gw1}
                             info[to_s(key)] = value
                             continue
                     else:
@@ -110,6 +110,7 @@ async def nt_ipconfig(desc: Optional[str] = None, ipv4: Optional[str] = None, ip
 
     return None
 
+
 """
 Desc is not passed to any command so
 escaping here is not necessary.
@@ -119,17 +120,16 @@ of the route print command on Windows.
 Purpose is to extract the NIC no for
 use in IPv6 scope_ids and MAC addr.
 """
-async def nt_route_print(desc: Optional[str]) -> Optional[Dict[str, Any]]: # pragma: no cover
+
+
+async def nt_route_print(
+    desc: Optional[str],
+) -> Optional[Dict[str, Any]]:  # pragma: no cover
     out = await cmd('powershell "route print"')
     nic_infos = re.findall(r"([0-9]+)[.]+(?:([^.]*)\s)?[.]+([^\r\n]+)[\r\n]*", out)
     for nic_info in nic_infos:
         nic_no, nic_mac, nic_desc = nic_info
         if desc is None or desc in to_s(nic_desc):
-            return {
-                "no": int(nic_no),
-                "mac": to_s(nic_mac),
-                "name": to_s(nic_desc)
-            }
+            return {"no": int(nic_no), "mac": to_s(nic_mac), "name": to_s(nic_desc)}
 
     return None
-

@@ -18,7 +18,8 @@ TODO: revisit drain and shutdown for close.
 """
 
 import asyncio
-from typing import Any, Callable, Dict, List, Optional, Tuple
+import sys
+from typing import Any, Callable, List, Optional, Tuple
 from ...utility.utils import *
 from ..net_utils import *
 from ...protocol.ack_udp import *
@@ -37,8 +38,12 @@ of networking basically uses callbacks and by itself -- doesn't
 mix well with the async way of doing things. But with some small
 tweaks it is flexible enough to do whatever you want.
 """
+
+
 class PipeEvents(BaseACKProto):
-    def __init__(self, sock: Any, route: Any = None, loop: Any = None, conf: Any = NET_CONF) -> None:
+    def __init__(
+        self, sock: Any, route: Any = None, loop: Any = None, conf: Any = NET_CONF
+    ) -> None:
         # Config.
         self.conf = conf
         self.loop = loop
@@ -53,10 +58,10 @@ class PipeEvents(BaseACKProto):
         self.proto = None
 
         # Used for TCP server awaitable.
-        self.p_client_entry = 0 # Location of the pipe in client futures.
-        self.p_client_insert = 0 # Last insert location in client futures.
-        self.p_client_get = 0 # Offset that increases per await over the futures.
-        self.client_futures = { 0: asyncio.Future() } # Table for TCP client pipes.
+        self.p_client_entry = 0  # Location of the pipe in client futures.
+        self.p_client_insert = 0  # Last insert location in client futures.
+        self.p_client_get = 0  # Offset that increases per await over the futures.
+        self.client_futures = {0: asyncio.Future()}  # Table for TCP client pipes.
 
         # Bind / route.
         self.route = route
@@ -122,7 +127,12 @@ class PipeEvents(BaseACKProto):
 
     # Used for event-based programming.
     # Can execute code on new cons, dropped cons, and new msgs.
-    def run_handlers(self, handlers: List[Any], client_tup: Optional[Tuple[Any, ...]] = None, data: Optional[bytes] = None) -> None:
+    def run_handlers(
+        self,
+        handlers: List[Any],
+        client_tup: Optional[Tuple[Any, ...]] = None,
+        data: Optional[bytes] = None,
+    ) -> None:
         # Run any registered call backs on msg.
         self.handler_tasks = rm_done_tasks(self.handler_tasks)
         for handler in handlers:
@@ -135,7 +145,7 @@ class PipeEvents(BaseACKProto):
         if self.sock is not None:
             # Use local socket details (for servers.)
             client_tup = self.sock.getsockname()
-            
+
             # Try use remote peer info if it exists.
             try:
                 client_tup = self.sock.getpeername()
@@ -143,7 +153,7 @@ class PipeEvents(BaseACKProto):
                 pass
 
         return client_tup
-    
+
     def add_tcp_client(self, client: Any) -> None:
         # Save location of this client pipe in the table.
         client.p_client_entry = self.p_client_insert
@@ -192,7 +202,9 @@ class PipeEvents(BaseACKProto):
     def set_tcp_server_task(self, task: Any) -> None:
         self.tcp_server_task = task
 
-    def set_ack_handlers(self, is_ack: Callable[..., Any], is_ackable: Callable[..., Any]) -> "PipeEvents":
+    def set_ack_handlers(
+        self, is_ack: Callable[..., Any], is_ackable: Callable[..., Any]
+    ) -> "PipeEvents":
         self.is_ack = is_ack
         self.is_ackable = is_ackable
         return self
@@ -217,7 +229,7 @@ class PipeEvents(BaseACKProto):
             self.msg_cbs.remove(msg_cb)
 
         return self
-    
+
     def add_up_cb(self, up_cb: Callable[..., Any]) -> "PipeEvents":
         self.up_cbs.append(up_cb)
         return self
@@ -265,7 +277,7 @@ class PipeEvents(BaseACKProto):
         # Remove self from any parent pipes.
         for pipe in self.parent_pipes:
             pipe.del_pipe(self)
-        
+
         # Execute any cleanup handlers.
         self.run_handlers(self.end_cbs, self.client_tup)
         self.on_close.set()
@@ -277,12 +289,7 @@ class PipeEvents(BaseACKProto):
 
         # Route messages to any pipes.
         for pipe in self.pipes:
-            task = create_task(
-                pipe.send(
-                    data,
-                    pipe.sock.getpeername()
-                )
-            )
+            task = create_task(pipe.send(data, pipe.sock.getpeername()))
 
             self.tasks.append(task)
 
@@ -292,10 +299,7 @@ class PipeEvents(BaseACKProto):
         # Add message to any interested subscriptions.
         # Matching pattern for host is in bytes so
         # there is a need to convert ip to bytes.
-        self.stream.add_msg(
-            data,
-            (client_tup[0], client_tup[1])
-        )
+        self.stream.add_msg(data, (client_tup[0], client_tup[1]))
 
     def handle_data(self, data: bytes, client_tup: Tuple[Any, ...]) -> None:
         # Convert data to bytes.
@@ -317,7 +321,7 @@ class PipeEvents(BaseACKProto):
                 data,
                 self.is_ack,
                 self.is_ackable,
-                lambda buf: self.stream.send(buf, client_tup)
+                lambda buf: self.stream.send(buf, client_tup),
             )
 
             """
@@ -346,7 +350,7 @@ class PipeEvents(BaseACKProto):
 
     # UDP packets.
     def datagram_received(self, data: bytes, client_tup: Tuple[Any, ...]) -> None:
-        #log(fstr("Base proto recv udp = {0} {1}", (client_tup, data,)))
+        # log(fstr("Base proto recv udp = {0} {1}", (client_tup, data,)))
         if self.transport is None:
             log(fstr("Skipping process data cause transport none 1."))
             return
@@ -356,16 +360,13 @@ class PipeEvents(BaseACKProto):
     # Single TCP connection.
     def data_received(self, data: bytes) -> None:
         try:
-            #log(fstr("Base proto recv tcp = {0}", (data,)))
+            # log(fstr("Base proto recv tcp = {0}", (data,)))
             if self.transport is None:
                 log(fstr("Skipping process data cause transport none 2."))
                 return
 
-            client_tup = self.transport.get_extra_info('socket').getpeername()
-            self.handle_data(
-                data,
-                client_tup
-            )
+            client_tup = self.transport.get_extra_info("socket").getpeername()
+            self.handle_data(data, client_tup)
         except (OSError, ConnectionError):
             log_exception()
 
@@ -438,19 +439,25 @@ class PipeEvents(BaseACKProto):
             self.proc_lock.release()
 
     # Return a matching message, async, non-blocking.
-    async def recv(self, sub: Any = SUB_ALL, timeout: int = 2, full: bool = False) -> Optional[bytes]:
+    async def recv(
+        self, sub: Any = SUB_ALL, timeout: int = 2, full: bool = False
+    ) -> Optional[bytes]:
         return await self.stream.recv(sub, timeout, full)
-    
+
     async def recv_n(self, n: int, sub: Any = SUB_ALL) -> Optional[List[bytes]]:
         return await self.stream.recv_n(n, sub)
 
-    async def send(self, data: bytes, dest_tup: Optional[Tuple[Any, ...]] = None) -> None:
+    async def send(
+        self, data: bytes, dest_tup: Optional[Tuple[Any, ...]] = None
+    ) -> None:
         dest_tup = dest_tup or self.stream.dest_tup
         return await self.stream.send(data, dest_tup)
 
     # Sync subscribe to a message.
     # Easy way to get a message from sync code too.
-    def subscribe(self, sub: Any = SUB_ALL, handler: Optional[Callable[..., Any]] = None) -> Any:
+    def subscribe(
+        self, sub: Any = SUB_ALL, handler: Optional[Callable[..., Any]] = None
+    ) -> Any:
         return self.stream.subscribe(sub, handler)
 
     def unsubscribe(self, sub: Any) -> None:
@@ -463,7 +470,11 @@ class PipeEvents(BaseACKProto):
 
     async def safe_write(self, data: bytes) -> None:
         # 1. Check BEFORE writing
-        if self.on_close.is_set() or self.transport is None or self.transport.is_closing():
+        if (
+            self.on_close.is_set()
+            or self.transport is None
+            or self.transport.is_closing()
+        ):
             raise ConnectionError("Attempted to write to a closed socket.")
 
         # 2. Perform the write
@@ -485,7 +496,7 @@ class PipeEvents(BaseACKProto):
                 raise ConnectionError("Socket closed during flush.")
             if t.get_write_buffer_size() == 0:
                 break
-            await asyncio.sleep(0.01) # Small yields to the loop
+            await asyncio.sleep(0.01)  # Small yields to the loop
 
     async def __aenter__(self) -> "PipeEvents":
         return self

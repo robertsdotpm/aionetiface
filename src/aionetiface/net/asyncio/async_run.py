@@ -1,17 +1,15 @@
 import asyncio
-import threading
-from asyncio import events, coroutines, tasks
+from asyncio import events, coroutines
 from typing import Any, Optional, Type
 from ...utility.cleanup import cancel_all_tasks
 
 
 def patch_asyncio_backports(loop_cls: Optional[Type[Any]] = None) -> None:
-    from concurrent.futures import ThreadPoolExecutor
 
     # Default to whatever class is passed, or fall back to the base event loop
     if loop_cls is None:
         try:
-            if hasattr(asyncio, 'get_running_loop'):
+            if hasattr(asyncio, "get_running_loop"):
                 loop_cls = type(asyncio.get_running_loop())
             else:
                 raise RuntimeError("no running loop")
@@ -21,15 +19,21 @@ def patch_asyncio_backports(loop_cls: Optional[Type[Any]] = None) -> None:
             _tmp.close()
 
     if not hasattr(loop_cls, "shutdown_asyncgens"):
-        async def _noop(self): pass
+
+        async def _noop(self):
+            pass
+
         loop_cls.shutdown_asyncgens = _noop
 
     if not hasattr(loop_cls, "shutdown_default_executor"):
+
         async def _shutdown_default_executor(self):
             executor = getattr(self, "_default_executor", None)
             if executor is not None:
                 executor.shutdown(wait=True)
+
         loop_cls.shutdown_default_executor = _shutdown_default_executor
+
 
 def async_run(main: Any, *, debug: bool = False) -> Any:
     """Execute the coroutine and return the result.
@@ -48,8 +52,7 @@ def async_run(main: Any, *, debug: bool = False) -> Any:
     ideally only be called once.
     """
     if events._get_running_loop() is not None:
-        raise RuntimeError(
-            "asyncio.run() cannot be called from a running event loop")
+        raise RuntimeError("asyncio.run() cannot be called from a running event loop")
 
     if not coroutines.iscoroutine(main):
         raise ValueError("a coroutine was expected, got {!r}".format(main))

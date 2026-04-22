@@ -5,6 +5,8 @@ from aionetiface import *
 """
 Demonstrates that change attribute replies through STUN RFC 5389 aren't supported.
 """
+
+
 async def main() -> None:
     nic = await Interface()
 
@@ -13,26 +15,21 @@ async def main() -> None:
     route = nic.route(IP4)
     pipe = await Pipe(UDP, route=route).connect()
     stun_client = STUNClient(
-        af=pipe.route.af,
-        dest=dest,
-        nic=nic,
-        proto=UDP,
-        mode=RFC5389
+        af=pipe.route.af, dest=dest, nic=nic, proto=UDP, mode=RFC5389
     )
 
     print(pipe, pipe.stream)
 
-    reply_addr = (dest[0], 5349) # IDK the reply port tbh, either way -- it wont work.
+    reply_addr = (dest[0], 5349)  # IDK the reply port tbh, either way -- it wont work.
     reply = await get_stun_reply(
         stun_client.mode,
         stun_client.dest,
         reply_addr,
         pipe,
-        [[STUNAttrs.ChangeRequest, b"\0\0\0\1"]]
+        [[STUNAttrs.ChangeRequest, b"\0\0\0\1"]],
     )
 
-
-
     print(reply)
+
 
 asyncio.run(main())
