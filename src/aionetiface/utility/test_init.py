@@ -1,6 +1,9 @@
 """Test scaffolding: async test base class and assertion helpers."""
 import ast
 import asyncio
+import os
+import struct
+import sys
 import time
 import unittest
 import socket
@@ -21,7 +24,19 @@ from ..net.asyncio.event_loop import *
 # Make it available for all tests.
 from ..net.pipe.pipe import *
 from ..protocol.stun.stun_client import *
+from ..protocol.stun.stun_defs import RFC3489, RFC5389
+from ..net.net_defs import UDP, NET_CONF, VALID_AFS
 from ..install import *
+
+
+# Intentionally no __all__ defined on this module.
+#
+# test_init.py is test scaffolding: it re-exports a wide net of stdlib modules
+# (unittest, asyncio, os, struct, sys, time, socket) and library names via
+# `from X import *` at the top of the file so test suites can write
+# `from aionetiface import *` and then use e.g. `unittest.IsolatedAsyncioTestCase`
+# or `copy.deepcopy(...)` directly.  Several tests and downstream modules rely
+# on that historical behaviour, so adding an explicit __all__ would break them.
 
 
 aionetiface_NET_ADDR_BYTES = b"0,3-[0,149.56.128.148,149.56.128.148,10001,1,1,0]-[0,2607:5300:0201:3100:0000:0000:0000:8d2f,fe80:0000:0000:0000:f816:3eff:feae:b2d9,10001,1,1,0]-aionetiface_test_node"

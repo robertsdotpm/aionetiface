@@ -14,20 +14,19 @@ from typing import Any
 from asyncio import futures
 
 vmaj, vmin, _ = platform.python_version_tuple()
-if int(vmin) < 8:
-    print("aionetiface REPL needs >= Python 3.8")
-    exit()
+SUPPORTS_TOP_LEVEL_AWAIT = int(vmaj) >= 3 and int(vmin) >= 8
+SUPPORTS_INTERACT_EXITMSG = int(vmaj) >= 3 and int(vmin) >= 6
 
 from .do_imports import *  # noqa: E402
 
 
 class AsyncIOInteractiveConsole(code.InteractiveConsole):
-    """Interactive console that allows top-level await expressions in a running asyncio loop."""
+    """Interactive console; supports top-level await on Python 3.8+."""
 
-    def __init__(self, locals: Any, loop: Any) -> None:
+    def __init__(self, locals, loop):
         super().__init__(locals)
-        self.compile.compiler.flags |= ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
-
+        if SUPPORTS_TOP_LEVEL_AWAIT:
+            self.compile.compiler.flags |= ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
         self.loop = loop
 
     def runcode(self, code: Any) -> None:
@@ -112,9 +111,10 @@ class REPLThread(threading.Thread):
             )
 
             console.push("from aionetiface.do_imports import *")
-            console.interact(
-                banner="\n".join(banner), exitmsg="exiting asyncio REPL..."
-            )
+            interact_kwargs = {"banner": "\n".join(banner)}
+            if SUPPORTS_INTERACT_EXITMSG:
+                interact_kwargs["exitmsg"] = "exiting asyncio REPL..."
+            console.interact(**interact_kwargs)
 
         finally:
             warnings.filterwarnings(

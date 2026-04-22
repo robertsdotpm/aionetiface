@@ -37,7 +37,6 @@ class Interface:
         timeout: int = 4,
     ) -> None:
         super().__init__()
-        self.__name__ = "Interface"
         if name == "default":
             use_default_interface(self)
             return

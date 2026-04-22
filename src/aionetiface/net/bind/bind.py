@@ -25,7 +25,6 @@ class Bind:
     ) -> None:
         # if IS_DEBUG:
         # assert("Interface" in str(type(interface)))
-        self.__name__ = "Bind"
         self.ips = ips
         self.interface = interface
         self.af = af

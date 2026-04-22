@@ -141,7 +141,6 @@ class Route(Bind):
 
         # Interface my be None.
         super().__init__(interface, af, leave_none=1)
-        self.__name__ = "Route"
         self.af = af
         self.nic_ips = nic_ips or []
         self.ext_ips = ext_ips or []

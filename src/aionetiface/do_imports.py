@@ -6,14 +6,7 @@ if __name__ != "__main__":
     os.environ["PYTHONIOENCODING"] = "utf-8"
 
     from .errors import *
-    from .utility.utils import (  # noqa: F401
-        log,
-        what_exception,
-        log_exception,
-        async_test,
-        rendezvous_score,
-        rand_plain,
-    )
+    from .utility.utils import *  # noqa: F401,F403 — re-exports the full utils public API
     from .utility.cmd_tools import *
     from .vendor.ecies import *
     from .utility.signing import *
@@ -24,7 +17,7 @@ if __name__ != "__main__":
     from .net.address import Address  # noqa: F401
     from .net.ip_range import IPRange, IPR  # noqa: F401
     from .net.asyncio.async_run import *
-    from .entrypoint import aionetiface_setup_netifaces  # noqa: F401
+    from .entrypoint import aionetiface_setup_netifaces, aionetiface_setup_event_loop  # noqa: F401
     from .nic.route.route import Route  # noqa: F401
     from .nic.route.route_pool import RoutePool  # noqa: F401
     from .nic.route.route_load import discover_nic_wan_ips  # noqa: F401
@@ -34,6 +27,12 @@ if __name__ != "__main__":
     from .net.asyncio.create_udp_fallback import *
     from .net.pipe.pipe import *
     from .nic.interface import Interface  # noqa: F401
+    # Re-export interface-util helpers: these were historically available on
+    # the top-level ``aionetiface`` namespace because ``entrypoint.py`` did
+    # ``from .nic.interface_utils import *`` and had no ``__all__``. Now that
+    # ``entrypoint.py`` defines a narrow ``__all__`` (just the setup functions),
+    # we surface the helpers explicitly here to keep the public API stable.
+    from .nic.interface_utils import *  # noqa: F401,F403
     from .nic.select_interface import *
     from .nic.route.route_table import get_route_table, is_internet_if  # noqa: F401
     from .protocol.stun.stun_client import STUNClient, get_stun_clients  # noqa: F401

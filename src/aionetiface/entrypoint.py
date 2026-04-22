@@ -19,6 +19,14 @@ else:
 
 from .install import *
 
+
+__all__ = [
+    "aionetiface_setup_netifaces",
+    "aionetiface_setup_event_loop",
+    "entrypoint_test",
+]
+
+
 _cached_netifaces = None
 _cache_lock = None  # Lazily created inside the running event loop.
 
@@ -69,24 +77,6 @@ async def aionetiface_setup_netifaces() -> Any:
         loop.set_debug(False)
         loop.set_exception_handler(CustomEventLoopPolicy.exception_handler)
 
-        def fatal_error(
-            self, exc: BaseException, message: str = "Fatal error on transport"
-        ) -> None:
-            """Log and forcibly close the transport on a fatal async transport error."""
-            er = {
-                "message": message,
-                "exception": exc,
-                "transport": self,
-                "protocol": self._protocol,
-            }
-            log(er)
-
-            # Should be called from exception handler only.
-            # self.call_exception_handler(er)
-            self._force_close(exc)
-
-        asyncio.selector_events._SelectorTransport._fatal_error = fatal_error
-
         # Attempt to get monkey patched netifaces.
         if sys.platform == "win32":
             netifaces = await Netifaces().start()
@@ -129,7 +119,12 @@ async def aionetiface_setup_netifaces() -> Any:
 
 
 def aionetiface_setup_event_loop() -> None:
-    """Patch the selector and configure the custom asyncio event loop policy."""
+    """Patch the selector, configure the custom asyncio event loop policy,
+    apply multiprocessing start-method, and install transport fatal-error patch.
+
+    This function performs side-effectful global mutations. It is NOT called
+    at import time; callers must invoke it explicitly before using the library.
+    """
     # -----------------------------
     # Patch logic based on Python version
     # -----------------------------
@@ -154,9 +149,29 @@ def aionetiface_setup_event_loop() -> None:
     if not isinstance(policy, CustomEventLoopPolicy):
         asyncio.set_event_loop_policy(CustomEventLoopPolicy())
 
+    # Monkey-patch the selector transport so a fatal transport error is logged
+    # and the transport is force-closed rather than propagating up.
+    def fatal_error(
+        self, exc: BaseException, message: str = "Fatal error on transport"
+    ) -> None:
+        """Log and forcibly close the transport on a fatal async transport error."""
+        er = {
+            "message": message,
+            "exception": exc,
+            "transport": self,
+            "protocol": self._protocol,
+        }
+        log(er)
+
+        # Should be called from exception handler only.
+        # self.call_exception_handler(er)
+        self._force_close(exc)
+
+    asyncio.selector_events._SelectorTransport._fatal_error = fatal_error
 
 
-aionetiface_setup_event_loop()
+# NOTE: aionetiface_setup_event_loop() is NOT called at import time.
+# Call it explicitly in your application entry point before using the library.
 
 
 async def entrypoint_test() -> None:
