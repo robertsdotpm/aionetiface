@@ -2,9 +2,6 @@
 import ast
 import asyncio
 import os
-import struct
-import sys
-import time
 import unittest
 import socket
 import hashlib
@@ -24,7 +21,7 @@ from ..net.asyncio.event_loop import *
 # Make it available for all tests.
 from ..net.pipe.pipe import *
 from ..protocol.stun.stun_client import *
-from ..protocol.stun.stun_defs import RFC3489, RFC5389
+from ..protocol.stun.stun_defs import RFC3489
 from ..net.net_defs import UDP, NET_CONF, VALID_AFS
 from ..install import *
 
@@ -45,11 +42,9 @@ aionetiface_NET_ADDR_BYTES = b"0,3-[0,149.56.128.148,149.56.128.148,10001,1,1,0]
 # Otherwise the name (probably) won't exist.
 aionetiface_IFS = []
 
-PatchedAsyncTest = None
-
 if hasattr(unittest, "IsolatedAsyncioTestCase"):
 
-    class PatchedAsyncTest(unittest.IsolatedAsyncioTestCase):
+    class PatchedAsyncTest(unittest.IsolatedAsyncioTestCase):  # type: ignore[misc]
         def _setupAsyncioLoop(self) -> None:
             assert self._asyncioTestLoop is None
             loop = CustomEventLoop()
@@ -59,6 +54,9 @@ if hasattr(unittest, "IsolatedAsyncioTestCase"):
             fut = loop.create_future()
             self._asyncioCallsTask = loop.create_task(self._asyncioLoopRunner(fut))
             loop.run_until_complete(safe_run(fut))
+
+else:
+    PatchedAsyncTest = None
 
 
 # Basic echo client test.

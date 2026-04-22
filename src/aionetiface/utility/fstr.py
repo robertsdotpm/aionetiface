@@ -1,7 +1,5 @@
-# -*- coding: utf-8 -*-
-"""Python2 f-string like behavior"""
+"""Indexed positional string formatter and legacy eval-based formatter."""
 
-from __future__ import print_function
 import inspect
 import re
 from typing import Any, Optional, Tuple

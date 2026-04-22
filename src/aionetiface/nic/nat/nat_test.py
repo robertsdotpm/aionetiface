@@ -26,11 +26,8 @@ building in safe-guards against packet-loss, inconsistent results, misconfigurat
 import asyncio
 from typing import Any, Dict, List, Optional, Tuple
 from ...utility.utils import (
-    async_test,
     async_wrap_errors,
-    fstr,
     ip_f,
-    timestamp,
 )
 from ...errors import ErrorCantLoadNATInfo
 from ...net.net_defs import IP4, IP6, UDP
@@ -339,56 +336,3 @@ async def nic_load_nat(
     return nat_type, delta
 
 
-async def nat_test_main() -> None:
-    from .interface import Interface, aionetiface_setup_netifaces
-
-    # Use same pipe with multiplexing for reuse tests.
-    # t1 = timestamp(1)
-    i = await Interface()
-    print(i)
-
-    await asyncio.sleep(2)
-
-    af = IP4
-    route = await i.route(af).bind(0)
-    pipe = await pipe_open(UDP, route=route)
-    self.assertIsNotNone(pipe)
-    STUNClient(("stun1.aionetiface.net", 3478))
-
-    # Determine NAT type.
-    t1 = timestamp(1)
-    servers = STUND_SERVERS[af]
-    nat_type = await fast_nat_test(pipe, servers)
-    print(nat_type)
-
-    # How long the NAT type took.
-    t2 = timestamp(1) - t1
-    print(fstr("nat time = {0}", (t2,)))
-    await pipe.close()
-    # 0.8
-
-    # Wait for all lagging tests to end.
-    await asyncio.sleep(NAT_TEST_TIMEOUT)
-
-    return
-    # Load internal interface details.
-    t1 = timestamp(1)
-    netifaces = await aionetiface_setup_netifaces()
-    t2 = timestamp(1)
-    duration = t2 - t1
-    print(fstr("init_aionetiface() = {0}", (duration,)))
-
-    # Start interface time.
-    i = await Interface("ens33", netifaces=netifaces)  # ens37
-    t1 = timestamp(1)
-    nat = await i.load_nat()
-    print(nat)
-    t2 = timestamp(1)
-    duration = t2 - t1
-    print(fstr("Interface() load_nat = {0}", (duration,)))
-    await asyncio.sleep(NAT_TEST_NO)
-    return
-
-
-if __name__ == "__main__":
-    async_test(nat_test_main)

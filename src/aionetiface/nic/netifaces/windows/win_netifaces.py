@@ -60,11 +60,15 @@ Notes:
     command and have it passed to powershell without execution perms?
 """
 
+import asyncio
 import re
 import platform
 from typing import Any, Dict, List, Optional
-from ....net.ip_range import *
-from ....utility.cmd_tools import *
+from ....net.net_defs import IP4, IP6, VALID_AFS
+from ....net.net_utils import cidr_to_netmask, v_to_af, ip_strip_if, ip_strip_cidr, af_bitlen
+from ....net.ip_range import IPRange
+from ....utility.utils import fstr, log, log_exception, to_n, ip_f
+from ....utility.cmd_tools import cmd, get_powershell_path, ps1_exec_trick
 from .win_netsh import if_infos_from_netsh
 from .win_wmic import if_infos_from_wmic
 

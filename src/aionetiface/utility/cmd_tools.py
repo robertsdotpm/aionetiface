@@ -1,5 +1,6 @@
 """Cross-platform shell command and script execution helpers."""
 import ctypes
+import re
 import shlex
 import asyncio
 import tempfile
@@ -10,7 +11,7 @@ import sys
 import subprocess
 import base64
 from typing import Any, Callable, Optional
-from ..utility.utils import *
+from ..utility.utils import to_type, to_s, fstr, log, run_in_executor
 
 __all__ = [
     "nt_set_pshell_unrestricted",

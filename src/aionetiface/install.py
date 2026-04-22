@@ -2,7 +2,6 @@
 import os
 import pathlib
 import inspect
-from .utility.utils import *
 
 __all__ = [
     "get_script_parent",

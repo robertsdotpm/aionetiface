@@ -3,8 +3,7 @@ import asyncio
 import copy
 from functools import cmp_to_key
 from typing import Any, Dict, List, Optional, Tuple
-from ...utility.utils import async_test
-from ...net.net_defs import IP4, IP6, VALID_AFS
+from ...net.net_defs import VALID_AFS
 from ...net.ip_range import IPRange
 from ..netifaces.netiface_extra import af_to_netiface, netiface_addr_to_ipr
 from ...net.bind.bind import Bind
@@ -180,61 +179,3 @@ async def bind_to_route(bind_obj: Any) -> Any:
     return route
 
 
-if __name__ == "__main__":  # pragma: no cover
-    from .interface import Interface
-
-    async def test_get_routes() -> None:  # pragma: no cover
-        internode_iface = Interface("enp3s0")
-        starlink_iface = Interface("wlp2s0")
-        iface_list = [internode_iface, starlink_iface]
-        """
-        af = IP4
-        rp = await Routes(iface_list, af)
-        r1 = rp.routes[0]
-        nr1, _ = ~r1
-
-        # Should compare two routes WAN portions.
-        assert(r1 != nr1)
-        assert(r1 == r1)
-
-        r_list = r1 != [r1]
-        assert(r_list[0][0] != r1)
-        """
-
-        # Test no WAN route.
-        af = IP6
-        rp = await Routes(iface_list, af)
-        rp.routes[0]
-
-        # When resolving a route that isnt supported = slow
-        # any way to get it to return faster?
-
-        return
-
-        ra, rb = rp.routes
-        for r in rp.routes:
-            print(r)
-            print(r.nic_ips)
-            print(r.ext_ips)
-
-        ref_route_a = rp[0]
-        print(rp.routes)
-
-        print(ref_route_a)
-        return
-
-        ipr = IPRange("192.168.0.0", "255.255.255.0")
-        r = RoutePool([ipr])
-        # ipr2 = copy.deepcopy(ipr)
-
-        print(id(ipr.ip))
-        print(id(r.routes[0].ip))
-
-        return
-        routes = await get_routes(iface, IP4)
-        print(routes)
-        route = routes[0]
-        print(route.nic_ips)
-        print(route.ext_ips)
-
-    async_test(test_get_routes)

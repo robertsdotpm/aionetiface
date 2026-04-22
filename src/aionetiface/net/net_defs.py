@@ -6,8 +6,6 @@ import platform
 import ipaddress
 from io import BytesIO
 from typing import Any
-from ..errors import *
-from ..utility.cmd_tools import *
 
 __all__ = [
     "HOST_TYPE_DOMAIN",

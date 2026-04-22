@@ -32,8 +32,9 @@ import struct
 import time
 import asyncio
 from typing import Any, Optional
-from ..net.address import *
-from ..net.pipe.pipe import *
+from ..net.net_defs import UDP
+from ..net.pipe.pipe import Pipe
+from ..utility.utils import log_exception
 
 __all__ = [
     "NTPException",

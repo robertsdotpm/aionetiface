@@ -227,8 +227,9 @@ if __name__ == "__main__":
     repl_future_interrupted = False
 
     try:
-        import readline  # NoQA
-    except ImportError:
+        import readline
+        readline.get_history_length()  # activate readline support (side effect of import)
+    except (ImportError, AttributeError):
         pass
 
     repl_thread = REPLThread()

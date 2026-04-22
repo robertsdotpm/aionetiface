@@ -85,11 +85,9 @@ def af_to_netiface(af: int) -> int:
     """Convert an internal AF constant to the integer value expected by the netifaces library."""
     if af == IP4:
         return int(IP4)
-        return netifaces.AF_INET
 
     if af == IP6:
         return int(IP6)
-        return netifaces.AF_INET6
 
     return af
 

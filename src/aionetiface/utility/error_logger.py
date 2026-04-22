@@ -47,7 +47,7 @@ def log(msg: Union[str, bytes, Any]) -> None:
     if not os.path.exists(LOGS_ROOT_PATH):
         return
 
-    if type(msg) not in (str, bytes):
+    if not isinstance(msg, (str, bytes)):
         return
 
     tid = threading.get_ident()

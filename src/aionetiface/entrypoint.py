@@ -14,8 +14,6 @@ from .nic.interface_utils import *
 
 if sys.platform == "win32":
     from .nic.netifaces.windows.win_netifaces import *
-else:
-    import netifaces as netifaces
 
 from .install import *
 
@@ -30,34 +28,15 @@ __all__ = [
 _cached_netifaces = None
 _cache_lock = None  # Lazily created inside the running event loop.
 
-"""
-I've honestly never had success with using "async locks",
-I've found it better to design the software in a way that it
-avoids locks but we'll see if this works.
-
-This is a critical function. It sets up the event loop properly
-and dynamically loads netifaces based on the OS. I implement
-a class-interface compatible version of netifaces for Windows
-because the netifaces main class requires a crap load of binary
-dependencies and I want my stuff to install easier.
-
-My Windows netifaces stuff doesn't use the Win32 API directly
-(too much effort) but it implements several scripting approaches
-with regex and fallbacks if one doesn't work. To support all
-Windows versions. It is slow but accesses some very complex
-information and ends up being cached.
-
-I have seen some interesting win32 api code in Python that does
-similar stuff on Github. May be something to add in the future.
-Otherwise -- the nix and BSD versions happily accept the regular
-netifaces module from pypi which doesn't need deps to work.
-"""
+# aionetiface_setup_netifaces uses an asyncio.Lock to guard the init path.
+# On Windows, netifaces is replaced by a pure-Python implementation that
+# uses scripting approaches with regex and OS-specific fallbacks rather than
+# binary extensions, so installation works without a C compiler.
+# On Linux/BSD the standard netifaces package from PyPI is used directly.
 
 
 async def aionetiface_setup_netifaces() -> Any:
     """Set up the event loop and return a platform-appropriate netifaces instance, caching the result."""
-    global ENABLE_UDP
-    global ENABLE_STUN
     global _cached_netifaces
     global _cache_lock
     if _cached_netifaces is not None:
@@ -81,7 +60,7 @@ async def aionetiface_setup_netifaces() -> Any:
         if sys.platform == "win32":
             netifaces = await Netifaces().start()
         else:
-            netifaces = sys.modules["netifaces"]
+            import netifaces
 
         # Are UDP sockets blocked?
         # Firewalls like iptables on freehosts can do this.

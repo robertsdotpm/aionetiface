@@ -355,52 +355,6 @@ class InterProcessReaderWriterLock:
     def _acquire(
         self, blocking=True, delay=0.01, max_delay=0.1, timeout=None, exclusive=True
     ):
-
-        if delay < 0:
-            raise ValueError("Delay must be greater than or equal to zero")
-        if timeout is not None and timeout < 0:
-            raise ValueError("Timeout must be greater than or equal to zero")
-        if delay >= max_delay:
-            max_delay = delay
-
-        try:
-            self._do_open()
-            watch = StopWatch(duration=timeout)
-            r = Retry(delay, max_delay, sleep_func=self.sleep_func, watch=watch)
-            with watch:
-                gotten = r(self._try_acquire, blocking, watch, exclusive)
-
-            if not gotten:
-                return False
-            else:
-                self.logger.log(
-                    BLATHER,
-                    "Acquired file lock `%s` after waiting %0.3fs [%s"
-                    " attempts were required]",
-                    self.path,
-                    watch.elapsed(),
-                    r.attempts,
-                )
-                return True
-        except Exception:
-            # If an exception occurs, ensure we close.
-            self._do_close()
-            raise
-        finally:
-            # For ReaderWriter lock, if we failed to get it (gotten=False), we must close.
-            # Unlike InterProcessLock, this class doesn't use self.acquired, so we check 'gotten'.
-            # Note: locals() check is risky if 'gotten' wasn't assigned, but 'gotten' is assigned inside try.
-            # A safer check is if self.lockfile is not None and we are returning False.
-            # But since we can't easily see return value in finally, we handle cleanup inside the flow above.
-            # I added the except block above. Now handling the 'False' case:
-            pass
-            # NOTE: Logic is slightly different here because _acquire wraps logic.
-            # I have patched the return False path above specifically.
-
-    # Re-implementing _acquire to be cleaner and safer
-    def _acquire(
-        self, blocking=True, delay=0.01, max_delay=0.1, timeout=None, exclusive=True
-    ):
         if delay < 0:
             raise ValueError("Delay must be greater than or equal to zero")
         if timeout is not None and timeout < 0:

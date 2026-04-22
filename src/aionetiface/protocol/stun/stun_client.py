@@ -388,7 +388,6 @@ async def run_stun_client() -> None:
 
     return
 
-    """
     from .interface import Interface
 
     await Interface()
@@ -413,6 +412,7 @@ async def run_stun_client() -> None:
     print(c1.stup)
 
     await r.pipe.close()
+    """
 
 
 async def run_con_stun_client() -> None:
@@ -423,10 +423,11 @@ async def run_con_stun_client() -> None:
     i = await Interface()
     stun_clients = []
     tasks = []
-    for n in range(0, 5):
+    servers = get_infra(af, proto, "STUN(get_mapping)")
+    for n in range(0, min(5, len(servers))):
         dest = (
-            STUND_SERVERS[af][n]["primary"]["ip"],
-            STUND_SERVERS[af][n]["primary"]["port"],
+            servers[n]["primary"]["ip"],
+            servers[n]["primary"]["port"],
         )
         stun_client = STUNClient(dest, i, proto=proto)
         stun_clients.append(stun_client)

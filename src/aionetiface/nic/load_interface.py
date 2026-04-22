@@ -18,9 +18,12 @@ from .interface_utils import (
 )
 from ..protocol.stun.stun_client import get_stun_clients
 from ..entrypoint import aionetiface_setup_netifaces
-from ..servers import INFRA, get_infra
+from .. import servers as servers_pkg
+from ..servers import get_infra
 from ..updater import reconcile_infra, update_server_list
 
+INFRA = servers_pkg.INFRA
+INFRA_BUF = None
 
 _infra_lock = asyncio.Lock()
 

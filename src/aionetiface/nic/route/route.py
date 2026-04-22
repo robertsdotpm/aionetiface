@@ -92,7 +92,6 @@ from functools import total_ordering
 from typing import Any, Dict, List, Optional
 from ...net.ip_range import IPRange, ipr_norm
 from ...net.net_defs import IPA_TYPES, VALID_AFS, IP4, IP6
-from ...net.net_utils import v_to_af
 from ..netifaces.netiface_extra import *
 from ...net.address import *
 from ...net.bind.bind import *

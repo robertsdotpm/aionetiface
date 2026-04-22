@@ -6,8 +6,6 @@ Code taken from: https://github.com/sfinktah/keepalive/tree/master
 import platform
 import socket
 from typing import Any, Optional
-from ..utility.utils import *
-
 
 def set_keepalive_linux(
     sock: Any,

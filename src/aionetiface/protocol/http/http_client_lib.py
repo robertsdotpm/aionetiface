@@ -3,9 +3,10 @@ import asyncio
 import copy
 from http.client import HTTPResponse
 import json
+import re
 import urllib.parse
 from typing import Any, Dict, List, Optional, Tuple
-from ...net.net_defs import IP4, TCP, NET_CONF
+from ...net.net_defs import IP4, TCP, NET_CONF, FakeSocket, SUB_ALL
 from ...net.pipe.pipe import Pipe
 from ...net.address import resolv_dest
 from ...utility.utils import fstr, log, log_exception, to_b, to_s, async_wrap_errors

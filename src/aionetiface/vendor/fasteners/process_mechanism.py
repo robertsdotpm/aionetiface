@@ -70,7 +70,7 @@ class _WindowsInterProcessReaderWriterLockMechanism(
         if exclusive:
             flags = LOCKFILE_FAIL_IMMEDIATELY | LOCKFILE_EXCLUSIVE_LOCK
         else:
-            flags = win32con.LOCKFILE_FAIL_IMMEDIATELY
+            flags = LOCKFILE_FAIL_IMMEDIATELY
 
         handle = msvcrt.get_osfhandle(lockfile.fileno())
         ok = LockFileEx(handle, flags, 0, 1, 0, pointer(OVERLAPPED()))

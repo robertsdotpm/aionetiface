@@ -8,7 +8,7 @@ and returns the parsed reply with address fields attached.
 
 import re
 from typing import Any, Dict, List, Optional, Tuple
-from ...utility.utils import async_test, buf_in_class, fstr, log, to_h, valid_port
+from ...utility.utils import async_test, fstr, log, to_h, valid_port
 from ...errors import ErrorNoReply
 from .stun_defs import RFC3489, STUNAddrTup, STUNAttrs, STUNMsg
 from ...net.ip_range import IPRange

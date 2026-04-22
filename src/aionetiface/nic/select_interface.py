@@ -1,14 +1,13 @@
 """Heuristics for selecting the best NIC for a given connection."""
-import asyncio
 import platform
 from typing import Any, List, Optional, Tuple
-from ..utility.utils import fstr, log, log_exception, to_unique
-from ..net.net_defs import INTERFACE_UNKNOWN, VALID_AFS
+from ..utility.utils import to_unique
+from ..net.net_defs import INTERFACE_UNKNOWN
 from ..net.ip_range import IPRange
 from ..net.net_utils import determine_if_path
 from .route.route import Route
 from .interface import Interface
-from .interface_utils import get_interface_type, log_interface_rp
+from .interface_utils import get_interface_type
 from ..entrypoint import aionetiface_setup_netifaces
 
 
@@ -189,50 +188,3 @@ async def list_interfaces(netifaces: Optional[Any] = None) -> List[str]:
 
     ifs = sorted(ifs)
     return ifs
-
-    # Start all interfaces.
-    if_list = []
-    tasks = []
-    for if_name in ifs:
-        if_info = str(netifaces.ifaddresses(if_name))
-        log(fstr("Attempt to start if name {0}", (if_name,)))
-        log(fstr("Net iface results for that if = {0}", (if_info,)))
-
-        async def worker(if_name):
-            try:
-                interface = await Interface(if_name, netifaces=netifaces).start()
-                try:
-                    if load_nat:
-                        await interface.load_nat()
-                except (OSError, asyncio.TimeoutError):
-                    log("Failed to load nat for interface.")
-                    # Just use the default NAT info.
-
-                if_list.append(interface)
-            except (OSError, asyncio.TimeoutError):
-                log_exception()
-                return
-
-        tasks.append(
-            # Assume timeout = non-routable.
-            worker(if_name)
-        )
-
-    await asyncio.gather(*tasks)
-
-    # Filter any interfaces that have no routes.
-    # This will filter out loopback and other crap interfaces.
-    good_ifs = []
-    for interface in if_list:
-        for af in VALID_AFS:
-            if len(interface.rp[af].routes):
-                good_ifs.append(interface)
-                break
-
-    # Log interfaces and routes.
-    log("> Loaded interfaces.")
-    for if_no, interface in enumerate(good_ifs):
-        log(fstr("> Routes for interface {0}:", (if_no,)))
-        log_interface_rp(interface)
-
-    return good_ifs

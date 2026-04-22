@@ -6,10 +6,11 @@ if sys.platform == "win32":
     import winreg
 
 from typing import Any, Dict, List
-from ....net.net_utils import *
-from ....utility.cmd_tools import *
-from ....utility.utils import fstr
+from ....net.net_defs import IP4, IP6
+from ....net.net_utils import ip_strip_if, toggle_host_bits
 from ....net.ip_range import IPRange
+from ....utility.cmd_tools import cmd
+from ....utility.utils import fstr, safe_gather
 
 
 class NetshParse:

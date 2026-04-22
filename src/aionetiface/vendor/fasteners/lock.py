@@ -23,7 +23,7 @@ import functools
 import threading
 from typing import Optional
 
-from ._utils import *
+from ._utils import LockStack
 
 
 class ReaderWriterLock(object):
