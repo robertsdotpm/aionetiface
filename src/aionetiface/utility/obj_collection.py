@@ -14,6 +14,7 @@ from ..protocol.stun.stun_client import STUNClient
 # Given a list and a random str.
 # Return a deterministically shuffled generator.
 def seed_iter(items: List[Any], seed_str: Any) -> Generator[Any, None, None]:
+    """Yield items in a deterministically shuffled order seeded by seed_str."""
     # avoid mutating the original list
     items_copy = list(items)
 
@@ -29,6 +30,7 @@ def seed_iter(items: List[Any], seed_str: Any) -> Generator[Any, None, None]:
 # Given a func that takes a list of named params and a dict
 # of mixed kv pairs -- only use the kvs that match a param.
 def func_relevant_params(func: Any, kv: Dict[str, Any]) -> Dict[str, Any]:
+    """Return only the key-value pairs from kv that match func's parameter names."""
     sig = inspect.signature(func)
     params = sig.parameters
     param_names = list(params.keys())

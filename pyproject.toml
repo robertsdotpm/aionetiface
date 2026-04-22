@@ -7,7 +7,7 @@ name = "aionetiface"
 version = "0.0.15"
 description = "Asynchronous networking library for IP interface and address management"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.5"
 license = {text = "public domain"}
 authors = [
     {name = "Matthew Roberts", email = "matthew@roberts.pm"}
@@ -15,6 +15,9 @@ authors = [
 keywords = ["networking", "async", "asyncio", "interface", "IP", "NIC", "STUN"]
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.5",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",

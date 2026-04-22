@@ -8,6 +8,7 @@ from .utils import fstr, log
 async def concurrent_first_agree_or_best(
     min_agree: int, tasks: List[Any], timeout: float, wait_all: bool = False
 ) -> Optional[Any]:
+    """Run tasks concurrently and return the first result agreed upon by min_agree tasks."""
     results = defaultdict(int)
     log(
         fstr(
@@ -17,6 +18,7 @@ async def concurrent_first_agree_or_best(
     )
 
     def check_consensus(result):
+        """Return result if it has now reached the min_agree threshold, else None."""
         if result is None or isinstance(result, Exception):
             return None
         results[result] += 1
@@ -63,6 +65,7 @@ async def concurrent_first_agree_or_best(
 
 
 async def repeat_every(n: float, coro_func: Any, *args: Any, **kwargs: Any) -> None:
+    """Call coro_func with args/kwargs every n seconds indefinitely."""
     while True:
         await coro_func(*args, **kwargs)
         await asyncio.sleep(n)

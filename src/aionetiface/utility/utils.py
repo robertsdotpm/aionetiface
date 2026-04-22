@@ -220,32 +220,39 @@ def to_s(x: Union[str, bytes]) -> str:
 
 # Hex string conversions.
 def to_hs(x: Any) -> str:
+    """Convert bytes or str to a lowercase hex string."""
     return to_s(binascii.hexlify(to_b(x)))
 
 
 def to_h(x: Any) -> str:
+    """Convert x to hex, returning '00' for empty input."""
     return to_hs(x) if len(x) else "00"
 
 
 # Integer / numeric conversions.
 def to_i(x: Any) -> int:
+    """Convert a hex string or int to an integer."""
     return x if isinstance(x, int) else int(x, 16)
 
 
 def to_n(x: Any) -> int:
+    """Convert a decimal string or int to an integer."""
     return x if isinstance(x, int) else int(to_s(x), 10)
 
 
 # Integer <-> bytes conversions.
 def i_to_b(x: int, o: str = "little") -> bytes:
+    """Encode an integer as bytes in the given byte order."""
     return x.to_bytes((x.bit_length() + 7) // 8, o)
 
 
 def b_to_i(x: bytes, o: str = "little") -> int:
+    """Decode bytes to an integer in the given byte order."""
     return int.from_bytes(x, o)
 
 
 def h_to_b(x: Any, o: str = "little") -> bytes:
+    """Decode a hex string to bytes."""
     return binascii.unhexlify(to_b(x))
 
 
@@ -261,36 +268,44 @@ re.unescape = _re_unescape
 
 
 def rm_whitespace(x: str) -> str:
+    """Remove all whitespace from string x."""
     return re.sub(r"\s+", "", x, flags=re.UNICODE)
 
 
 def urlencode(x: str) -> bytes:
+    """Percent-encode a string for use in a URL."""
     return to_b(urllib.parse.quote(x))
 
 
 def urldecode(x: str) -> bytes:
+    """Decode a percent-encoded URL component."""
     return to_b(urllib.parse.unquote(x))
 
 
 # Hash helpers.
 def sha256(x: Any) -> str:
+    """Return the SHA-256 hex digest of x."""
     return to_s(hashlib.sha256(to_b(x)).hexdigest())
 
 
 def hash160(x: Any) -> str:
+    """Return the RIPEMD-160 hex digest of x."""
     return hashlib.new("ripemd160", to_b(x)).hexdigest()
 
 
 def sha3_256(x: Any) -> str:
+    """Return the SHA3-256 hex digest of x."""
     return to_s(hashlib.sha3_256(to_b(x)).hexdigest())
 
 
 def b_sha3_256(x: Any) -> bytes:
+    """Return the raw SHA3-256 digest bytes of x."""
     return hashlib.sha3_256(to_b(x)).digest()
 
 
 # Deterministic hash: converts x to a string, hashes it, returns int.
 def dhash(x: Any) -> int:
+    """Return a deterministic integer hash of x via SHA-256."""
     return b_to_i(hashlib.sha256(to_b(fstr("{0}", (x,)))).digest())
 
 
@@ -311,88 +326,108 @@ def rendezvous_score(*tokens: bytes) -> float:
 
 # Port helpers.
 def valid_port(p: int) -> bool:
+    """Return True if p is a valid TCP/UDP port number (1–65535)."""
     return p >= 1 and p <= MAX_PORT
 
 
 def port_wrap(p: int) -> int:
+    """Wrap p into the valid port range, skipping privileged ports."""
     return (p % MAX_PORT) or 1
 
 
 # List / dict helpers.
 def to_unique(x: list) -> list:
+    """Return a list with duplicates removed (preserving first occurrence)."""
     return [i for n, i in enumerate(x) if i not in x[:n]]
 
 
 def strip_none(x: list) -> list:
+    """Remove None values from a list."""
     return [i for i in x if i is not None]
 
 
 def shuffle(x: list) -> list:
+    """Return a new list with the elements of l randomly shuffled."""
     return random.shuffle(x) or x
 
 
 def d_keys(x: dict) -> list:
+    """Return the keys of dict d as a list."""
     return list(x.keys())
 
 
 def d_vals(x: dict) -> list:
+    """Return the values of dict d as a list."""
     return list(x.values())
 
 
 def list_join(lists: list) -> list:
+    """Concatenate a list of lists into a flat list."""
     return list(itertools.chain.from_iterable(lists))
 
 
 def list_x_to_dict(x: list) -> list:
+    """Convert a list of (key, value) pairs to a dict."""
     return [v.dict() for v in x]
 
 
 # Numeric / range helpers.
 def from_range(r: Any) -> int:
+    """Return a value clamped into [lo, hi]."""
     return random.randrange(r[0], r[1] + 1)
 
 
 def in_range(x: Any, r: Any) -> bool:
+    """Return True if lo <= val <= hi."""
     return x >= r[0] and x <= r[1]
 
 
 def len_range(r: Any) -> int:
+    """Return True if lo <= len(x) <= hi."""
     return r[1] - r[0]
 
 
 def dict_plus(d: dict, k: Any) -> Any:
+    """Merge two dicts, returning a new dict with keys from both."""
     return d[k] if k in d else 0
 
 
 # Byte-level bitwise operations.
 def b_and(a: bytes, b: bytes) -> bytes:
+    """Bitwise AND of two equal-length byte strings."""
     return bytes(map(lambda x, y: x & y, a, b))
 
 
 def b_or(a: bytes, b: bytes) -> bytes:
+    """Bitwise OR of two equal-length byte strings."""
     return bytes(map(lambda x, y: x | y, a, b))
 
 
 # Type predicates.
 def is_number(x: Any) -> bool:
+    """Return True if x can be interpreted as a number."""
     return to_s(x).isnumeric()
 
 
 def is_bytes(x: Any) -> bool:
+    """Return True if x is a bytes-like object."""
     return isinstance(x, bytes)
 
 
 # Reflection helpers.
 def class_name(x: Any) -> Any:
+    """Return the class name of obj as a string."""
     return type(x).__name__ if inspect.isclass(x) else None
 
 
 def timestamp(precise: bool = False) -> float:
+    """Return the current time as an integer (or float when precise=True)."""
     return time.time() if precise else int(time.time())
 
 
 # Address string helpers.
 def bind_str(r: Any) -> str:
+    """Format an (ip, port) tuple as a 'ip:port' string."""
     return fstr(
         "{0}:{1}",
         (

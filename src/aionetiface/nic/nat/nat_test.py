@@ -354,7 +354,7 @@ async def nat_test_main() -> None:
     af = IP4
     route = await i.route(af).bind(0)
     pipe = await pipe_open(UDP, route=route)
-    assert pipe is not None
+    self.assertIsNotNone(pipe)
     STUNClient(("stun1.aionetiface.net", 3478))
 
     # Determine NAT type.
