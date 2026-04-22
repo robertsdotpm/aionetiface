@@ -69,10 +69,9 @@ def set_keep_alive(
         plat = platform.system()
         if plat == "Windows":
             return set_keepalive_win(sock, after_idle_sec, interval_sec, max_fails)
-        elif plat == "Darwin":
+        if plat == "Darwin":
             return set_keepalive_osx(sock, after_idle_sec, interval_sec, max_fails)
-        else:
-            # Should also work for BSD and Android.
-            return set_keepalive_linux(sock, after_idle_sec, interval_sec, max_fails)
+        # Should also work for BSD and Android.
+        return set_keepalive_linux(sock, after_idle_sec, interval_sec, max_fails)
     except OSError:
         pass

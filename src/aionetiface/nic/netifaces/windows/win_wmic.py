@@ -14,6 +14,7 @@ from ....net.ip_range import IPRange
 
 
 def parse_wmic_list(entry: str) -> List[Any]:
+    """Returns a Python list parsed from a WMIC-formatted brace-delimited string."""
     if not len(entry):
         return []
 
@@ -28,6 +29,7 @@ def parse_wmic_list(entry: str) -> List[Any]:
 
 
 def parse_wmic_addrs(addrs: List[str]) -> Dict[Any, List[Dict[str, Any]]]:
+    """Returns address info records grouped by address family for the given list of IP strings."""
     addr_info = {IP4: [], IP6: []}
     for addr in addrs:
         ipr = IPRange(addr)
@@ -46,8 +48,11 @@ def parse_wmic_addrs(addrs: List[str]) -> Dict[Any, List[Dict[str, Any]]]:
 
 
 class WMICParse:
+    """Parses WMIC command output into structured network interface data."""
+
     @staticmethod
     def show_main(af: Any, msg: str) -> List[Any]:
+        """Returns a list of fully parsed interface records including addresses, gateways, and GUIDs."""
         p = r"({[^{}]+})?\s{2,}([^{}\r\n]+?) {2,}([0-9]+)\s+"
         p += r"({[^{}]+})\s+([^\s]+)\s+({[^{}]+})"
         out = re.findall(p, msg)
@@ -85,6 +90,7 @@ class WMICParse:
 
     @staticmethod
     def show_con_names(af: Any, msg: str) -> List[Any]:
+        """Returns a list of connection name records indexed by interface index."""
         p = r"\s{0}([0-9]+)\s+([^\r\n]+?) {2,}\s*"
         out = re.findall(p, msg)
         results = {}
@@ -100,6 +106,7 @@ class WMICParse:
     # if_index: ... if_name, mac
     @staticmethod
     def show_routes(af: Any, msg: str) -> List[Any]:
+        """Returns a list of parsed route and MAC records including default gateway entries."""
         p = r"([0-9]+)\s*[.]{2,}([0-9a-fA-F ]+)[ .]+([^\r\n]+)[\r\n]"
         out = re.findall(p, msg)
         results = {"default": {IP4: None, IP6: None}}

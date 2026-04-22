@@ -53,7 +53,6 @@ async def gather_or_cancel(tasks: List[Any], timeout: float) -> Optional[List[An
 
 def handle_exceptions(loop: Any, context: Any) -> None:
     """No-op asyncio exception handler — silences stray teardown errors."""
-    pass
 
 
 def cancel_all_tasks(loop: Any) -> None:
@@ -66,7 +65,7 @@ def cancel_all_tasks(loop: Any) -> None:
         if Task is None or not hasattr(Task, "all_tasks"):
             import types
 
-            for name, mod in list(asyncio.__dict__.items()):
+            for _, mod in list(asyncio.__dict__.items()):
                 if isinstance(mod, types.ModuleType) and hasattr(mod, "Task"):
                     Task = mod.Task
                     break

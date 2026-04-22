@@ -37,7 +37,7 @@ async def get_ntp(
     if server is None:
         groups = get_infra(af, UDP, "NTP", no=1)
         if not groups:
-            raise Exception("Can't find compatible NTP server.")
+            raise RuntimeError("Can't find compatible NTP server.")
         server = groups[0][0]
 
     dest = (server["ip"], server["port"])
@@ -47,7 +47,7 @@ async def get_ntp(
             response = await client.request(dest, version=3)
             if response is not None:
                 return response.tx_time
-    except asyncio.CancelledError:
+    except asyncio.CancelledError:  # pylint: disable=try-except-raise
         raise
     except (OSError, ConnectionError, asyncio.TimeoutError):
         log_exception()
@@ -67,7 +67,7 @@ async def get_ntp_from_dest(
 
             ntp = response.tx_time
             return ntp
-    except asyncio.CancelledError:
+    except asyncio.CancelledError:  # pylint: disable=try-except-raise
         raise
     except (OSError, ConnectionError, asyncio.TimeoutError):
         log_exception()
@@ -75,6 +75,7 @@ async def get_ntp_from_dest(
 
 
 class SysClock:
+    """NTP-backed clock that tracks skew between the system clock and true network time."""
     def __init__(self, interface: Any, ntp: float = 0) -> None:
         self.start_time = time.monotonic()
         self.interface = interface
@@ -84,6 +85,7 @@ class SysClock:
         self._ntp_loaded = bool(ntp)
 
     def advance(self, n: float) -> None:
+        """Shift the clock forward (or backward) by n seconds."""
         self.offset += n
 
     async def start(self) -> "SysClock":

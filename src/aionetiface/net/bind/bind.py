@@ -56,8 +56,7 @@ class Bind:
         if flag == LOOPBACK_BIND:
             if self.af == IP6:
                 return ("::1", self.bind_port)
-            else:
-                return ("127.0.0.1", self.bind_port)
+            return ("127.0.0.1", self.bind_port)
 
         # Spawn a new copy of the bind tup (if needed.)
         tup = self._bind_tups
@@ -73,7 +72,7 @@ class Bind:
             e += "was passed to Bind for IPv6 causing no "
             e += "IP for the right type to be set. "
             e += "Also possible there were no link locals."
-            raise Exception(e)
+            raise ValueError(e)
 
         # log("> binding to tup = {}".format(tup))
         return tup

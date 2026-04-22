@@ -10,8 +10,10 @@ __all__ = ["fstr", "fstr2"]
 
 
 def fstr(expr: str, params: Tuple[Any, ...] = ()) -> str:
+    """Replace each {N} placeholder in expr with params[N] and return the result."""
     # Replace each {expression} with the variable value.
     def replacer(match):
+        """Return str(params[index]) for the matched {index} placeholder."""
         index = int(match.group(1))
         try:
             return str(params[index])

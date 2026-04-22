@@ -273,9 +273,8 @@ async def fast_nat_test(
     # Determine return value.
     if no_stun_resp_check(q_list):
         return BLOCKED_NAT
-    else:
-        # Symmetric NAT or RESTRICT_PORT_NAT.
-        return q_list[-1]
+    # Symmetric NAT or RESTRICT_PORT_NAT.
+    return q_list[-1]
 
 
 async def nic_load_nat(
@@ -290,8 +289,7 @@ async def nic_load_nat(
         af = IP6
         nat = nat_info(SYMMETRIC_NAT, RANDOM_DELTA)
         return nic.set_nat(nat)
-    else:
-        af = IP4
+    af = IP4
 
     # Copy random STUN servers to use.
     test_no = max(nat_tests, delta_tests)

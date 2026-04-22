@@ -333,6 +333,7 @@ async def get_default_iface_by_af(af: int) -> Optional[int]:
 
 
 def extract_if_fields(ifs_str: str) -> List[Dict[str, Any]]:
+    """Returns a list of interface field dicts parsed from powershell Get-NetAdapter output."""
     results = []
     try:
         if_info_matches = re.findall(
@@ -470,6 +471,7 @@ async def win_load_interface_state(if_results: List[Dict[str, Any]]) -> Dict[str
 
 
 def win_set_gateways(by_guid_index: Dict[str, Any]) -> Dict[Any, Any]:
+    """Returns a netifaces-style gateways dict built from the given GUID-indexed interface data."""
     gws = {"default": {}, int(IP4): [], int(IP6): []}
 
     for _, addr_info in by_guid_index.items():
@@ -493,6 +495,8 @@ def win_set_gateways(by_guid_index: Dict[str, Any]) -> Dict[Any, Any]:
 
 
 class Netifaces:
+    """Drop-in Windows replacement for the netifaces module backed by powershell, WMIC, or netsh."""
+
     AF_INET = IP4
     AF_INET6 = IP6
     AF_LINK = 18
@@ -579,20 +583,25 @@ class Netifaces:
         return self
 
     def gateways(self) -> Dict[Any, Any]:
+        """Returns the netifaces-style gateways dict for all detected interfaces."""
         return self.gws
 
     def if_info(self, if_name: str) -> Dict[str, Any]:
+        """Returns the full interface info dict for the given interface name."""
         return self.by_name_index[if_name]
 
     def guid(self, if_name: str) -> str:
+        """Returns the GUID string for the given interface name."""
         if_info = self.if_info(if_name)
         return if_info["guid"]
 
     def nic_no(self, if_name: str) -> int:
+        """Returns the integer interface index for the given interface name."""
         if_info = self.if_info(if_name)
         return if_info["no"]
 
     def ifaddresses(self, if_name: str) -> Dict[int, Any]:
+        """Returns a netifaces-style address dict keyed by address family for the given interface."""
         if_info = self.by_name_index[if_name]
         addr_format = {
             int(IP4): [],
@@ -614,6 +623,7 @@ class Netifaces:
         return addr_format
 
     def interfaces(self) -> List[str]:
+        """Returns a sorted list of all detected interface names."""
         ifs = []
         for _, if_info in self.by_guid_index.items():
             ifs.append(if_info["name"])

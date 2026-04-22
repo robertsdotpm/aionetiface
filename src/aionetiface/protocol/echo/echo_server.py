@@ -8,6 +8,7 @@ from ...net.asyncio.async_run import async_run
 
 
 class EchoServer(Daemon):
+    """Daemon that echoes every received message back to its sender."""
     def __init__(self) -> None:
         super().__init__()
 
@@ -19,7 +20,9 @@ if __name__ == "__main__":  # pragma: no cover
     print("See tests/test_daemon.py for code that uses this.")
 
     class EchoProtocol(asyncio.Protocol):
+        """asyncio.Protocol that logs connections and echoes received data back to the peer."""
         def connection_made(self, transport):
+            """Store the transport and log the new incoming connection address."""
             self.transport = transport
             print(transport)
             print(transport.get_extra_info("socket"))
@@ -27,6 +30,7 @@ if __name__ == "__main__":  # pragma: no cover
             print(fstr("Connection from {0}", (addr,)))
 
         def data_received(self, data):
+            """Echo the received data back to the sender and log the message."""
             message = data.decode()
             addr = self.transport.get_extra_info("peername")
             print(
@@ -42,6 +46,7 @@ if __name__ == "__main__":  # pragma: no cover
             self.transport.write(data)
 
         def connection_lost(self, exc):
+            """Log the address of a peer whose connection has been closed."""
             addr = self.transport.get_extra_info("peername")
             print(fstr("Connection closed from {0}", (addr,)))
 

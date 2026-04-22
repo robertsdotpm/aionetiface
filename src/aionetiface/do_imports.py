@@ -38,9 +38,10 @@ if __name__ != "__main__":
     from .nic.route.route_table import get_route_table, is_internet_if  # noqa: F401
     from .protocol.stun.stun_client import STUNClient, get_stun_clients  # noqa: F401
     from .protocol.stun.stun_defs import (  # noqa: F401
-        STUNMsg, STUNMsgTypes, STUNMsgCodes, STUNAttrs,
+        STUNMsg, STUNMsgTypes, STUNMsgCodes, STUNAttrs, STUNAddrTup,
         RFC3489, RFC5389, RFC8489,
     )
+    from .protocol.stun.stun_utils import stun_proc_attrs, stun_proto  # noqa: F401
     from .net.daemon import Daemon  # noqa: F401
     from .net.topology import *
     from .protocol.echo.echo_server import *

@@ -53,8 +53,6 @@ __all__ = [
 class NTPException(Exception):
     """Exception raised by this module."""
 
-    pass
-
 
 class NTP:
     """Helper class defining constants."""

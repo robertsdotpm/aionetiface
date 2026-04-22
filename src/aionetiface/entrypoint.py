@@ -114,15 +114,12 @@ async def aionetiface_setup_netifaces() -> Any:
 
             # Attempt to send small msg to dest.
             sock.sendto(b"testing UDP. disregard this sorry.", 0, dest)
-        except asyncio.CancelledError:
+        except asyncio.CancelledError:  # pylint: disable=try-except-raise
             raise
         except (OSError, ConnectionError):
-            """
-            Maybe in the future I write code as a fail-safe but for
-            now I don't have time. It's better to show a clear reason
-            why the library won't work then to silently fail.
-            """
-            raise Exception("Error this library needs UDP support to work.")
+            # It's better to show a clear reason why the library won't work
+            # than to silently fail.
+            raise RuntimeError("Error this library needs UDP support to work.") from None
         finally:
             if sock is not None:
                 sock.close()

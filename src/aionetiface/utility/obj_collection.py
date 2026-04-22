@@ -39,6 +39,7 @@ def func_relevant_params(func: Any, kv: Dict[str, Any]) -> Dict[str, Any]:
 
 
 class ObjCollection:
+    """Factory-based collection that builds and qualifies groups of objects concurrently."""
     def __init__(
         self,
         obj_factory: Callable[..., Any],
@@ -108,6 +109,7 @@ class ObjCollection:
 
 async def workspace_one() -> None:
     def select_servers(n, kv):
+        """Return a list of n (ip, port) tuples for the STUN server matching kv['mode']."""
         if kv["mode"] == RFC3489:
             name = "STUN(test_nat)"
 

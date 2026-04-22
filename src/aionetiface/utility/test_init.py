@@ -79,9 +79,8 @@ async def check_pipe(pipe: Any, dest_tup: Optional[Tuple[str, int]] = None) -> b
     # May not have echo process hooked up.
     if data in buf:
         return True
-    else:
-        log(fstr("Check pipe: invalid recv buf {0}", (buf,)))
-        return False
+    log(fstr("Check pipe: invalid recv buf {0}", (buf,)))
+    return False
 
 
 # If a random node ID is generated and subbed to over and over.
@@ -110,8 +109,10 @@ class FakeSTUNClient:
         dest: Optional[Any] = None,
         proto: int = UDP,
         mode: Any = RFC3489,
-        conf: Any = NET_CONF,
+        conf: Optional[Any] = None,
     ) -> None:
+        if conf is None:
+            conf = NET_CONF
         self.rip = "1.3.3.7"
         self.sock = None
         self.mappings = []  # [local, mapped] ...

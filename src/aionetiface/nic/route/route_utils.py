@@ -68,14 +68,17 @@ async def get_nic_iprs(af: int, interface: Any, netifaces: Any) -> List[Any]:
 
 
 def sort_routes(routes: List[Any]) -> List[Any]:
+    """Return a deterministically ordered copy of routes sorted by external IP."""
     # Deterministically order routes list.
     def cmp(r1: Any, r2: Any) -> int:
+        """Return a numeric comparison value between two routes based on their first external IP."""
         return int(r1.ext_ips[0]) - int(r2.ext_ips[0])
 
     return sorted(routes, key=cmp_to_key(cmp))
 
 
 def get_route_by_src(src_ip: str, results: List[Tuple[str, Any]]) -> Optional[Any]:
+    """Return the route from results whose source IP matches src_ip, or None if not found."""
     route = [y for x, y in results if x == src_ip]
     if len(route):
         route = route[0]
@@ -88,6 +91,7 @@ def get_route_by_src(src_ip: str, results: List[Tuple[str, Any]]) -> Optional[An
 def exclude_routes_by_src(
     src_ips: List[str], results: List[Tuple[str, Any]]
 ) -> List[Any]:
+    """Return routes from results whose source IP is not present in src_ips."""
     new_list = []
     for src_ip, route in results:
         found_src = False
@@ -103,6 +107,7 @@ def exclude_routes_by_src(
 
 # Combine all routes from interface into RoutePool.
 def interfaces_to_rp(interface_list: List[Any]) -> Dict[int, Any]:
+    """Return an AF-keyed RoutePool dict built by merging routes from all interfaces."""
     rp = {}
     for af in VALID_AFS:
         route_lists = []
@@ -122,7 +127,7 @@ def interfaces_to_rp(interface_list: List[Any]) -> Dict[int, Any]:
 # Interface for bind object may be None if it's loopback.
 async def bind_to_route(bind_obj: Any) -> Any:
     if not isinstance(bind_obj, Bind):
-        raise Exception("Invalid obj type passed to bind_to_route.")
+        raise TypeError("Invalid obj type passed to bind_to_route.")
 
     """
     nic_bind = 1 -- ipv4 nic or ipv6 link local

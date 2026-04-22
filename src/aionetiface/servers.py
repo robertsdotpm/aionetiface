@@ -14,7 +14,7 @@ __all__ = ["INFRA", "INFRA_SEED", "rng_for_attempt", "filter_by_score", "get_inf
 
 _SERVERS_JSON = os.path.join(os.path.dirname(__file__), "servers.json")
 
-with open(_SERVERS_JSON) as _f:
+with open(_SERVERS_JSON, encoding="utf-8") as _f:
     INFRA_BUF = _f.read()
 
 INFRA = json.loads(INFRA_BUF)
@@ -54,7 +54,6 @@ def get_infra(
     rng = rng_for_attempt(attempt)
     if sample:
         return rng.sample(parent, min(no, len(parent)))
-    else:
-        parent = list(parent)
-        rng.shuffle(parent)
-        return parent[:no]
+    parent = list(parent)
+    rng.shuffle(parent)
+    return parent[:no]

@@ -116,7 +116,7 @@ async def get_mac_address(name: str, netifaces: Any) -> Optional[str]:
     if not hasattr(netifaces.ifaddresses(name), "AF_LINK"):
         try:
             mac = await get_mac_mixed(name)
-        except asyncio.CancelledError:
+        except asyncio.CancelledError:  # pylint: disable=try-except-raise
             raise
         except (OSError, asyncio.TimeoutError):
             log_exception()

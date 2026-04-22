@@ -40,7 +40,6 @@ from ..asyncio.event_loop import CustomEventLoop
 
 class PipeError(Exception):
     """Raised when a pipe cannot be opened, connected, or used due to a configuration problem."""
-    pass
 
 
 class Pipe:
@@ -52,14 +51,14 @@ class Pipe:
         dest: Any = None,
         route: Any = None,
         sock: Any = None,
-        conf: Any = NET_CONF,
+        conf: Optional[Any] = None,
     ) -> None:
         self.set_nic_and_route(route)
         self.proto = proto
         self.sock = sock
         self.dest = dest
         self.pipe_events = None
-        self.conf = conf or {}
+        self.conf = conf if conf is not None else NET_CONF
         self.owns_socket = sock is None
         if sock is not None:
             log("Warning: externally provided socket will not be closed by Pipe")
@@ -170,7 +169,7 @@ class Pipe:
 
     def set_nic_and_route(self, unknown: Any) -> None:
         """Set self.nic and self.route from an Interface, a Route, or None (defaults to default NIC)."""
-        from ...nic.interface import Interface
+        from ...nic.interface import Interface  # pylint: disable=cyclic-import
 
         self.route = None
         self.nic = None
@@ -246,7 +245,7 @@ class Pipe:
                 if getattr(dest, lookup[af]):
                     return dest.select_ip(af)
 
-        raise Exception("No supported IPs for resolv dest")
+        raise ValueError("No supported IPs for resolv dest")
 
     async def create_or_use_socket(self) -> None:
         """
@@ -523,7 +522,7 @@ async def sock_to_pipe(sock: Any, nic: Any) -> "Pipe":
         if bind_tup[0] in not_nic_ips:
             use_route = nic.route(af)
         else:
-            raise Exception("Cannot find associated route for NIC bind.")
+            raise LookupError("Cannot find associated route for NIC bind.")
 
     # Associate a particular route with a bound port.
     await use_route.bind(port=bind_port)

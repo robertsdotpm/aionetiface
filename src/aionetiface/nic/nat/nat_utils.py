@@ -136,26 +136,25 @@ async def delta_test(
         # Return if no other port range to check for conflicts.
         if not range_info:
             return rand_start_port()
-        else:
-            new_start_port = None
-            do_retry = 1
-            while do_retry:
-                # Try a rand port as the starting port.
-                do_retry = 0
-                new_start_port = rand_start_port()
-                for other_range in range_info:
-                    # Range is other_start_port to other_end_port inclusive.
-                    other_dist, other_start_port = other_range
-                    other_end_port = other_start_port + (test_no * other_dist)
+        new_start_port = None
+        do_retry = 1
+        while do_retry:
+            # Try a rand port as the starting port.
+            do_retry = 0
+            new_start_port = rand_start_port()
+            for other_range in range_info:
+                # Range is other_start_port to other_end_port inclusive.
+                other_dist, other_start_port = other_range
+                other_end_port = other_start_port + (test_no * other_dist)
 
-                    # If it's in the same range as other_start_port retry.
-                    lower_bound = new_start_port >= other_start_port
-                    upper_bound = new_start_port <= other_end_port
-                    if lower_bound and upper_bound:
-                        do_retry = 1
-                        break
+                # If it's in the same range as other_start_port retry.
+                lower_bound = new_start_port >= other_start_port
+                upper_bound = new_start_port <= other_end_port
+                if lower_bound and upper_bound:
+                    do_retry = 1
+                    break
 
-            return new_start_port
+        return new_start_port
 
     # Create a list of tasks to get a mapping for a port range.
     def get_port_tests(start_port, port_dist=1):
@@ -175,7 +174,7 @@ async def delta_test(
                 """Run one STUN mapping probe from src_port and return [local, mapped, socket] or None."""
                 # Make sure port isn't in the reserved range.
                 if src_port < 4000 and src_port != 0:
-                    raise Exception("src less than 4k in mapping behavior.")
+                    raise ValueError("src less than 4k in mapping behavior.")
 
                 # Avoid relying on any one server.
                 stun_client = random.choice(stun_clients)
@@ -195,8 +194,7 @@ async def delta_test(
                 if ret is None:
                     log("No stun reply in delta map")
                     return None
-                else:
-                    local, mapped, s = ret
+                local, mapped, s = ret
 
                 # Return mapping results.
                 return [local, mapped, s]
@@ -385,7 +383,7 @@ def nats_intersect(
     if use_range[0] <= 1024:
         use_range[0] = 2000
         if use_range[0] >= use_range[1]:
-            raise Exception("Can't find intersecting port range.")
+            raise ValueError("Can't find intersecting port range.")
 
     return use_range
 
@@ -406,7 +404,7 @@ def nats_can_predict(our_nat: Dict[str, Any], their_nat: Dict[str, Any]) -> int:
         our_rand_delta = our_nat["delta"]["type"] == RANDOM_DELTA
         their_rand_delta = their_nat["delta"]["type"] == RANDOM_DELTA
         if our_rand_delta or their_rand_delta:
-            raise Exception("Two strict port nats need non-rand deltas.")
+            raise ValueError("Two strict port nats need non-rand deltas.")
 
     # If either side is port restrict make sure its partner can satisfy reply port.
     use_stun_port = 0
@@ -423,12 +421,12 @@ def nats_can_predict(our_nat: Dict[str, Any], their_nat: Dict[str, Any]) -> int:
             # Raise an error condition if certain failure.
             strict_rand_delta = strict["delta"]["type"] == RANDOM_DELTA
             if strict_rand_delta and unrestrict["is_hard"]:
-                raise Exception("Unable to satisfy mapping for strict port type.")
+                raise ValueError("Unable to satisfy mapping for strict port type.")
 
             # The reply port here is the STUN port as they use STUN to get a mapping.
             # Unable to satisfy reply port due to allocation range.
             if strict_rand_delta and not in_range(STUN_PORT, unrestrict["range"]):
-                raise Exception("Can't support reply port 3478 for strict NAT.")
+                raise ValueError("Can't support reply port 3478 for strict NAT.")
 
             # Use STUN port (3478) when generating probe mappings.
             # STUN's port is above 1024, so no root/admin is required — which

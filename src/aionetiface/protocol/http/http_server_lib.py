@@ -87,8 +87,7 @@ def api_closure(url_path: str) -> Callable[..., Any]:
         params = get_params(get_names, url_path)
         if len(params) and len(as_dict):
             return dict_merge(params, as_dict)
-        else:
-            return as_dict
+        return as_dict
 
     return api
 
@@ -261,8 +260,7 @@ def api_route_closure(url_path: str) -> Callable[..., Any]:
 
                     if re.match(scheme[2], v) is not None:
                         return (i, v, True)
-                    else:
-                        return (i, scheme[1], True)
+                    return (i, scheme[1], True)
 
                 # Compare value only.
                 if v == scheme[0]:
@@ -361,6 +359,7 @@ class RESTD(Daemon):
     def GET(*args: Any, **kw: Any) -> Callable[..., Any]:
         """Decorator that registers the decorated function as a GET route with the given URL scheme args."""
         def decorate(f):
+            """Tag f as a GET handler and register it with the REST dispatcher."""
             # Save HTTP method.
             f.http_method = "GET"
             return RESTD.rest_api_decorator(f, args)
@@ -371,6 +370,7 @@ class RESTD(Daemon):
     def POST(*args: Any, **kw: Any) -> Callable[..., Any]:
         """Decorator that registers the decorated function as a POST route with the given URL scheme args."""
         def decorate(f):
+            """Tag f as a POST handler and register it with the REST dispatcher."""
             # Save HTTP method.
             f.http_method = "POST"
             return RESTD.rest_api_decorator(f, args)
@@ -381,6 +381,7 @@ class RESTD(Daemon):
     def DELETE(*args: Any, **kw: Any) -> Callable[..., Any]:
         """Decorator that registers the decorated function as a DELETE route with the given URL scheme args."""
         def decorate(f):
+            """Tag f as a DELETE handler and register it with the REST dispatcher."""
             # Save HTTP method.
             f.http_method = "DELETE"
             return RESTD.rest_api_decorator(f, args)

@@ -136,15 +136,14 @@ class RoutePool:
         route = self.locate(other)
         if route is not None:
             return True
-        else:
-            return False
+        return False
 
     # Simulate fetching a route off a stack of routes.
     # Just hides certain pointer offsets when indexing, lel.
     def pop(self) -> Any:
         """Return the next route in traversal order, advancing the internal pop pointer."""
         if self.pop_pointer >= self.wan_hosts:
-            raise Exception("No more routes.")
+            raise IndexError("No more routes.")
 
         ret = self[self.pop_pointer]
         self.pop_pointer += 1
@@ -199,7 +198,7 @@ class RoutePool:
         if isinstance(key, slice):
             start, stop, step = key.indices(len(self))
             return [self[i] for i in range(start, stop, step)]
-        elif isinstance(key, int):
+        if isinstance(key, int):
             # Convert negative index to positive.
             # Sorted_search doesn't work with negative indexex.
             if key < 0:
@@ -208,12 +207,10 @@ class RoutePool:
             route_offset = sorted_search(self.len_list, key + 1)
             if route_offset is None:
                 return None
-            else:
-                return self.get_route_info(route_offset, key)
-        elif isinstance(key, tuple):
+            return self.get_route_info(route_offset, key)
+        if isinstance(key, tuple):
             return [self[x] for x in key]
-        else:
-            raise TypeError("Invalid argument type: {}".format(type(key)))
+        raise TypeError("Invalid argument type: {}".format(type(key)))
 
     def __iter__(self) -> RoutePoolIter:
         return RoutePoolIter(self)

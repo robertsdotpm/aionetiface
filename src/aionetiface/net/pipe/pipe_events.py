@@ -44,10 +44,10 @@ class PipeEvents(BaseACKProto):
     """asyncio protocol class that routes datagrams and stream data to subscribers and callbacks."""
 
     def __init__(
-        self, sock: Any, route: Any = None, loop: Any = None, conf: Any = NET_CONF
+        self, sock: Any, route: Any = None, loop: Any = None, conf: Optional[Any] = None
     ) -> None:
         # Config.
-        self.conf = conf
+        self.conf = conf if conf is not None else NET_CONF
         self.loop = loop
 
         # Socket of underlying connection.
@@ -193,7 +193,7 @@ class PipeEvents(BaseACKProto):
                 # Await on the future at the head of the futures.
                 return await self.client_futures[cur_p_get]
 
-            raise Exception("Could not find awaitable future accept().")
+            raise RuntimeError("Could not find awaitable future accept().")
         else:
             # TCP con -> one pipe so no reason to await it.
             # UDP server or con -> multiplex so one pipe for everything.
@@ -355,9 +355,8 @@ class PipeEvents(BaseACKProto):
             """
             if not did_ack:
                 return
-            else:
-                # Strip the header portion out.
-                data = payload
+            # Strip the header portion out.
+            data = payload
 
         # Supports unique messages.
         if self.conf["enable_msg_ids"]:
@@ -465,13 +464,17 @@ class PipeEvents(BaseACKProto):
 
     # Return a matching message, async, non-blocking.
     async def recv(
-        self, sub: Any = SUB_ALL, timeout: int = 2, full: bool = False
+        self, sub: Optional[Any] = None, timeout: int = 2, full: bool = False
     ) -> Optional[bytes]:
         """Delegate to the stream's recv, waiting for a message matching sub."""
+        if sub is None:
+            sub = SUB_ALL
         return await self.stream.recv(sub, timeout, full)
 
-    async def recv_n(self, n: int, sub: Any = SUB_ALL) -> Optional[List[bytes]]:
+    async def recv_n(self, n: int, sub: Optional[Any] = None) -> Optional[List[bytes]]:
         """Receive and accumulate messages until at least n bytes are collected."""
+        if sub is None:
+            sub = SUB_ALL
         return await self.stream.recv_n(n, sub)
 
     async def send(
@@ -484,9 +487,11 @@ class PipeEvents(BaseACKProto):
     # Sync subscribe to a message.
     # Easy way to get a message from sync code too.
     def subscribe(
-        self, sub: Any = SUB_ALL, handler: Optional[Callable[..., Any]] = None
+        self, sub: Optional[Any] = None, handler: Optional[Callable[..., Any]] = None
     ) -> Any:
         """Register a subscription on the stream and return the subscription offset."""
+        if sub is None:
+            sub = SUB_ALL
         return self.stream.subscribe(sub, handler)
 
     def unsubscribe(self, sub: Any) -> None:

@@ -61,6 +61,7 @@ async def nt_set_pshell_unrestricted() -> None:
     import winreg
 
     def mk_unrestricted(path):
+        """Set the PowerShell ExecutionPolicy registry value to Unrestricted for path."""
         # Open path to key for 'writing.'
         key = winreg.OpenKey(
             winreg.HKEY_LOCAL_MACHINE, path, access=winreg.KEY_SET_VALUE
@@ -85,6 +86,7 @@ async def nt_set_pshell_unrestricted() -> None:
 
 
 def nt_is_admin() -> bool:
+    """Return True if the current process is running with Windows administrator privileges."""
     if sys.platform != "win32":
         return False
     try:
@@ -95,6 +97,7 @@ def nt_is_admin() -> bool:
 
 # Surrounds with DOUBLE quotes.
 def mac_arg_escape(arg: str) -> str:
+    """Return arg shell-escaped and wrapped in double quotes for macOS/BSD shells."""
     black_list = '"\\'
     buf = ""
     for ch in arg:
@@ -106,21 +109,20 @@ def mac_arg_escape(arg: str) -> str:
     return '"' + buf + '"'
 
 
-"""
-Note: this function escapes an argument string
-for Unix shell but surrounds it by single quotes.
-It returns a single quoted string with the result.
-Hence the surrounding quotes APPEAR escaped when
-printing them.
-"""
-
+# Note: this function escapes an argument string
+# for Unix shell but surrounds it by single quotes.
+# It returns a single quoted string with the result.
+# Hence the surrounding quotes APPEAR escaped when
+# printing them.
 
 # Surrounds with SINGLE quotes.
 def nix_arg_escape(arg: str) -> str:
+    """Return arg shell-escaped and wrapped in single quotes for POSIX shells."""
     return shlex.quote(arg)
 
 
 def win_arg_escape(arg: str, allow_vars: int = 0) -> str:
+    """Return arg shell-escaped and wrapped in double quotes for Windows cmd.exe."""
     # Double all the backslashes before a double quote.
     # Then ensure the double quote is escaped.
     # Doubling up neutralizes double quotes that may be unbalanced.
@@ -141,6 +143,7 @@ def win_arg_escape(arg: str, allow_vars: int = 0) -> str:
 
 
 def get_powershell_path() -> str:
+    """Return the path to the highest-version powershell.exe found on Windows."""
     ps_dir = "%WINDIR%\\System32\\WindowsPowerShell"
     ps_dir = os.path.expandvars(ps_dir)
     dir_list = os.listdir(ps_dir)
@@ -172,21 +175,18 @@ def get_powershell_path() -> str:
                 continue
 
     if version_dir is None:
-        raise Exception("Cannot find powershell dir.")
+        raise FileNotFoundError("Cannot find powershell dir.")
 
     ps_dir = os.path.join(ps_dir, version_dir, "powershell.exe")
     return ps_dir
 
 
-"""
-There is an issue with create_subprocess_shell on Windows 10
-with the latest Python versions. When you try use this code
-a window will pop up asking you how you want to open this
-file. A hack I've found that works is to pass the command
-you want to execute to powershell.
-
-Example: 'powershell "route print"'
-"""
+# There is an issue with create_subprocess_shell on Windows 10
+# with the latest Python versions. When you try use this code
+# a window will pop up asking you how you want to open this
+# file. A hack I've found that works is to pass the command
+# you want to execute to powershell.
+# Example: 'powershell "route print"'
 
 
 async def cmd(
@@ -230,6 +230,7 @@ async def cmd(
         # Backup function for old Python versions.
         @run_in_executor
         def blocking_cmd(er):
+            """Run value as a blocking subprocess in a thread-pool executor and return its stdout."""
             try:
                 if er is None:
                     er = subprocess.DEVNULL
@@ -242,6 +243,7 @@ async def cmd(
                     shell=True,
                     stderr=er,
                     timeout=timeout,
+                    check=False,
                 )
                 stdout = proc.stdout
                 stderr = proc.stderr
@@ -269,11 +271,11 @@ async def cmd(
     # Return command output.
     if stdout is None:
         return null_out
-    else:
-        return to_type(stdout, out_type)
+    return to_type(stdout, out_type)
 
 
 def powershell_encoded_cmd(ps1: str) -> str:
+    """Return ps1 encoded as a Base64 UTF-16LE string suitable for powershell -encodedCommand."""
     unicode_bytes = ps1.encode("utf-16le")
     param = base64.b64encode(unicode_bytes)
     return to_s(param)
@@ -336,6 +338,7 @@ async def nt_pshell(
 
 
 def get_arg_escape_func() -> Optional[Callable[[str], str]]:
+    """Return the platform-appropriate shell argument escaping function, or None if unknown."""
     if platform.system() == "Linux":
         return nix_arg_escape
 
@@ -383,6 +386,7 @@ async def run_py_script(
 
 
 def is_root() -> bool:
+    """Return True if the current process is running as root (or Windows administrator)."""
     if platform.system() == "Windows":
         import ctypes
 
@@ -396,6 +400,7 @@ def is_root() -> bool:
 
 
 def win_uac() -> None:
+    """Re-launch the current process with a Windows UAC elevation prompt."""
     if sys.platform != "win32":
         return
     ctypes.windll.shell32.ShellExecuteW(
@@ -404,5 +409,6 @@ def win_uac() -> None:
 
 
 def ensure_root() -> None:
+    """Raise an exception if the current process is not running as root."""
     if not is_root():
-        raise Exception("root required for this code.")
+        raise PermissionError("root required for this code.")

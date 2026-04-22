@@ -28,6 +28,7 @@ from .route_pool import RoutePool
 
 
 def sort_iprs(ipr_list: List[Any]) -> Any:
+    """Return a (public, private) tuple of IPR lists split from ipr_list."""
     # Sort by public / private.
     pub_iprs = []
     priv_iprs = []
@@ -42,6 +43,7 @@ def sort_iprs(ipr_list: List[Any]) -> Any:
 
 
 def v6_route_pool_from_ips(ipr_list: List[Any], nic: Any) -> List[Any]:
+    """Return a list of IPv6 Route objects built from the given IPR list and NIC."""
     # Sort by public / private.
     pub_iprs, priv_iprs = sort_iprs(ipr_list)
 
@@ -84,6 +86,7 @@ def v6_route_pool_from_ips(ipr_list: List[Any], nic: Any) -> List[Any]:
 
 
 def v4_route_pool_from_ips(ipr_list: List[Any], nic: Any) -> List[Any]:
+    """Return a list of IPv4 Route objects built from the given IPR list and NIC."""
     # Sort by public / private.
     pub_iprs, priv_iprs = sort_iprs(ipr_list)
 
@@ -108,6 +111,7 @@ def v4_route_pool_from_ips(ipr_list: List[Any], nic: Any) -> List[Any]:
 
 
 def route_pool_from_ips(ip_list: List[str], nic: Any) -> Dict[int, Any]:
+    """Return an AF-keyed RoutePool dict derived from ip_list filtered against the given NIC."""
     # Classify IPs by version.
     ipr_list = {IP4: [], IP6: []}
     for ip in ip_list:
@@ -138,6 +142,7 @@ def route_pool_from_ips(ip_list: List[str], nic: Any) -> Dict[int, Any]:
 
 
 def sort_ips_by_nic(ip_list: List[str], nic_list: List[Any]) -> Dict[Any, List[str]]:
+    """Return a dict mapping each NIC id to the subset of ip_list addresses it owns."""
     by_nic = {}
     for nic in nic_list:
         by_nic[nic.id] = set()

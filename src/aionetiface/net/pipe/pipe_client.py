@@ -23,10 +23,10 @@ class PipeClient(ACKUDP):
     """Pull-style client that queues incoming messages into per-subscription asyncio Queues."""
 
     def __init__(
-        self, pipe_events: Any, loop: Optional[Any] = None, conf: Any = NET_CONF
+        self, pipe_events: Any, loop: Optional[Any] = None, conf: Optional[Any] = None
     ) -> None:
         super().__init__()
-        self.conf = conf
+        self.conf = conf if conf is not None else NET_CONF
         self.dest = None
         self.dest_tup = None
         self.loop = loop or asyncio.get_event_loop()
@@ -188,9 +188,11 @@ class PipeClient(ACKUDP):
 
     # Async wait for a message that matches a pattern in a queue.
     async def recv(
-        self, sub: Any = SUB_ALL, timeout: int = 2, full: bool = False
+        self, sub: Optional[Any] = None, timeout: int = 2, full: bool = False
     ) -> Optional[bytes]:
         """Block until a message matching sub arrives, then return its data (or full tuple if full=True)."""
+        if sub is None:
+            sub = SUB_ALL
         recv_timeout = timeout or self.conf["recv_timeout"]
         msg_p, addr_p = sub
         if addr_p is not None:
@@ -202,7 +204,7 @@ class PipeClient(ACKUDP):
         try:
             # Sanity checking.
             if offset not in self.subs:
-                raise Exception("Sub not found. Forgot to subscribe.")
+                raise LookupError("Sub not found. Forgot to subscribe.")
 
             # Get message from queue with timeout.
             _, q, handler = self.subs[offset]
@@ -215,14 +217,15 @@ class PipeClient(ACKUDP):
             # Return data, sender_tup.
             if full:
                 return ret
-            else:
-                # Return only the data portion.
-                return ret[1]
+            # Return only the data portion.
+            return ret[1]
         except (OSError, ConnectionError, asyncio.TimeoutError):
             return None
 
-    async def recv_n(self, n: int, sub: Any = SUB_ALL) -> bytes:
+    async def recv_n(self, n: int, sub: Optional[Any] = None) -> bytes:
         """Receive and concatenate messages until at least n bytes have been accumulated."""
+        if sub is None:
+            sub = SUB_ALL
         buf = b""
         while len(buf) < n:
             out = await self.recv(sub)

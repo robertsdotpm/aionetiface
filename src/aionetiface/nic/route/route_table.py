@@ -117,6 +117,7 @@ async def get_route_table(af: int) -> List[Dict[str, Any]]:
 def find_rt_entry(
     dest: Any, if_name: Any, table: List[Dict[str, Any]]
 ) -> Optional[Dict[str, Any]]:
+    """Return the first route-table entry matching dest and if_name, or None."""
     for entry in table:
         if entry["dest"] != dest:
             continue

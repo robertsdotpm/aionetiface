@@ -8,25 +8,23 @@ async def socket_factory(
     route: Any,
     dest_addr: Optional[Any] = None,
     sock_type: int = TCP,
-    conf: Any = NET_CONF,
+    conf: Optional[Any] = None,
 ) -> Optional[Any]:
     """Create, configure, and bind a socket for the given route and optional destination, returning it or None on failure."""
+    if conf is None:
+        conf = NET_CONF
     # Check route is bound.
     if not route.resolved:
-        raise Exception("You didn't bind the route!")
+        raise ValueError("You didn't bind the route!")
 
     # Check addresses were processed.
     if dest_addr is not None:
         if not dest_addr.resolved:
-            raise Exception("net sock factory: dest addr not resolved")
-        else:
-            # if not dest_addr.port:
-            #    raise Exception("net: dest port is 0!")
-
-            # If dest_addr was a domain = AF_ANY.
-            # Stills needs a sock type tho
-            if route.af not in dest_addr.supported():
-                raise Exception("Route af not supported by dest addr")
+            raise ValueError("net sock factory: dest addr not resolved")
+        # If dest_addr was a domain = AF_ANY.
+        # Stills needs a sock type tho
+        if route.af not in dest_addr.supported():
+            raise ValueError("Route af not supported by dest addr")
 
     # Create socket.
     sock = socket.socket(route.af, sock_type, conf["sock_proto"])
@@ -53,15 +51,8 @@ async def socket_factory(
     # This may be set by the async wrappers.
     sock.settimeout(0)
 
-    """
-    Bind to specific interface if set.
-    On linux root is sometimes needed to
-    bind to a non-default interface.
-    If the interface is default for
-    address type then no need to
-    specifically bind to it.
-    """
-
+    # Bind to the specific interface if set. On Linux, root is sometimes
+    # needed to bind to a non-default interface, but not the default one.
     try:
         if route.interface is not None:
             # TODO: probably cache this.

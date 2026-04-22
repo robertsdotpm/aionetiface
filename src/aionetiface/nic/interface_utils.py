@@ -59,11 +59,13 @@ def get_default_nic_ip(af: int) -> str:
 
 def get_default_iface(
     netifaces: Any,
-    afs: List[int] = VALID_AFS,
+    afs: Optional[List[int]] = None,
     exp: int = 1,
     duel_stack_test: bool = True,
 ) -> str:
     """Return the interface name whose address matches the OS-selected source IP, or an empty string if none found."""
+    if afs is None:
+        afs = VALID_AFS
     for af in afs:
         af = int(af)
         nic_ip = get_default_nic_ip(af)
@@ -179,12 +181,10 @@ def is_nic_default(nic: Any, af: int, gws: Optional[Any] = None) -> bool:
         def_gws = gws["default"]
         if af not in def_gws:
             return False
-        else:
-            info = def_gws[af]
-            if info[1] == nic.name:
-                return True
-            else:
-                return False
+        info = def_gws[af]
+        if info[1] == nic.name:
+            return True
+        return False
 
     def try_sock_trick(af):
         """Use a dummy UDP connect to determine the default interface name for af and compare to this NIC."""
@@ -316,7 +316,7 @@ async def load_interfaces(
                     log("Could not load NAT for " + to_s(if_name))
 
             nics.append(nic)
-        except asyncio.CancelledError:
+        except asyncio.CancelledError:  # pylint: disable=try-except-raise
             raise
         except (OSError, asyncio.TimeoutError, InterfaceNotFound, InterfaceInvalidAF):
             log_exception()

@@ -211,7 +211,7 @@ class Route(Bind):
     def _check_extended(self) -> None:
         """Raise an exception if this route has not been linked to a RoutePool."""
         if self.route_pool is None:
-            raise Exception("e = route_pool not linked.")
+            raise RuntimeError("e = route_pool not linked.")
 
     @staticmethod
     def _convert_other(other: Any) -> Any:
@@ -219,8 +219,7 @@ class Route(Bind):
         if isinstance(other, Route):
             if len(other.ext_ips):
                 return other.ext_ips[0]
-            else:
-                return []
+            return []
 
         if isinstance(other, IPRange):
             return other
@@ -244,8 +243,7 @@ class Route(Bind):
         """Return True if either this route or other has zero length, making comparison meaningless."""
         if not len(self) or not len(other):
             return True
-        else:
-            return False
+        return False
 
     # Get a list of N routes that don't use this WAN IP.
     # Incrementally adjusts route offset so its efficent.
@@ -362,8 +360,7 @@ class Route(Bind):
     def __len__(self) -> int:
         if len(self.ext_ips) == 0:
             return 0
-        else:
-            return len(self.ext_ips[0])
+        return len(self.ext_ips[0])
 
     def __repr__(self) -> str:
         return fstr("Route.from_dict({0})", (str(self),))

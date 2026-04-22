@@ -11,9 +11,8 @@ import threading
 import traceback
 from typing import Any, Union
 from .fstr import fstr
-from ..install import get_aionetiface_install_root
 
-LOGS_ROOT_PATH = os.path.join(get_aionetiface_install_root(), "logs")
+LOGS_ROOT_PATH = os.path.join(os.path.expanduser("~"), "aionetiface", "logs")
 
 log_fds = {}
 
@@ -32,6 +31,7 @@ atexit.register(_close_log_fds)
 
 
 def open_log_fd(tid: int) -> int:
+    """Open (or reuse) the per-thread log file and return its OS-level file descriptor."""
     if tid not in log_fds:
         path = os.path.join(
             LOGS_ROOT_PATH, "aionetiface_" + str(os.getpid()) + "_" + str(tid) + ".log"
@@ -43,6 +43,7 @@ def open_log_fd(tid: int) -> int:
 
 
 def log(msg: Union[str, bytes, Any]) -> None:
+    """Write msg to the per-thread log file; silently no-ops if the logs directory is absent."""
     if not os.path.exists(LOGS_ROOT_PATH):
         return
 
@@ -59,9 +60,11 @@ def log(msg: Union[str, bytes, Any]) -> None:
 
 
 def log_exception() -> None:
+    """Log the current exception's traceback to the per-thread log file."""
     exc = "".join(traceback.format_exception(*sys.exc_info()))
     log("EXCEPTION: " + exc.strip())
 
 
 def log_p2p(msg: Any, node_id: Any) -> None:
+    """Log a p2p message prefixed with the node_id tag."""
     log(fstr("p2p <{0}>: {1}", (node_id, msg)))

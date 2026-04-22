@@ -108,12 +108,12 @@ class Address:
     """Lazily-resolved network address that can hold both IPv4 and IPv6 results."""
 
     def __init__(
-        self, host: Any, port: int, nic: Optional[Any] = None, conf: Any = NET_CONF
+        self, host: Any, port: int, nic: Optional[Any] = None, conf: Optional[Any] = None
     ) -> None:
         self.host = host
         self.port = port
         self.nic = nic
-        self.conf = conf
+        self.conf = conf if conf is not None else NET_CONF
         self.IP6 = self.IP4 = None
         self.v6_ipr = self.v4_ipr = None
         self.resolved = False
@@ -157,7 +157,7 @@ class Address:
             if ipr.af == IP6:
                 self.IP6 = ip
                 self.v6_ipr = ipr
-        except asyncio.CancelledError:
+        except asyncio.CancelledError:  # pylint: disable=try-except-raise
             raise
         except (ValueError, OSError):
             # Resolve domain to IP.
@@ -170,8 +170,8 @@ class Address:
 
                 # Ensure some IPs returned.
                 if not len(results):
-                    raise Exception("Using fallback DNS")
-            except asyncio.CancelledError:
+                    raise ValueError("Using fallback DNS")
+            except asyncio.CancelledError:  # pylint: disable=try-except-raise
                 raise
             except (OSError, asyncio.TimeoutError, ValueError, ImportError):
                 # If that fails -- fallback to getaddrinfo.
@@ -181,7 +181,7 @@ class Address:
 
                 # Otherwise complete failure.
                 if not len(results):
-                    raise Exception("could not resolve addr.")
+                    raise LookupError("could not resolve addr.")
 
             # Save results in class field.
             for result in results:

@@ -62,9 +62,7 @@ def reconcile_lists(old_list: List[Any], new_list: List[Any]) -> List[Any]:
     return out
 
 
-"""
-TODO: just use a different address format for these.
-"""
+# TODO: just use a different address format for these.
 
 
 def reconcile_infra(old_infra: Dict[str, Any], new_infra: Dict[str, Any]) -> None:
@@ -110,7 +108,7 @@ async def update_server_list(
         stored_infra = None
         if os.path.exists(servers_path):
             try:
-                with open(servers_path, "r") as fp:
+                with open(servers_path, "r", encoding="utf-8") as fp:
                     stored_json = fp.read()
                 stored_infra = json.loads(stored_json)
             except (OSError, ValueError):

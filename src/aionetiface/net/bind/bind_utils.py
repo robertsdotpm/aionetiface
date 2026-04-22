@@ -33,8 +33,7 @@ def patch_connect_ip(af: int, ip: str, nic_id: Any, ipr: Optional[Any] = None) -
     if ipr.ip in VALID_ANY_ADDR:
         if ipr.af == IP4:
             return "127.0.0.1"
-        else:
-            return "::1"
+        return "::1"
 
     # Patch link local addresses.
     if ipr.af == IP6 and ip not in ["::", "::1"]:
@@ -62,7 +61,7 @@ async def get_high_port_socket(
 
         return s, n
 
-    raise Exception("Could not bind high range port.")
+    raise OSError("Could not bind high range port.")
 
 
 """

@@ -26,7 +26,7 @@ class TCPClientProtocol(asyncio.StreamReaderProtocol):
     """StreamReaderProtocol subclass that bridges each TCP client connection into a PipeEvents."""
 
     def __init__(
-        self, stream_reader: Any, pipe_events: Any, loop: Any, conf: Any = NET_CONF
+        self, stream_reader: Any, pipe_events: Any, loop: Any, conf: Optional[Any] = None
     ) -> None:
         if PY_13_OR_LATER:
             super().__init__(stream_reader)
@@ -43,14 +43,12 @@ class TCPClientProtocol(asyncio.StreamReaderProtocol):
 
             super().__init__(stream_reader, set_streams, loop=loop)
 
-        """
-        PipeEvents is created once before creating the main server with
-        create_tcp_server -- but importantly: its not actually used
-        as an event-driven class for protocol class events directly.
-        It instead acts as a container and API to work with the existing
-        code base and this class here passes events on to that class
-        for TCP-based client messages.
-        """
+        # PipeEvents is created once before create_tcp_server -- but
+        # it's not used as an event-driven protocol class directly.
+        # It acts as a container/API; this class passes events into it
+        # for TCP-based client messages.
+        if conf is None:
+            conf = NET_CONF
         self.pipe_events = pipe_events
         self.loop = loop
 
@@ -65,11 +63,8 @@ class TCPClientProtocol(asyncio.StreamReaderProtocol):
         self.remote_tup = None
         self.conf = conf
 
-    """
-    StreamReaderProtocol has a bug in this function and doesn't
-    properly return False. This is a patch.
-    """
-
+    # StreamReaderProtocol has a bug: eof_received doesn't properly return
+    # False. This override is a patch.
     def eof_received(self) -> bool:
         """Feed EOF into the stream reader and return False to close the transport immediately."""
         # self.transport.pause_reading()
@@ -194,10 +189,12 @@ async def create_tcp_server(
     pipe_events: Any,
     *,
     loop: Optional[Any] = None,
-    conf: Any = NET_CONF,
+    conf: Optional[Any] = None,
     **kwds
 ) -> Any:
     """Create and return an asyncio TCP server that uses TCPClientProtocol for each new connection."""
+    if conf is None:
+        conf = NET_CONF
     # Main vars.
     loop = loop or asyncio.get_event_loop()
 

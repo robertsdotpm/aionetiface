@@ -94,7 +94,7 @@ def parse_node_addr(addr: Any) -> Optional[Any]:
             try:
                 for j, part in enumerate(parts):
                     if not schema[j](part):
-                        raise Exception("Invalid type.")
+                        raise TypeError("Invalid type.")
                     else:
                         parts[j] = translate[j](part)
             except (ValueError, TypeError, IndexError):

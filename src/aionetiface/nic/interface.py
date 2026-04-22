@@ -115,9 +115,8 @@ class Interface:
         # Interface specified by no on windows.
         if platform.system() == "Windows":
             return self.nic_no
-        else:
-            # Other platforms just use the name
-            return self.name
+        # Other platforms just use the name
+        return self.name
 
     def nic(self, af: int) -> Optional[str]:
         """Return the NIC IP string for the primary route on this interface for the given address family."""
@@ -145,7 +144,7 @@ class Interface:
             if len(self.rp[af].routes):
                 return copy.deepcopy(self.rp[af].routes[0])
 
-        raise Exception(fstr("No route for {0} found.", (af,)))
+        raise LookupError(fstr("No route for {0} found.", (af,)))
 
     def is_default_patch(self, af: int, gws: Optional[Any] = None) -> bool:
         """Stub that always returns True, used to mark an interface as the default without a real check."""
@@ -168,12 +167,11 @@ class Interface:
                 raise ValueError("interface is not resolved")
 
         if self.stack == UNKNOWN_STACK:
-            raise Exception("Unknown stack")
+            raise RuntimeError("Unknown stack")
 
         if self.stack == DUEL_STACK:
             return sorted([IP4, IP6])
-        else:
-            return sorted([self.stack])
+        return sorted([self.stack])
 
     def what_afs(self) -> List[int]:
         """Return the address families available on this resolved interface."""

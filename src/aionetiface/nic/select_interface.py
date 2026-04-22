@@ -13,6 +13,7 @@ from ..entrypoint import aionetiface_setup_netifaces
 
 
 def get_if_by_nic_ipr(nic_ipr: Any, netifaces: Any) -> Optional[Any]:
+    """Return the Interface whose bound address matches nic_ipr, or None if not found."""
     for if_name in netifaces.interfaces():
         valid_afs = [netifaces.AF_INET, netifaces.AF_INET6]
         addr_infos = netifaces.ifaddresses(if_name)
@@ -113,6 +114,7 @@ async def select_if_by_dest(
     route.interface = bind_interface
 
     def route_patch(af):
+        """Return the pre-built route that binds to the detected local IP for the given AF."""
         return route
 
     bind_interface.route = route_patch

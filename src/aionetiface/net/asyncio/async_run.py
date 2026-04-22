@@ -22,7 +22,6 @@ def patch_asyncio_backports(loop_cls: Optional[Type[Any]] = None) -> None:
 
         async def _noop(self):
             """No-op coroutine used as a backport stub for shutdown_asyncgens."""
-            pass
 
         loop_cls.shutdown_asyncgens = _noop
 

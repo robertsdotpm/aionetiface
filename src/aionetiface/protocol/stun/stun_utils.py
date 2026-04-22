@@ -16,6 +16,7 @@ from ...net.net_patterns import send_recv_loop
 
 
 def stun_proc_attrs(af: int, attr_code: Any, attr_data: Any, msg: Any) -> None:
+    """Decode a single STUN attribute and attach the resulting address tuple to msg as rtup or ctup."""
     # Set our remote IP and port.
     if not hasattr(msg, "rtup"):
         xor_addr_attrs = [STUNAttrs.XorMappedAddressX, STUNAttrs.XorMappedAddress]
@@ -39,6 +40,7 @@ def stun_proc_attrs(af: int, attr_code: Any, attr_data: Any, msg: Any) -> None:
 
 
 def stun_proto(buf: bytes, af: int) -> Tuple[Any, bytes]:
+    """Unpack a raw STUN buffer, process all its attributes, and return (STUNMsg, remaining_bytes)."""
     msg, buf = STUNMsg.unpack(buf)
     msg.af = af
     while not msg.eof():
@@ -127,6 +129,7 @@ async def stun_reply_to_ret_dic(reply: Any) -> Optional[Dict[str, Any]]:
 
 
 def validate_stun_reply(reply: Any, mode: int) -> Optional[Any]:
+    """Return reply if it contains all required address attributes with public IPs and valid ports, otherwise None."""
     if reply is None:
         return None
 

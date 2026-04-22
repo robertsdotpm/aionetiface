@@ -13,11 +13,14 @@ from ....net.ip_range import IPRange
 
 
 class NetshParse:
+    """Parses netsh command output into structured network interface data."""
+
     # netsh interface ipv4 show interfaces
     # netsh interface ipv6 show interfaces
     # if_index:
     @staticmethod
     def show_interfaces(af: int, msg: str) -> List[Any]:
+        """Returns a list of parsed interface records indexed by interface index."""
         p = r"([0-9]+)\s+([0-9]+)\s+([0-9]+)\s+([a-z0-9]+)\s+([^\r\n]+)"
         out = re.findall(p, msg)
         results = {}
@@ -39,6 +42,7 @@ class NetshParse:
     # if_index: ...
     @staticmethod
     def show_addresses(af: int, msg: str) -> List[Any]:
+        """Returns a list of parsed address records grouped by interface index."""
         msg = re.sub(r"%[0-9]+", "", msg)
 
         # Regex patterns that can match address information.
@@ -86,6 +90,7 @@ class NetshParse:
     # Routes also show subnet for interface addresses.
     @staticmethod
     def show_route(af: int, msg: str) -> List[Any]:
+        """Returns a list of parsed route records grouped by interface index."""
         p = r"([a-zA-Z0-9]+)\s+([a-zA-Z0-9]+)\s+([0-9]+)\s+([a-zA-Z0-9.:%\/]+)\s+([0-9]+)\s+([^\r\n]+)"
         out = re.findall(p, msg)
         results = {}
@@ -111,6 +116,7 @@ class NetshParse:
     # if_index: ... if_name, mac
     @staticmethod
     def show_mac(af: int, msg: str) -> List[Any]:
+        """Returns a list of parsed MAC address and default gateway records by interface index."""
         p = r"([0-9]+)\s*[.]{2,}([0-9a-fA-F ]+)[ .]+([^\r\n]+)[\r\n]"
         out = re.findall(p, msg)
         results = {"default": {IP4: None, IP6: None}}
@@ -140,6 +146,7 @@ class NetshParse:
     # mac: {ip4: ..., IP6: ...}
     @staticmethod
     def show_gws(af: int, msg: str) -> List[Any]:
+        """Returns a list of parsed gateway addresses keyed by MAC address."""
         p = r"[pP]hysical[ ]+[aA]ddress[^:]+:([^\r\n]+)[\r\n][\s\S]+?[dD]efault[ ]+[gG]ateway[^:]+:((?:\s*[a-fA-F0-9:.%]+[\r\n]?)(?:\s*[a-fA-F0-9:.%]+[\r\n])?)"
         sections = msg.split("\r\n\r\n")
 
@@ -244,6 +251,7 @@ Examples of an interface name 'Intel ... ethernet v10'.
 
 
 def win_con_name_lookup() -> Dict[str, Any]:
+    """Returns a mapping of connection names to their GUID and interface description from the Windows registry."""
     root_key = winreg.OpenKey(
         winreg.HKEY_LOCAL_MACHINE,
         r"SYSTEM\ControlSet001\Control\Network",
@@ -254,6 +262,7 @@ def win_con_name_lookup() -> Dict[str, Any]:
     # Recursively crawl all portions looking for the right field.
     # Windows loves to make things easy.
     def recurse_search(root_key, guid=None):
+        """Returns a list of connection name and GUID pairs found under the given registry key."""
         results = []
         for sub_offset in range(0, winreg.QueryInfoKey(root_key)[0]):
             sub_name = winreg.EnumKey(root_key, sub_offset)
@@ -316,6 +325,7 @@ def win_con_name_lookup() -> Dict[str, Any]:
 def get_host_limit_from_route_infos(
     needle_ip: str, route_infos: List[Dict[str, Any]]
 ) -> List[Any]:
+    """Returns the most specific CIDR prefix length and netmask matching the given IP from a list of route infos."""
     netmask = None
     host_limit = 0
     for route_info in route_infos:

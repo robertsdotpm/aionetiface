@@ -183,7 +183,6 @@ class Daemon:
     # Just like connection_made in protocol classes.
     def up_cb(self, msg: Any, client_tup: Any, pipe: Any) -> None:
         """Default connection-established handler; override in subclasses to react to new clients."""
-        pass
 
     async def add_listener(self, proto: int, route: Any) -> Any:
         """

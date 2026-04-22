@@ -106,12 +106,11 @@ class IPRange:
         if isinstance(ip, int):
             if ip < (2**31):
                 if netmask is None:
-                    raise Exception(
+                    raise ValueError(
                         "Cannot determine address family: integer IP is ambiguous without a netmask."
                     )
-                else:
-                    ipa_netmask = ipaddress.ip_address(netmask)
-                    self.af = v_to_af(ipa_netmask.version)
+                ipa_netmask = ipaddress.ip_address(netmask)
+                self.af = v_to_af(ipa_netmask.version)
 
         # Norm IP -- remove /n, %iface, and/or explode.
         if isinstance(ip, str):
@@ -315,14 +314,13 @@ class IPRange:
         if isinstance(other, (int, bytes, str)):
             ipa = ipaddress.ip_address(other)
             return IPRange(ipa)
-        elif isinstance(other, IPRange):
+        if isinstance(other, IPRange):
             return other
-        elif isinstance(other, IPA_TYPES):
+        if isinstance(other, IPA_TYPES):
             return IPRange(other)
-        else:
-            raise NotImplementedError(
-                "IPRange comparison is not implemented for that type."
-            )
+        raise NotImplementedError(
+            "IPRange comparison is not implemented for that type."
+        )
 
     def __eq__(self, other: Any) -> bool:
         other = self._convert_other(other)
@@ -341,12 +339,11 @@ class IPRange:
         if isinstance(key, slice):
             start, stop, step = key.indices(len(self))
             return [self[i] for i in range(start, stop, step)]
-        elif isinstance(key, int):
+        if isinstance(key, int):
             return self.get_value(key)
-        elif isinstance(key, tuple):
+        if isinstance(key, tuple):
             return [self.get_value(x) for x in key]
-        else:
-            raise TypeError("Invalid argument type: {}".format(type(key)))
+        raise TypeError("Invalid argument type: {}".format(type(key)))
 
     def __repr__(self) -> str:
         return fstr("{0}", (str(self),))
@@ -396,7 +393,7 @@ def ensure_ip_is_public(ip: Union[str, bytes]) -> str:
     ip = ip_norm(ip)
     ipr = IPRange(ip)
     if ipr.is_private:
-        raise Exception("IP must be public.")
+        raise ValueError("IP must be public.")
 
     return ip
 

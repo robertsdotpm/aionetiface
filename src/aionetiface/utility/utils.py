@@ -152,10 +152,10 @@ vmaj = int(vmaj)
 vmin = int(vmin)
 
 if vmaj < 3:
-    raise Exception("Python 2 not supported.")
+    raise RuntimeError("Python 2 not supported.")
 
 if vmin < 5:
-    raise Exception("Non-Windows OS needs Python 3.5 or higher")
+    raise RuntimeError("Non-Windows OS needs Python 3.5 or higher")
 
 if vmin < 8 and sys.platform == "win32":
     pass  # Windows 3.8+ preferred but not enforced for now
@@ -181,6 +181,7 @@ if not hasattr(unittest, "IsolatedAsyncioTestCase"):
         unittest.IsolatedAsyncioTestCase = aiounittest.AsyncTestCase
 
         def safe_run_patch(self):
+            """Patch the test case's event loop so coroutines are wrapped with safe_run."""
             loop = asyncio.get_event_loop()
             run_wrap = loop.run_until_complete
             loop.run_until_complete = lambda f: run_wrap(safe_run(f))
@@ -325,7 +326,7 @@ def rendezvous_score(*tokens: bytes) -> float:
 # Port helpers.
 def valid_port(p: int) -> bool:
     """Return True if p is a valid TCP/UDP port number (1–65535)."""
-    return p >= 1 and p <= MAX_PORT
+    return 1 <= p <= MAX_PORT
 
 
 def port_wrap(p: int) -> int:
@@ -378,7 +379,7 @@ def from_range(r: Any) -> int:
 
 def in_range(x: Any, r: Any) -> bool:
     """Return True if lo <= val <= hi."""
-    return x >= r[0] and x <= r[1]
+    return r[0] <= x <= r[1]
 
 
 def len_range(r: Any) -> int:
@@ -541,6 +542,8 @@ def list_get_dict(
         if entry[key_name] == criteria:
             return entry
 
+    return None
+
 
 def file_get_contents(path: str) -> bytes:
     """Read and return the raw bytes of the file at path."""
@@ -552,8 +555,7 @@ def to_type(x: Union[str, bytes], out_type: Union[str, bytes]) -> Union[str, byt
     """Convert x to the same type as out_type (str or bytes)."""
     if isinstance(out_type, str):
         return to_s(x)
-    if isinstance(out_type, bytes):
-        return to_b(x)
+    return to_b(x)
 
 
 def dict_child(x: Dict[str, Any], y: Dict[str, Any]) -> Dict[str, Any]:
@@ -744,15 +746,14 @@ def sorted_search(
         if n_list[index] >= target:
             if n_list[index - 1] < target:
                 return index
-            else:
-                index -= int(index / 2) or 1
+            index -= int(index / 2) or 1
         else:
             index += int(index / 2) or 1
 
         if index >= list_len - 1:
             return list_len - 1
 
-    raise Exception("sorted_search: list may not be sorted.")
+    raise ValueError("sorted_search: list may not be sorted.")
 
 
 # ---------------------------------------------------------------------------
@@ -843,7 +844,7 @@ async def async_wrap_errors(
             return await coro
         if isinstance(timeout, int):
             return await asyncio.wait_for(coro, timeout)
-    except asyncio.CancelledError:
+    except asyncio.CancelledError:  # pylint: disable=try-except-raise
         raise
     except Exception:  # noqa: BLE001
         if logging:
@@ -862,13 +863,14 @@ def sync_wrap_errors(
     try:
         if args:
             return f(*args)
-        else:
-            return f()
+        return f()
     except Exception:  # noqa: BLE001
         try:
             log_exception()
         except Exception:  # noqa: BLE001
             pass
+
+    return None
 
 
 async def async_retry(gen: Callable[[], Any], count: int, timeout: int = 4) -> None:
@@ -911,7 +913,7 @@ async def async_retry(gen: Callable[[], Any], count: int, timeout: int = 4) -> N
     raise asyncio.TimeoutError("async_retry: retry limit reached")
 
 
-from .cleanup import (  # noqa: E402
+from .cleanup import (  # noqa: E402  # pylint: disable=cyclic-import
     cancel_task,
     cancel_tasks,
     rm_done_tasks,
@@ -961,13 +963,14 @@ def async_to_sync(
     if params is not None:
 
         def closure(args):
+            """Run f with the provided args sequence synchronously on loop and return the result."""
             return loop.run_until_complete(f(*args))
 
         return closure
-    else:
 
-        def closure():
-            return loop.run_until_complete(f())
+    def closure():
+        """Run f with no arguments synchronously on loop and return the result."""
+        return loop.run_until_complete(f())
 
         return closure
 
@@ -988,6 +991,7 @@ def handler_done_builder(
     """
 
     def on_done(result):
+        """Remove the completed task from pipe, log any error code, and track any returned Task."""
         if task in pipe.tasks:
             pipe.handler_tasks.remove(task)
 
@@ -1060,12 +1064,14 @@ def run_in_executor(f: Callable[..., Any]) -> Callable[..., Any]:
 
     @functools.wraps(f)
     def inner(*args, **kwargs):
+        """Submit f to the thread-pool executor, running it in a new event loop if async."""
         loop = get_running_loop()
 
         if not inspect.iscoroutinefunction(f):
             return loop.run_in_executor(None, lambda: f(*args, **kwargs))
 
         def helper():
+            """Run the async function f in a fresh event loop and return its result."""
             new_loop = asyncio.new_event_loop()
             try:
                 asyncio.set_event_loop(new_loop)
@@ -1086,11 +1092,11 @@ def run_in_executor2(f: Callable[..., Any]) -> Callable[..., Any]:
 
     @functools.wraps(f)
     def inner(*args, **kwargs):
+        """Schedule f as a task if async, or run it in the executor if sync."""
         loop = asyncio.get_event_loop()
         if inspect.iscoroutinefunction(f):
             return loop.create_task(f(*args, **kwargs))
-        else:
-            return loop.run_in_executor(None, lambda: f(*args, **kwargs))
+        return loop.run_in_executor(None, lambda: f(*args, **kwargs))
 
     return inner
 
@@ -1111,8 +1117,7 @@ async def safe_gather(*args: Any) -> List[Any]:
             result = await task
             results.append(result)
         return results
-    else:
-        return await asyncio.gather(*args)
+    return await asyncio.gather(*args)
 
 
 async def sleep_random(min_ms: int = 100, max_ms: int = 2000) -> None:
@@ -1145,7 +1150,7 @@ def recover_verify_key(
 
     if vk_b is not None:
         if not any(vk.to_string("compressed") == vk_b for vk in vk_list):
-            raise Exception(
+            raise ValueError(
                 "recover_verify_key: expected key not found in recovered set."
             )
 
@@ -1156,7 +1161,7 @@ def recover_verify_key(
         except ecdsa.BadSignatureError:
             continue
 
-    raise Exception("recover_verify_key: no recovered key could verify the signature.")
+    raise ValueError("recover_verify_key: no recovered key could verify the signature.")
 
 
 # ---------------------------------------------------------------------------
@@ -1208,7 +1213,7 @@ def what_exception() -> None:
     Intended for debugging. Includes exception type, source file, line number,
     and full traceback.
     """
-    exc_type, exc_value, exc_tb = sys.exc_info()
+    exc_type, _, exc_tb = sys.exc_info()
 
     fname = "Unknown"
     lineno = 0
@@ -1251,7 +1256,7 @@ def ensure_resolved(targets: Union[Any, List[Any]]) -> None:
 
     for i, target in enumerate(targets):
         if not target.resolved:
-            raise Exception(
+            raise ValueError(
                 "Target offset={}, id={}, type={} not resolved".format(
                     i, id(target), type(target)
                 )
