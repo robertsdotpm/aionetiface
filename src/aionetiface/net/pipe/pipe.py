@@ -38,9 +38,6 @@ from ..asyncio.create_udp_fallback import *
 from ..asyncio.event_loop import CustomEventLoop
 
 
-class PipeError(Exception):
-    """Raised when a pipe cannot be opened, connected, or used due to a configuration problem."""
-
 
 class Pipe:
     """High-level abstraction over a TCP or UDP socket with async send/recv and lifecycle management."""
@@ -88,7 +85,6 @@ class Pipe:
             ConnectionError,
             asyncio.TimeoutError,
             RuntimeError,
-            PipeError,
         ):
             # defensive cleanup
             self.cleanup_on_error()
@@ -263,7 +259,7 @@ class Pipe:
 
             # Failed to get a socket.
             if self.sock is None:
-                raise PipeError("Socket allocation failed")
+                raise OSError("Socket allocation failed")
 
             # Record socket ownership state.
             aionetiface_fds.add(self.sock)
@@ -290,8 +286,8 @@ class Pipe:
                     loop.sock_connect(self.sock, self.dest.tup),
                     self.conf["con_timeout"],
                 )
-            except asyncio.TimeoutError:
-                raise PipeError("TCP connect timed out")
+            except asyncio.TimeoutError as exc:
+                raise OSError("TCP connect timed out") from exc
 
     async def setup_pipe_events(self, msg_cb: Any = None, up_cb: Any = None) -> None:
         """
@@ -362,7 +358,7 @@ class Pipe:
 
             # Likely never triggered as exceptions are raised instead.
             if transport is None:
-                raise PipeError("Failed to create datagram endpoint")
+                raise OSError("Failed to create datagram endpoint")
 
             # Wait for the UDP transport to signal ready.
             # Use ensure_future so we can cancel the wait without cancelling
@@ -409,7 +405,7 @@ class Pipe:
 
                 # Check transport started successfully.
                 if server is None:
-                    raise PipeError("Failed to create TCP server")
+                    raise OSError("Failed to create TCP server")
 
                 # Save transport returned from create server.
                 self.pipe_events.set_tcp_server(server)
