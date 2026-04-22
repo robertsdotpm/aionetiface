@@ -1,3 +1,4 @@
+"""Test scaffolding: async test base class and assertion helpers."""
 import ast
 import asyncio
 import time

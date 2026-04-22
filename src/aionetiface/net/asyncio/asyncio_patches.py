@@ -1,3 +1,4 @@
+"""Monkey-patches for asyncio compatibility across Python versions."""
 try:
     import ssl
 except ImportError:  # pragma: no cover

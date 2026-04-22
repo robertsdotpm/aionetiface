@@ -1,4 +1,5 @@
 
+"""Re-exports the full aionetiface public API as a single namespace."""
 import os
 
 if __name__ != "__main__":

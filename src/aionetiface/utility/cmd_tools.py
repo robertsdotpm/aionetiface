@@ -1,3 +1,4 @@
+"""Cross-platform shell command and script execution helpers."""
 import ctypes
 import shlex
 import asyncio

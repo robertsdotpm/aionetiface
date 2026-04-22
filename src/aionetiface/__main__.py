@@ -1,3 +1,4 @@
+"""Command-line entry point for the aionetiface test console."""
 import ast
 import asyncio
 import code

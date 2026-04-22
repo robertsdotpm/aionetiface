@@ -1,3 +1,4 @@
+"""Outbound pipe (TCP/UDP client) implementation."""
 import asyncio
 import re
 from typing import Any, Optional, Tuple

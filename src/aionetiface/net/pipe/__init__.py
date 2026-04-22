@@ -1,0 +1,1 @@
+"""Pipe abstraction sub-package."""

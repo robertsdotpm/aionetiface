@@ -1,3 +1,4 @@
+"""Constants and data structures for the pipe abstraction."""
 __all__ = [
     "TYPE_UDP_CON",
     "TYPE_UDP_SERVER",

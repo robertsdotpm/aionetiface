@@ -1,3 +1,4 @@
+"""Helper functions for socket binding."""
 import asyncio
 import platform
 from typing import Any, Optional, Tuple

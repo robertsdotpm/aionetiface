@@ -1,3 +1,4 @@
+"""Extra helpers for the netifaces backend."""
 import asyncio
 import platform
 import re

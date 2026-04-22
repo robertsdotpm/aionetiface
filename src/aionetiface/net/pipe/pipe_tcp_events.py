@@ -1,3 +1,4 @@
+"""TCP-specific event handlers for the pipe abstraction."""
 import asyncio
 import sys
 from typing import Any, Optional

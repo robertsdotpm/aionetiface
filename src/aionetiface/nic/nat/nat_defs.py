@@ -1,3 +1,4 @@
+"""Constants and data structures for NAT detection."""
 __all__ = [
     "STUN_PORT",
     "MAX_MAP_NO",

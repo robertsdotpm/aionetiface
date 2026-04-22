@@ -1,3 +1,4 @@
+"""Thin wrappers and helpers around Python sockets."""
 from typing import Any, Optional
 from ..utility.utils import *
 from .net_utils import *

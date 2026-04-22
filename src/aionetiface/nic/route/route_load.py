@@ -1,3 +1,4 @@
+"""Loads and normalises routing-table data from the OS."""
 import asyncio
 import copy
 import random

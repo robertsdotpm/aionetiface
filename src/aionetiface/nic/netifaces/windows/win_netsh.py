@@ -1,3 +1,4 @@
+"""Windows network interface enumeration via netsh output parsing."""
 import re
 import sys
 

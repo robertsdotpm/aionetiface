@@ -1,3 +1,4 @@
+"""Global tunables and infrastructure address constants."""
 import socket
 
 __all__ = [

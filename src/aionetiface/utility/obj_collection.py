@@ -1,3 +1,4 @@
+"""Concurrent object-collection and first-result helpers."""
 import inspect
 import asyncio
 import random

@@ -1,3 +1,4 @@
+"""Heuristics for selecting the best NIC for a given connection."""
 import asyncio
 import platform
 from typing import Any, List, Optional, Tuple

@@ -1,3 +1,4 @@
+"""High-level route-table queries (default gateway, internet check)."""
 import re
 import platform
 from typing import Any, Dict, List, Optional

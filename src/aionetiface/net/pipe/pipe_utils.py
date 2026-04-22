@@ -1,3 +1,4 @@
+"""Utility functions shared across pipe implementations."""
 import asyncio
 from typing import Any, List, Optional, Tuple
 from ..net_utils import *

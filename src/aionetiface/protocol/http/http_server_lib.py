@@ -1,3 +1,4 @@
+"""Lightweight async HTTP server and REST-dispatch helpers."""
 import inspect
 import re
 import json

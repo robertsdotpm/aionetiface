@@ -1,3 +1,4 @@
+"""STUN message types, attribute codes, and encoding helpers."""
 from struct import pack
 import hmac
 import socket

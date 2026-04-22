@@ -1,3 +1,4 @@
+"""Infrastructure server lists (STUN, PnP, etc.)."""
 import hashlib
 import json
 import operator

@@ -1,3 +1,4 @@
+"""Helper functions for network interface discovery and filtering."""
 import asyncio
 import re
 import socket

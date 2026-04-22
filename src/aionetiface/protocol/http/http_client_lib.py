@@ -1,3 +1,4 @@
+"""Async HTTP client helpers and response parser."""
 import asyncio
 import copy
 from http.client import HTTPResponse

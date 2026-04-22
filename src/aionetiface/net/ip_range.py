@@ -1,3 +1,4 @@
+"""IP address range (prefix) parsing and arithmetic."""
 # TODO: Seg faults are possible with invalid CIDRs or netmasks.
 # TODO: Need to write better input validation here.
 

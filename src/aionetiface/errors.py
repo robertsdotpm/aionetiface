@@ -1,3 +1,4 @@
+"""Custom exception types for aionetiface."""
 # Defines all custon exceptions.
 
 __all__ = [

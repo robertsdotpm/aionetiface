@@ -1,3 +1,4 @@
+"""Network topology helpers (public vs private, loopback detection)."""
 from typing import Any, List, Optional
 from .net_defs import *
 from .net_utils import *

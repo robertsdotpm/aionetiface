@@ -1,15 +1,19 @@
+"""ECDSA key-pair generation, signing, and verification helpers."""
 from ecdsa import SECP256k1, SigningKey, util
 from typing import Any, Optional
 from .utils import to_hs
 
 
 class Signing:
+    """ECDSA key-pair wrapper that exposes compact public-key bytes and hex."""
+
     def __init__(
         self,
         priv: Optional[Any] = None,
         pub: Optional[Any] = None,
         curve: Any = SECP256k1,
     ) -> None:
+        """Wrap an existing private/public key pair on the given curve."""
         self.curve = curve
         self.private_key = priv
         self.public_key = pub or priv.get_verifying_key()
@@ -18,6 +22,7 @@ class Signing:
 
     @staticmethod
     def keypair(curve: Any = SECP256k1) -> "Signing":
+        """Generate a fresh key-pair on curve and return a Signing instance."""
         priv = SigningKey.generate(curve=curve)
         pub = priv.get_verifying_key()
         return Signing(priv, pub, curve)

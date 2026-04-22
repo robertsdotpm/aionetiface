@@ -1,3 +1,4 @@
+"""Top-level async runner (event loop bootstrapping)."""
 import asyncio
 from asyncio import events, coroutines
 from typing import Any, Optional, Type

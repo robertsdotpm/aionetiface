@@ -1,3 +1,4 @@
+"""Network-layer constants (address families, socket types, etc.)."""
 import sys
 import socket
 import asyncio

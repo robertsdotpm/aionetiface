@@ -1,3 +1,5 @@
+"""Windows network interface enumeration via WMIC output parsing."""
+import ast
 import re
 import asyncio
 import sys
@@ -22,7 +24,7 @@ def parse_wmic_list(entry: str) -> List[Any]:
     entry = entry.replace("{", "[")
     entry = entry.replace("}", "]")
 
-    return eval(entry)
+    return ast.literal_eval(entry)
 
 
 def parse_wmic_addrs(addrs: List[str]) -> Dict[Any, List[Dict[str, Any]]]:

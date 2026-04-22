@@ -1,3 +1,4 @@
+"""Fallback netifaces implementation when the C extension is absent."""
 import socket
 from typing import Any
 from ...net.net_defs import AF_LINK, INTERFACE_ETHERNET, IP4, IP6, VALID_AFS

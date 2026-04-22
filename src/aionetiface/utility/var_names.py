@@ -1,3 +1,4 @@
+"""Auto-generated variable-name tables for introspection."""
 from ..nic.nat.nat_defs import (
     OPEN_INTERNET,
     SYMMETRIC_UDP_FIREWALL,

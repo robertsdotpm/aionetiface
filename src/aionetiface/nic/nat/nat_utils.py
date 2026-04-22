@@ -1,3 +1,4 @@
+"""Helper functions for NAT type classification."""
 import asyncio
 import random
 from typing import Any, Dict, List, Optional

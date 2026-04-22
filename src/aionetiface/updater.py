@@ -1,3 +1,4 @@
+"""Self-update helper for the aionetiface package."""
 import asyncio
 import json
 import os

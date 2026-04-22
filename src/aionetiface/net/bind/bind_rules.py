@@ -1,3 +1,4 @@
+"""Rules for selecting source address and interface when binding."""
 import asyncio
 import socket
 import platform

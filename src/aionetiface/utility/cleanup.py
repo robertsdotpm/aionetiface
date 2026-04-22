@@ -1,3 +1,4 @@
+"""asyncio task cancellation and cleanup helpers."""
 import os
 import sys
 import asyncio
@@ -8,6 +9,7 @@ from .utils import log, log_exception
 
 
 async def cancel_task(task: Optional[Any]) -> None:
+    """Cancel a single asyncio task and await its completion, ignoring errors."""
     if task is None or task.done():
         return
     task.cancel()
@@ -18,6 +20,7 @@ async def cancel_task(task: Optional[Any]) -> None:
 
 
 async def cancel_tasks(tasks: List[Any]) -> None:
+    """Cancel all live tasks in the list and await them together."""
     live = [t for t in tasks if not t.done()]
     for t in live:
         t.cancel()
@@ -26,6 +29,7 @@ async def cancel_tasks(tasks: List[Any]) -> None:
 
 
 def rm_done_tasks(tasks: List[Any]) -> List[Any]:
+    """Return a new list containing only tasks that have not yet completed."""
     return [task for task in tasks if not task.done()]
 
 

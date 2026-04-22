@@ -1,3 +1,4 @@
+"""Loads and normalises NIC information from the OS."""
 import asyncio
 from typing import Any, Optional
 from ..errors import InterfaceNotFound, InterfaceInvalidAF

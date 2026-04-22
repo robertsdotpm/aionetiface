@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aionetiface"
+version = "0.0.15"
+description = "Asynchronous networking library for IP interface and address management"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "public domain"}
+authors = [
+    {name = "Matthew Roberts", email = "matthew@roberts.pm"}
+]
+keywords = ["networking", "async", "asyncio", "interface", "IP", "NIC", "STUN"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Development Status :: 4 - Beta",
+    "Topic :: Internet",
+    "Topic :: System :: Networking",
+    "Framework :: AsyncIO",
+]
+dependencies = [
+    "ntplib>=0.4",
+    "ecdsa>=0.18",
+    "netifaces>=0.11; platform_system != 'Windows'",
+    "pyroute2>=0.7; platform_system == 'Linux'",
+    "winregistry>=1.1; platform_system == 'Windows'",
+]
+
+[project.urls]
+Homepage = "https://github.com/robertsdotpm/aionetiface"
+Repository = "https://github.com/robertsdotpm/aionetiface"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+exclude = ["tests*", "docs*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]

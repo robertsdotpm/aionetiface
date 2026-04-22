@@ -1,3 +1,4 @@
+"""Windows network interface enumeration via Win32 APIs."""
 # pragma: no cover
 import re
 import sys

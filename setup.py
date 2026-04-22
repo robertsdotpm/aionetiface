@@ -1,6 +1,5 @@
-# Python version 3.5 and up.
+# Retained for tools that do not yet read pyproject.toml.
 from setuptools import setup, find_packages
-from codecs import open
 from os import path
 
 
@@ -11,18 +10,18 @@ with open(path.join(here, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
 
 install_reqs = [
-    "ntplib",
-    "ecdsa",
-    "netifaces; platform_system != 'Windows'",
-    "pyroute2; platform_system == 'Linux'",
-    "winregistry; platform_system == 'Windows'",
+    "ntplib>=0.4",
+    "ecdsa>=0.18",
+    "netifaces>=0.11; platform_system != 'Windows'",
+    "pyroute2>=0.7; platform_system == 'Linux'",
+    "winregistry>=1.1; platform_system == 'Windows'",
 ]
 
 setup(
     version="0.0.15",
     name="aionetiface",
-    description="Asynchronous networking library ",
-    keywords=("test, python"),
+    description="Asynchronous networking library for IP interface and address management",
+    keywords="networking, async, asyncio, interface, IP, NIC, STUN",
     long_description_content_type="text/markdown",
     long_description=long_description,
     url="http://github.com/robertsdotpm/aionetiface",
@@ -32,6 +31,7 @@ setup(
     package_dir={"": "src"},
     packages=find_packages(where="src", exclude=("tests", "docs")),
     include_package_data=True,
+    python_requires=">=3.8",
     install_requires=install_reqs,
     classifiers=[
         "Intended Audience :: Developers",

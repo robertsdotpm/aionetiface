@@ -1,3 +1,4 @@
+"""Factory helpers for building concurrent async patterns."""
 import asyncio
 from collections import defaultdict
 from typing import Any, List, Optional

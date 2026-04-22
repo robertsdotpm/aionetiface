@@ -1,3 +1,4 @@
+"""Low-level type-conversion, encoding, and timing utilities."""
 import asyncio
 import binascii
 from typing import (

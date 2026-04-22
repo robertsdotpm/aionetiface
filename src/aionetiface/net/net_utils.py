@@ -1,3 +1,4 @@
+"""Low-level socket and address utility functions."""
 import socket
 import struct
 import ipaddress

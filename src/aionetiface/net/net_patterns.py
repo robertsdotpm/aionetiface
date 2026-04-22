@@ -1,3 +1,4 @@
+"""Higher-level send/receive patterns built on raw sockets."""
 import asyncio
 from typing import Any
 from ..utility.utils import log_exception

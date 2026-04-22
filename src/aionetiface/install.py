@@ -1,3 +1,4 @@
+"""Post-install helpers (OS-level capabilities, registry tweaks)."""
 import os
 import pathlib
 import inspect

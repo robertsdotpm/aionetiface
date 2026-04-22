@@ -1,3 +1,4 @@
+"""Simple echo server used for connectivity testing."""
 import asyncio
 from typing import Any, Tuple
 from ...net.daemon import Daemon

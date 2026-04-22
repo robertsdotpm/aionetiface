@@ -1,3 +1,4 @@
+"""Parsed network address representation."""
 import asyncio
 from typing import Any, List, Optional, Tuple
 from ..utility.utils import strip_none, to_s
