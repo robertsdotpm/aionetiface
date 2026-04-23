@@ -13,6 +13,25 @@ import platform
 from typing import Any
 from asyncio import futures
 
+# asyncio.futures._chain_future was added in Python 3.5.1; polyfill for 3.5.0.
+if not hasattr(futures, "_chain_future"):
+    def chain_future_35(source, dest):
+        """Propagate result/exception from asyncio Future source to concurrent dest."""
+        def on_done(f):
+            if dest.cancelled():
+                return
+            try:
+                exc = f.exception()
+            except asyncio.CancelledError:
+                dest.cancel()
+                return
+            if exc is not None:
+                dest.set_exception(exc)
+            else:
+                dest.set_result(f.result())
+        source.add_done_callback(on_done)
+    futures._chain_future = chain_future_35
+
 vmaj, vmin, _ = platform.python_version_tuple()
 SUPPORTS_TOP_LEVEL_AWAIT = int(vmaj) >= 3 and int(vmin) >= 8
 SUPPORTS_INTERACT_EXITMSG = int(vmaj) >= 3 and int(vmin) >= 6
