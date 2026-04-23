@@ -24,9 +24,13 @@ from typing import (
     Iterator,
     List,
     Optional,
-    Type,
     Union,
 )
+try:
+    from typing import Type
+except ImportError:
+    # typing.Type was added in Python 3.5.3; fall back to Any for older builds.
+    Type = Any  # type: ignore
 from ecdsa.curves import NIST192p
 import ecdsa
 
@@ -804,7 +808,7 @@ def what_exception() -> None:
     print(traceback.format_exc())
 
 
-def my_except_hook(exctype: Type[BaseException], value: BaseException, tb: Any) -> None:
+def my_except_hook(exctype: Any, value: BaseException, tb: Any) -> None:
     """Global exception hook that logs unexpected top-level exceptions."""
     log("Global except handler called.")
     log_exception()

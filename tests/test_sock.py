@@ -5,20 +5,22 @@ class TestSock(unittest.IsolatedAsyncioTestCase):
     async def test_reuse_port(self):
         s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s1.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            s1.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        except OSError:
-            pass
+        if hasattr(socket, "SO_REUSEPORT"):
+            try:
+                s1.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            except OSError:
+                pass
         s1.bind(("", 0))
         # s1.connect(("www.google.com", 80))
 
         port = s1.getsockname()[1]
         s2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s2.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            s2.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        except OSError:
-            pass
+        if hasattr(socket, "SO_REUSEPORT"):
+            try:
+                s2.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            except OSError:
+                pass
         s2.bind(("", port))
         # s2.connect(("www.google.com", 80))
 

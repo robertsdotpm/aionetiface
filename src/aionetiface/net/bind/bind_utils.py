@@ -15,7 +15,10 @@ def ip6_patch_bind_ip(bind_ip: str, nic_id: Any) -> str:
     if to_s(bind_ip[0:2]).lower() in ["fe", "fd"]:
         # Interface specified by no on windows.
         if platform.system() == "Windows":
-            bind_ip = "%s%%%d" % (bind_ip, nic_id)
+            try:
+                bind_ip = "%s%%%d" % (bind_ip, int(nic_id))
+            except (ValueError, TypeError):
+                bind_ip = "%s%%%s" % (bind_ip, nic_id)
         else:
             # Other platforms just use the name
             bind_ip = "%s%%%s" % (bind_ip, nic_id)

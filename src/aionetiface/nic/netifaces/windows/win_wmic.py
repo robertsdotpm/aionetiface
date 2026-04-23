@@ -207,7 +207,11 @@ async def if_infos_from_wmic() -> List[Dict[str, Any]]:
                 continue
 
             # Does gw interface IP match this IF?
-            gw_if_ipr = IPRange(gw_info[af]["if_ip"])
+            # if_ip is absent for IPv6 routes and on some older Windows versions.
+            if_ip = gw_info[af].get("if_ip")
+            if not if_ip:
+                continue
+            gw_if_ipr = IPRange(if_ip)
             for addr_info in entry["addr"][af]:
                 if_ipr = IPRange(addr_info["addr"])
                 if if_ipr == gw_if_ipr:

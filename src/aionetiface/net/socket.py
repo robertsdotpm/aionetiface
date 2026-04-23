@@ -40,11 +40,11 @@ async def socket_factory(
     # Reuse port to avoid errors.
     if conf["reuse_addr"]:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        except OSError:
-            pass
-            # Doesn't work on Windows.
+        if hasattr(socket, "SO_REUSEPORT"):
+            try:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            except OSError:
+                pass
 
     # Set broadcast option.
     if conf["broadcast"]:

@@ -69,6 +69,15 @@ todo: dont use the commandencoded trick
 import platform
 from aionetiface import *
 
+if platform.system() == "Windows":
+    from aionetiface.nic.netifaces.windows.win_netifaces import (
+        Netifaces,
+        get_ifaces,
+        extract_if_fields,
+        get_addr_info_by_if_index,
+        get_default_gw_by_if_index,
+        get_default_iface_by_af,
+    )
 
 if platform.system() == "Windows":
 
