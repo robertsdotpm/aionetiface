@@ -1,7 +1,9 @@
 """Thin wrappers and helpers around Python sockets."""
+import socket
+import struct
 from typing import Any, Optional
-from ..utility.utils import *
-from .net_utils import *
+from ..utility.utils import fstr, log, log_exception, to_b
+from .net_defs import TCP, NET_CONF, NOT_WINDOWS, NIC_BIND, LOOPBACK_BIND
 
 
 async def socket_factory(

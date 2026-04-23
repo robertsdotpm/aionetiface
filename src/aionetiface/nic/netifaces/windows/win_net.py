@@ -5,10 +5,11 @@ import sys
 
 if sys.platform == "win32":
     pass
+import ipaddress
 from typing import Any, Dict, List, Optional
-from ....utility.utils import *
-from ....utility.cmd_tools import *
-from ....net.net_utils import *
+from ....utility.utils import to_s
+from ....utility.cmd_tools import cmd
+from ....net.net_utils import AF_INET, AF_INET6
 
 
 async def nt_ipv6_routes(no: int) -> List[Any]:  # pragma: no cover

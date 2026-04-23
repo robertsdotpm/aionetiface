@@ -4,18 +4,15 @@ import multiprocessing
 import socket
 import sys
 from typing import Any
-from .settings import *
-from .utility.utils import *
+from .utility.utils import get_running_loop, log
 from .net.net_defs import AF_ANY, IP4
-from .net.asyncio.event_loop import *
-from .net.asyncio.async_run import *
-from .net.asyncio.asyncio_patches import *
-from .nic.interface_utils import *
+from .net.asyncio.event_loop import CustomEventLoop, CustomEventLoopPolicy
+from .net.asyncio.async_run import patch_asyncio_backports, async_run
+from .net.asyncio.asyncio_patches import SelectSelector, patched_select_modern, patched_select_old
+from .nic.interface_utils import get_default_iface, get_interface_af
 
 if sys.platform == "win32":
-    from .nic.netifaces.windows.win_netifaces import *
-
-from .install import *
+    from .nic.netifaces.windows.win_netifaces import Netifaces
 
 
 __all__ = [

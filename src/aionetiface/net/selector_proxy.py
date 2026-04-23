@@ -7,8 +7,8 @@ disconnects. Written entirely by AI but seems to work.
 import selectors
 import socket
 from typing import Any, Dict, Tuple
-from ..utility.error_logger import *
-from .net_utils import *
+from ..utility.error_logger import log, log_exception
+from .net_utils import sock_has_data
 
 
 

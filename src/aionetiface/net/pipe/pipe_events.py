@@ -20,11 +20,22 @@ TODO: revisit drain and shutdown for close.
 import asyncio
 import sys
 from typing import Any, Callable, List, Optional, Tuple
-from ...utility.utils import *
-from ..net_utils import *
-from ...protocol.ack_udp import *
-from .pipe_client import *
-from .pipe_utils import *
+from ...utility.utils import (
+    fstr,
+    log,
+    log_exception,
+    create_task,
+    async_wrap_errors,
+    run_handler,
+    rm_done_tasks,
+    cancel_task,
+    cancel_tasks,
+)
+from ..net_defs import NET_CONF, SUB_ALL, IP4, IP6
+from ...protocol.ack_udp import BaseACKProto
+from .pipe_client import PipeClient
+from .pipe_defs import TYPE_TCP_SERVER
+from .pipe_utils import norm_client_tup, close_all_clients
 
 
 """
@@ -310,7 +321,7 @@ class PipeEvents(BaseACKProto):
 
         # Route messages to any pipes.
         for pipe in self.pipes:
-            task = create_task(pipe.send(data, pipe.sock.getpeername()))
+            task = create_task(async_wrap_errors(pipe.send(data, pipe.sock.getpeername())))
 
             self.tasks.append(task)
 

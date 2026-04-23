@@ -1,5 +1,6 @@
 """Parsed network address representation."""
 import asyncio
+import socket as _socket
 from typing import Any, List, Optional, Tuple
 from ..utility.utils import strip_none, to_s, get_running_loop
 from .net_defs import IP4, IP6, NET_CONF, VALID_AFS, VALID_LOOPBACKS
@@ -92,8 +93,18 @@ class DestTup:
         self.af = af
         self.ip = ip
         self.port = port
-        self.tup = (ip, port)
         self.ipr = ipr
+        # IPv6 link-local addresses with a scope (%ens34, %2) need a 4-tuple
+        # (host, port, flowinfo, scope_id) for sock_connect to work.
+        # getaddrinfo resolves the scope notation synchronously for IP literals.
+        if af == IP6 and "%" in ip:
+            try:
+                infos = _socket.getaddrinfo(ip, port, _socket.AF_INET6, _socket.SOCK_STREAM)
+                self.tup = infos[0][4]
+            except OSError:
+                self.tup = (ip, port)
+        else:
+            self.tup = (ip, port)
         self.is_private = ipr.is_private
         self.is_public = ipr.is_public
         self.is_loopback = ipr.is_loopback

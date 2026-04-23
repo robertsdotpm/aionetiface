@@ -293,7 +293,7 @@ def run_handler(
     Sync handlers are called immediately.
     """
     if inspect.iscoroutinefunction(handler):
-        task = create_task(handler(data, client_tup, pipe))
+        task = create_task(async_wrap_errors(handler(data, client_tup, pipe)))
         task.add_done_callback(handler_done_builder(pipe, handler, task))
         pipe.handler_tasks.append(task)
     else:

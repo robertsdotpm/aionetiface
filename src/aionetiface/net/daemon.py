@@ -345,6 +345,8 @@ class Daemon:
             if af == IP6:
                 route = nic.route(af)
                 for link_local in route.link_locals:
+                    total += 1
+
                     # Avoid bind limit.
                     if limit is not None:
                         if total > limit:

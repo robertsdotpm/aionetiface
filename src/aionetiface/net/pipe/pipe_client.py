@@ -2,13 +2,10 @@
 import asyncio
 import re
 from typing import Any, Optional, Tuple
-from ...utility.utils import fstr
-from ...protocol.ack_udp import *
-from ..net_defs import NET_CONF, SUB_ALL
-from ..net_utils import *
-from ..ip_range import *
-from .pipe_defs import *
-from .pipe_utils import *
+from ...utility.utils import fstr, log, log_exception, run_handler
+from ...protocol.ack_udp import ACKUDP
+from ..net_defs import NET_CONF, SUB_ALL, UDP, RUDP, TCP, IP6
+from .pipe_utils import client_tup_norm, norm_client_tup
 
 
 """
@@ -272,7 +269,7 @@ class PipeClient(ACKUDP):
                         "fe",
                         "fd",
                     ):
-                        nic_id = int(self.route.interface.id)
+                        nic_id = self.route.interface.nic_no or 0
                     else:
                         nic_id = 0
 

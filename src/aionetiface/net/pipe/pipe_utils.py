@@ -1,7 +1,7 @@
 """Utility functions shared across pipe implementations."""
 import asyncio
 from typing import Any, List, Optional, Tuple
-from ..net_utils import *
+from ..net_utils import client_tup_norm, ip_norm
 
 
 def tup_to_sub(dest_tup: Tuple[str, int]) -> Tuple[bytes, Tuple[str, int]]:

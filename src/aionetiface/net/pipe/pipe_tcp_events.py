@@ -2,13 +2,10 @@
 import asyncio
 import sys
 from typing import Any, Optional
-from ...utility.utils import *
-from ..net_utils import *
-from ..bind import *
-from .pipe_events import *
-from ..address import *
-from ..asyncio.asyncio_patches import *
-from .pipe_defs import *
+from ...utility.utils import fstr, log, log_exception
+from ..net_defs import NET_CONF
+from .pipe_events import PipeEvents
+from .pipe_defs import TYPE_TCP_CLIENT, aionetiface_fds
 
 
 PY_13_OR_LATER = sys.version_info >= (3, 13)

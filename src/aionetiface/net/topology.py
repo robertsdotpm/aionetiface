@@ -1,12 +1,29 @@
 """Network topology helpers (public vs private, loopback detection)."""
 from typing import Any, List, Optional
-from .net_defs import *
-from .net_utils import *
-from .ip_range import *
-from ..nic.nat.nat_defs import *
-from ..nic.nat.nat_utils import *
-from ..settings import *
-from ..utility.utils import to_b, to_n, is_number, is_bytes, ensure_resolved
+from .net_defs import VALID_AFS, IP4, IP6
+from .ip_range import IPRange
+from ..nic.nat.nat_defs import (
+    STUN_PORT, MAX_MAP_NO, USE_MAP_NO, OPEN_INTERNET, SYMMETRIC_UDP_FIREWALL,
+    FULL_CONE, RESTRICT_NAT, RESTRICT_PORT_NAT, SYMMETRIC_NAT, BLOCKED_NAT,
+    NA_DELTA, EQUAL_DELTA, PRESERV_DELTA, INDEPENDENT_DELTA, DEPENDENT_DELTA,
+    RANDOM_DELTA, EASY_NATS, DELTA_N, PREDICTABLE_NATS, FUSSY_NATS, BLOCKING_NATS,
+)
+from ..nic.nat.nat_utils import (
+    delta_info, nat_info, delta_test, nats_intersect, nats_can_predict,
+    f_is_open, f_can_predict, f_is_hard, valid_mappings_len,
+)
+from ..utility.utils import (
+    to_b,
+    to_n,
+    to_s,
+    is_number,
+    is_bytes,
+    ensure_resolved,
+    in_range,
+    MAX_PORT,
+    log,
+    async_test,
+)
 
 
 def validate_node_addr(addr: Any) -> Optional[Any]:

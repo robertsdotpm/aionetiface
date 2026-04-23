@@ -92,10 +92,8 @@ from functools import total_ordering
 from typing import Any, Dict, List, Optional
 from ...net.ip_range import IPRange, ipr_norm
 from ...net.net_defs import IPA_TYPES, VALID_AFS, IP4, IP6
-from ..netifaces.netiface_extra import *
-from ...net.address import *
-from ...net.bind.bind import *
-from ...utility.utils import fstr
+from ...net.bind.bind import Bind
+from ...utility.utils import fstr, to_s
 
 
 @total_ordering

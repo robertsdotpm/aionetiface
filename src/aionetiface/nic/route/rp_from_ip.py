@@ -65,7 +65,7 @@ def v6_route_pool_from_ips(ipr_list: List[Any], nic: Any) -> List[Any]:
             if not pub_ipr:
                 continue
 
-            ext_ips = [pub_ipr]
+            ext_ips = pub_ipr
         else:
             ext_ips = route.ext_ips
 
