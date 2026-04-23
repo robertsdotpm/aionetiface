@@ -293,3 +293,18 @@ class FakeInterfaceFactory(object):
     def count(self, af):
         """Return the number of available FakeInterface objects for the given AF."""
         return len(self.by_af[af])
+
+
+def make_fake_nic(real_nic, af, target_ipr):
+    """Convenience wrapper: build a FakeInterface pinned to target_ipr.
+
+    Equivalent to FakeInterfaceFactory entries but created ad-hoc from a
+    real Interface you already have in hand.  target_ipr is an IPRange.
+    """
+    return FakeInterface(
+        real_nic.name,
+        getattr(real_nic, "id", 0),
+        af,
+        target_ipr.ip,
+        real_nic.route(af),
+    )

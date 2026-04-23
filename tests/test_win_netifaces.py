@@ -77,6 +77,8 @@ if platform.system() == "Windows":
         get_addr_info_by_if_index,
         get_default_gw_by_if_index,
         get_default_iface_by_af,
+        win_load_interface_state,
+        win_set_gateways,
     )
 
 if platform.system() == "Windows":
