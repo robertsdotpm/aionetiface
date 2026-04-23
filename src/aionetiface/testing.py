@@ -38,7 +38,8 @@ from .net.ip_range import IPRange
 from .net.bind.bind_utils import bind_closure
 from .net.bind.bind_rules import binder_async
 from .nic.route.route import Route
-from .nic.select_interface import list_interfaces, load_interfaces
+from .nic.select_interface import list_interfaces
+from .nic.interface_utils import load_interfaces
 from .nic.interface import Interface
 
 
