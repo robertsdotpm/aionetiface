@@ -32,6 +32,15 @@ def patched_select_modern(
     - Unix: bad file descriptor (errno 9)
     - Interrupted system calls (errno.EINTR)
     """
+    # On Windows, select.select with timeout=None blocks indefinitely inside
+    # a C extension call.  Python cannot deliver async exceptions (e.g. from
+    # pytest-timeout's ctypes.PyThreadState_SetAsyncExc) until the C call
+    # returns, so a None timeout causes an uninterruptible hang.  Cap at 1 s
+    # so the interpreter loop stays reachable and async exceptions are
+    # delivered promptly.  On Unix, select is interruptible via signals so
+    # this cap is not needed there.
+    if sys.platform == "win32" and (timeout is None or timeout > 1.0):
+        timeout = 1.0
     try:
         return select.select(r, w, x, timeout)
     except OSError as e:
