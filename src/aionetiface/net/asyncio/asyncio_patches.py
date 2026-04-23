@@ -135,7 +135,11 @@ async def create_datagram_endpoint(
                 + fstr("when sock is specified. ({0})", (problems,))
             )
         sock.setblocking(False)
-        r_addr = None
+        # Delegate to the loop's own public method so the selector correctly
+        # registers the read-ready callback.  Calling the private
+        # _make_datagram_transport directly bypasses that registration on
+        # Python 3.5 SelectorEventLoop, causing datagram_received to never fire.
+        return await loop.create_datagram_endpoint(protocol_factory, sock=sock)
     else:
         if not (local_addr or remote_addr):
             if family == 0:

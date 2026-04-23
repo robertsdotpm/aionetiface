@@ -343,7 +343,7 @@ class Pipe:
             asyncio's default UDP transport does not work. Use
             a fallback implementation instead.
             """
-            old_python = (major, minor) < (3, 8)
+            old_python = (major, minor) < (3, 12)
             on_windows = sys.platform == "win32"
             if hasattr(asyncio, "ProactorEventLoop"):
                 with_proactor = isinstance(loop, asyncio.ProactorEventLoop)

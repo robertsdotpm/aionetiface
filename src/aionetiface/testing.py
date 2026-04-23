@@ -135,8 +135,10 @@ else:
     class AsyncTestCase(unittest.TestCase):
         """Minimal IsolatedAsyncioTestCase backport for Python < 3.8.
 
-        Runs each async test method, asyncSetUp, and asyncTearDown in a
-        freshly created event loop that is closed and discarded afterwards.
+        Runs asyncSetUp, the test method, and asyncTearDown in a single
+        freshly created event loop so that background tasks started in
+        asyncSetUp (e.g. polling loops) stay alive for the duration of
+        the test.  The loop is closed after asyncTearDown completes.
         """
 
         def call_async(self, coro):
@@ -163,22 +165,34 @@ else:
                     asyncio.set_event_loop(None)
 
         def setUp(self):
-            if hasattr(self, "asyncSetUp"):
-                self.call_async(self.asyncSetUp())
+            pass
 
         def tearDown(self):
-            if hasattr(self, "asyncTearDown"):
-                self.call_async(self.asyncTearDown())
+            pass
 
         def run(self, result=None):
             method = getattr(self, self._testMethodName)
             if asyncio.iscoroutinefunction(method):
                 original = method
+                self_ref = self
+                has_setup = hasattr(self_ref, "asyncSetUp")
+                has_teardown = hasattr(self_ref, "asyncTearDown")
 
-                def sync_wrap():
-                    return self.call_async(original())
+                async def combined():
+                    setup_done = False
+                    if has_setup:
+                        await self_ref.asyncSetUp()
+                        setup_done = True
+                    try:
+                        await original()
+                    finally:
+                        if setup_done and has_teardown:
+                            await self_ref.asyncTearDown()
 
-                setattr(self, self._testMethodName, sync_wrap)
+                def sync_run():
+                    self_ref.call_async(combined())
+
+                setattr(self, self._testMethodName, sync_run)
             return super(AsyncTestCase, self).run(result)
 
 

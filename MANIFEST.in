@@ -1,4 +1,5 @@
 include requirements.txt
+recursive-include src/aionetiface *.json
 include LICENSE
 include CREDITS.md
 include src/aionetiface/net/asyncio/create_udp_fallback.py

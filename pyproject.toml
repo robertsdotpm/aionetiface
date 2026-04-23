@@ -43,6 +43,9 @@ Repository = "https://github.com/robertsdotpm/aionetiface"
 where = ["src"]
 exclude = ["tests*", "docs*"]
 
+[tool.setuptools.package-data]
+aionetiface = ["*.json"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
