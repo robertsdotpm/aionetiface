@@ -42,6 +42,18 @@ Some methods and module-level names predate the no-leading-underscore convention
 
 - All names in `net/asyncio/`
 
+## Test agents — Windows firewall checks
+
+After running tests on Windows, check the system event log for firewall notifications related to bind/listen failures:
+
+- Event Viewer → Windows Logs → Security — look for blocked inbound/outbound connections (Event ID 5152, 5157)
+- Also check the Windows Security Center / Action Center tray for queued blocked-app alerts
+- Cross-reference any TURN/STUN/UDP test timeouts against bind tuples that were blocked
+
+## Test agents — interface checks
+
+When running tests on a remote machine, parse `ip addr` / `ipconfig /all` output carefully: ensure **all** interfaces are reported, not just the first. When a second adapter is added (e.g. a second NIC for external connectivity), it must be detected and included in the ENV vs BUG categorisation for any test that depends on interface count, routing, or address selection.
+
 ## Running tests
 
 Use Python 3.5 from pyenv to run the test suite so breakage on the minimum supported version is caught immediately:
