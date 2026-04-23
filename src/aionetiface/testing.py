@@ -49,7 +49,11 @@ from .nic.interface import Interface
 
 if sys.platform == "win32" and sys.version_info < (3, 8):
     if hasattr(asyncio, "WindowsProactorEventLoopPolicy"):
+        # Python 3.7: set via policy so new_event_loop() also returns ProactorEventLoop
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    elif hasattr(asyncio, "ProactorEventLoop"):
+        # Python 3.5/3.6: policy API not available; set the current loop directly
+        asyncio.set_event_loop(asyncio.ProactorEventLoop())
 
 
 def get_pending_tasks(loop):
@@ -70,7 +74,12 @@ else:
         """
 
         def call_async(self, coro):
-            loop = asyncio.new_event_loop()
+            if (sys.platform == "win32"
+                    and sys.version_info < (3, 7)
+                    and hasattr(asyncio, "ProactorEventLoop")):
+                loop = asyncio.ProactorEventLoop()
+            else:
+                loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
                 return loop.run_until_complete(coro)
