@@ -29,6 +29,7 @@ Typical test pattern:
 import asyncio
 import copy
 import socket
+import subprocess
 import sys
 import unittest
 from typing import Any, List, Optional
@@ -41,6 +42,71 @@ from .nic.route.route import Route
 from .nic.select_interface import list_interfaces
 from .nic.interface_utils import load_interfaces
 from .nic.interface import Interface
+
+
+# ─────────────────────────────────────────────────────────────
+# Windows firewall helpers
+# ─────────────────────────────────────────────────────────────
+
+def allow_windows_firewall(rule_name):
+    """Add an inbound allow rule for the current Python exe. Silent on any error."""
+    if sys.platform != "win32":
+        return
+    try:
+        exe = sys.executable
+        if sys.getwindowsversion().major >= 6:
+            subprocess.call(
+                [
+                    "netsh", "advfirewall", "firewall", "add", "rule",
+                    "name=" + rule_name,
+                    "dir=in", "action=allow",
+                    "program=" + exe,
+                    "protocol=any",
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        else:
+            subprocess.call(
+                [
+                    "netsh", "firewall", "add", "allowedprogram",
+                    "program=" + exe,
+                    "name=" + rule_name,
+                    "mode=ENABLE",
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+    except Exception:
+        pass
+
+
+def remove_windows_firewall(rule_name):
+    """Remove the inbound allow rule added by allow_windows_firewall. Silent on any error."""
+    if sys.platform != "win32":
+        return
+    try:
+        exe = sys.executable
+        if sys.getwindowsversion().major >= 6:
+            subprocess.call(
+                [
+                    "netsh", "advfirewall", "firewall", "delete", "rule",
+                    "name=" + rule_name,
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        else:
+            subprocess.call(
+                [
+                    "netsh", "firewall", "delete", "allowedprogram",
+                    "program=" + exe,
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+    except Exception:
+        pass
 
 
 # ─────────────────────────────────────────────────────────────
