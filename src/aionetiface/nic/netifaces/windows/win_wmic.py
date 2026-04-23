@@ -7,11 +7,12 @@ import sys
 if sys.platform == "win32":
     pass
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 from ....net.net_utils import IP4, IP6, VALID_AFS
 from ....utility.cmd_tools import cmd
 from ....utility.utils import safe_gather
 from ....net.ip_range import IPRange
+from ....net.net_utils import ip_norm
 
 
 def parse_wmic_list(entry: str) -> List[Any]:
@@ -175,6 +176,56 @@ async def do_wmic_cmds() -> List[Any]:
     return await safe_gather(*tasks)
 
 
+async def get_ipv6_from_netsh() -> Dict[str, Tuple[int, List[Dict[str, Any]]]]:
+    """
+    Parse 'netsh interface ipv6 show address' to get IPv6 addresses per interface.
+
+    Returns {con_name: (scope_id, [addr_info_dicts])}.
+    Used on Windows XP where WMIC nicconfig does not include IPv6 addresses.
+    """
+    try:
+        out = await cmd("netsh interface ipv6 show address")
+    except Exception:
+        return {}
+
+    result = {}
+    current_name = None
+    current_no = None
+
+    for line in out.splitlines():
+        stripped = line.strip()
+        m = re.match(r"Interface\s+(\d+):\s+(.+)", stripped)
+        if m:
+            current_no = int(m.group(1))
+            current_name = m.group(2).strip()
+            result[current_name] = (current_no, [])
+            continue
+
+        if current_name is None:
+            continue
+
+        parts = stripped.split()
+        if len(parts) < 5:
+            continue
+
+        addr_str = parts[-1]
+        try:
+            ipr = IPRange(addr_str)
+            if ipr.af == IP6:
+                result[current_name][1].append(
+                    {
+                        "addr": ip_norm(addr_str),
+                        "af": IP6,
+                        "host_limit": ipr.host_limit,
+                        "netmask": ipr.netmask,
+                    }
+                )
+        except Exception:
+            pass
+
+    return result
+
+
 async def if_infos_from_wmic() -> List[Dict[str, Any]]:
     # Get NIC info from different WMIC cmds.
     results = await do_wmic_cmds()
@@ -238,7 +289,23 @@ async def if_infos_from_wmic() -> List[Dict[str, Any]]:
         entry["defaults"] = defaults
         ret.append(entry)
 
-    # Show results.
+    # On Windows XP, WMIC nicconfig does not include IPv6 addresses.
+    # Supplement any NIC that has no IPv6 addresses from netsh, which also
+    # gives us the correct IPv6 scope ID to store in entry["no"].
+    any_missing_v6 = any(not e["addr"][IP6] for e in ret)
+    if any_missing_v6:
+        netsh_v6 = await get_ipv6_from_netsh()
+        for entry in ret:
+            if entry["addr"][IP6]:
+                continue
+            con_name = entry.get("con_name", "")
+            if con_name not in netsh_v6:
+                continue
+            scope_id, addr_infos = netsh_v6[con_name]
+            if addr_infos:
+                entry["addr"][IP6] = addr_infos
+                entry["no"] = scope_id
+
     return ret
 
 
