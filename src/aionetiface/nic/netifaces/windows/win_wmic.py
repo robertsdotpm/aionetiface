@@ -92,7 +92,7 @@ class WMICParse:
     @staticmethod
     def show_con_names(af: Any, msg: str) -> List[Any]:
         """Returns a list of connection name records indexed by interface index."""
-        p = r"\s{0}([0-9]+)\s+([^\r\n]+?) {2,}\s*"
+        p = r"([0-9]+)[ \t]+([^\r\n]+?) {2,}[ \t]*"
         out = re.findall(p, msg)
         results = {}
         for match_group in out:

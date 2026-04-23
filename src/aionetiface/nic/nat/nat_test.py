@@ -51,7 +51,7 @@ from .nat_defs import (
     RESTRICT_PORT_NAT,
     SYMMETRIC_NAT,
 )
-from .nat_utils import delta_test, nat_info
+from .nat_utils import delta_info, delta_test, nat_info
 
 
 # Constants for a NAT test.
@@ -283,9 +283,7 @@ async def nic_load_nat(
 ) -> Tuple[int, Dict[str, Any]]:
     # IPv6 only has no NAT!
     if IP4 not in nic.supported():
-        af = IP6
-        nat = nat_info(SYMMETRIC_NAT, RANDOM_DELTA)
-        return nic.set_nat(nat)
+        return SYMMETRIC_NAT, delta_info(RANDOM_DELTA, 0)
     af = IP4
 
     # Copy random STUN servers to use.
