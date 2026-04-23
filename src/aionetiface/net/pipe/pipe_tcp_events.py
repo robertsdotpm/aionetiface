@@ -8,8 +8,6 @@ from .pipe_events import PipeEvents
 from .pipe_defs import TYPE_TCP_CLIENT, aionetiface_fds
 
 
-PY_13_OR_LATER = sys.version_info >= (3, 13)
-
 """
 StreamReaderProtocol provides a way to "translate" between
 Protocol and StreamReader. Mostly we're interested in having
@@ -25,20 +23,16 @@ class TCPClientProtocol(asyncio.StreamReaderProtocol):
     def __init__(
         self, stream_reader: Any, pipe_events: Any, loop: Any, conf: Optional[Any] = None
     ) -> None:
-        if PY_13_OR_LATER:
-            super().__init__(stream_reader)
-        else:
-            # Keep the old 3.5–3.12 set_streams hack
-            def set_streams(_reader, _writer):
-                if not hasattr(self, "_stream_reader"):
-                    self._stream_reader = _reader
+        def set_streams(_reader, _writer):
+            if not hasattr(self, "_stream_reader"):
+                self._stream_reader = _reader
 
-                if not hasattr(self, "_stream_writer"):
-                    self._stream_writer = _writer
+            if not hasattr(self, "_stream_writer"):
+                self._stream_writer = _writer
 
-                return 1
+            return 1
 
-            super().__init__(stream_reader, set_streams, loop=loop)
+        super().__init__(stream_reader, set_streams, loop=loop)
 
         # PipeEvents is created once before create_tcp_server -- but
         # it's not used as an event-driven protocol class directly.
@@ -73,11 +67,6 @@ class TCPClientProtocol(asyncio.StreamReaderProtocol):
 
     def connection_made(self, transport: Any) -> None:
         """Set up the client PipeEvents, register it with the server, and wire up the stream writer."""
-        if PY_13_OR_LATER:
-            # In 3.13 StreamWriter.__init__ dropped the loop parameter.
-            writer = asyncio.StreamWriter(transport, self, self._stream_reader)
-            self._stream_writer = writer
-
         # Wrap this connection in a BaseProto object.
         self.transport = transport
         self.sock = transport.get_extra_info("socket")
@@ -105,7 +94,6 @@ class TCPClientProtocol(asyncio.StreamReaderProtocol):
         self.client_events.end_cbs = self.pipe_events.end_cbs
         self.client_events.up_cbs = self.pipe_events.up_cbs
         self.client_events.connection_made(transport)
-        self.client_events._stream_writer = self._stream_writer
 
         # Record destination.
         self.client_events.stream.set_dest_tup(self.remote_tup)
@@ -113,8 +101,10 @@ class TCPClientProtocol(asyncio.StreamReaderProtocol):
         # Record instance to allow cleanup in server.
         self.pipe_events.add_tcp_client(self.client_events)
 
-        # Setup handle for writing.
+        # Setup handle for writing. _stream_writer is set by super().connection_made() on all
+        # Python versions (3.12 sets it directly; 3.13+ goes through the set_streams callback).
         super().connection_made(transport)
+        self.client_events._stream_writer = self._stream_writer
         self.client_events.stream.set_handle(
             self._stream_writer,
             # Index writers by peer connection.
