@@ -185,10 +185,20 @@ async def if_infos_from_wmic() -> List[Dict[str, Any]]:
         _, k, v = result
         by_name[k] = v
 
+    # Build MAC -> route-print interface index map.
+    # 'route print' uses the same index that Windows embeds in IPv6 link-local
+    # scope IDs (the %N suffix). WMIC nicconfig Index can differ on older
+    # Windows versions (Vista, Win7), causing bind() to fail with WinError 10049.
+    mac_to_route_idx = {}
+    for idx_str, route_info in by_name["routes"].items():
+        if idx_str == "default":
+            continue
+        mac_to_route_idx[route_info["mac"]] = int(idx_str)
+
     # Consolidate everything into main.
     ret = []
     for entry in by_name["main"]:
-        # Special index for NICs.
+        # Special index for NICs — use WMIC index for con_names lookup.
         if_index = str(entry["no"])
 
         # Skip inactive connections.
@@ -198,6 +208,12 @@ async def if_infos_from_wmic() -> List[Dict[str, Any]]:
         # Record con_name for an if.
         con_name = by_name["con_names"][if_index]["con_name"]
         entry["con_name"] = con_name
+
+        # Overwrite 'no' with the route-print index so that IPv6 scope IDs
+        # embedded in socket bind tuples match the %N shown in ipconfig /all.
+        entry_mac = entry["mac"].lower().replace(":", "-").replace(" ", "-")
+        if entry_mac in mac_to_route_idx:
+            entry["no"] = mac_to_route_idx[entry_mac]
 
         # Fill in default gateway defaults.
         defaults = []
