@@ -1,5 +1,6 @@
 """asyncio helpers: task scheduling, gather/retry, executor wrappers."""
 import asyncio
+import concurrent.futures
 import functools
 import inspect
 import random
@@ -325,6 +326,38 @@ def run_handlers(
 # ---------------------------------------------------------------------------
 
 
+def submit_to_executor(fn, loop):
+    """Submit fn to a thread-pool and return an awaitable asyncio Future.
+
+    Python 3.5.0 is missing asyncio.futures._chain_future, which
+    loop.run_in_executor() relies on internally via wrap_future. For that
+    version we manually wire the concurrent.futures.Future to an asyncio
+    Future using call_soon_threadsafe so the bridge never touches _chain_future.
+    """
+    if sys.version_info >= (3, 5, 1):
+        return loop.run_in_executor(None, fn)
+
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    cf = pool.submit(fn)
+    af = asyncio.Future(loop=loop)
+
+    def on_done(future):
+        if af.cancelled():
+            return
+        try:
+            exc = future.exception()
+        except concurrent.futures.CancelledError:
+            loop.call_soon_threadsafe(af.cancel)
+            return
+        if exc is not None:
+            loop.call_soon_threadsafe(af.set_exception, exc)
+        else:
+            loop.call_soon_threadsafe(af.set_result, future.result())
+
+    cf.add_done_callback(on_done)
+    return af
+
+
 def run_in_executor(f: Callable[..., Any]) -> Callable[..., Any]:
     """
     Decorator that runs f in a thread-pool executor.
@@ -339,7 +372,7 @@ def run_in_executor(f: Callable[..., Any]) -> Callable[..., Any]:
         loop = get_running_loop()
 
         if not inspect.iscoroutinefunction(f):
-            return loop.run_in_executor(None, lambda: f(*args, **kwargs))
+            return submit_to_executor(lambda: f(*args, **kwargs), loop)
 
         def helper():
             """Run the async function f in a fresh event loop and return its result."""
@@ -350,7 +383,7 @@ def run_in_executor(f: Callable[..., Any]) -> Callable[..., Any]:
             finally:
                 new_loop.close()
 
-        return loop.run_in_executor(None, helper)
+        return submit_to_executor(helper, loop)
 
     return inner
 
@@ -367,7 +400,7 @@ def run_in_executor2(f: Callable[..., Any]) -> Callable[..., Any]:
         loop = asyncio.get_event_loop()
         if inspect.iscoroutinefunction(f):
             return loop.create_task(f(*args, **kwargs))
-        return loop.run_in_executor(None, lambda: f(*args, **kwargs))
+        return submit_to_executor(lambda: f(*args, **kwargs), loop)
 
     return inner
 
