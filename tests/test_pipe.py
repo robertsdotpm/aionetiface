@@ -110,6 +110,12 @@ class TestPipe(unittest.IsolatedAsyncioTestCase):
         # Connect to server and teardown connection.
         cs.connect(dest)
         cs.send(b"test")
+
+        # On Windows IOCP, AcceptEx is still pending when the three sync calls
+        # run back-to-back. Yield to the event loop so the accept completes and
+        # connection_made fires before the RST is sent.
+        await asyncio.sleep(0.1)
+
         cs.close()
 
         # Check connection_lost was called.
