@@ -524,7 +524,9 @@ class Netifaces:
         vmaj, vmin, vpatch = [int(x) for x in platform.version().split(".")]
 
         # Add powershell first if its a recent OS.
-        if (vmaj == 8 and vmin >= 1) or (vmaj > 8):
+        # platform.version() returns the NT kernel version, not the marketing version.
+        # Win8.1/Server2012R2 = 6.3.x, Win10/11/Server2016+ = 10.0.x
+        if (vmaj == 6 and vmin >= 3) or vmaj >= 10:
             vectors = [
                 # Powershell can do everything in one command but
                 # the 'cmdlets' are only on Windows >= 8.1.
