@@ -41,3 +41,11 @@ The two warnings from the `net/asyncio/` files (`selectors.SelectSelector`, `typ
 Some methods and module-level names predate the no-leading-underscore convention and cannot be renamed because external code already calls them by their `_foo` names. These are **grandfathered** — do not rename them and do not add new ones:
 
 - All names in `net/asyncio/`
+
+## Running tests
+
+Use Python 3.5 from pyenv to run the test suite so breakage on the minimum supported version is caught immediately:
+
+```sh
+~/.pyenv/versions/3.5.10/bin/python -m pytest tests/ -q
+```
