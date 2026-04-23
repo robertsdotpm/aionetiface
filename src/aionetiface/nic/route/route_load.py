@@ -205,6 +205,15 @@ async def discover_nic_wan_ips(
     if enable_default:
         dest = "8.8.8.8" if af == IP4 else "2001:4860:4860::8888"
         af_default_nic_ip = ip_norm(determine_if_path(af, dest))
+        # When the machine has multiple NICs each with a default gateway, the
+        # OS may prefer a different NIC's address for routing to the internet.
+        # If the preferred path exits via a different NIC, this interface is not
+        # the actual egress point, so the default-route optimisation does not
+        # apply.  Disable it here so that the private-IP STUN task below is
+        # queued and this NIC's WAN address can still be discovered.
+        if af_default_nic_ip and IPRange(af_default_nic_ip) not in nic_iprs:
+            enable_default = False
+            af_default_nic_ip = ""
 
     # If af_default_nic_ip is in pub_iprs, move it to the front so that
     # group_pub_iprs_by_subnet picks it as the head of its subnet group.

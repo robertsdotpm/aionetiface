@@ -253,7 +253,7 @@ class Daemon:
         # No proc_lock is created because OS-chosen ports never conflict.
         if not bind_port:
             try:
-                _, port = pipe.sock.getsockname()
+                port = pipe.sock.getsockname()[1]
             except OSError:
                 log_exception()
                 raise
