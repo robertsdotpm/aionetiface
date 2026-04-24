@@ -1,5 +1,5 @@
 from aionetiface import *
-from conftest import xdist_port_base
+from port_helpers import xdist_port_base
 
 
 class TestRUDP(unittest.IsolatedAsyncioTestCase):

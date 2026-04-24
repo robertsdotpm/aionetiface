@@ -67,6 +67,14 @@ class ProxySelector:
 class CustomEventLoop(asyncio.SelectorEventLoop):
     """Event loop that uses the ProxySelector."""
 
+    def create_future(self) -> Any:
+        # loop.create_future() was added in Python 3.5.1; 3.5.0 lacks it.
+        # On 3.5.1+ the super() call goes to BaseEventLoop.create_future().
+        try:
+            return super(CustomEventLoop, self).create_future()
+        except AttributeError:
+            return asyncio.Future(loop=self)
+
     def __init__(self, selector: Optional[Any] = None) -> None:
         # Determine the default selector class if none is provided
         if selector is None:

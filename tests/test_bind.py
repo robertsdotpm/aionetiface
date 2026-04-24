@@ -11,7 +11,7 @@ without breaking it.
 
 from typing import Any
 from aionetiface import *
-from conftest import xdist_port_base
+from port_helpers import xdist_port_base
 
 
 class TestBind(unittest.IsolatedAsyncioTestCase):
