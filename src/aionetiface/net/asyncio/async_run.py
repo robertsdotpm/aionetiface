@@ -56,6 +56,11 @@ def async_run(main: Any, *, debug: bool = False) -> Any:
     It should be used as a main entry point for asyncio programs, and should
     ideally only be called once.
     """
+    # Deferred import avoids circular dependency (entrypoint imports async_run at
+    # module load time); by the time async_run() is called both modules are loaded.
+    from ...entrypoint import aionetiface_setup_event_loop
+    aionetiface_setup_event_loop()
+
     if events._get_running_loop() is not None:
         raise RuntimeError("asyncio.run() cannot be called from a running event loop")
 
