@@ -335,22 +335,20 @@ class Pipe:
             self.pipe_events.add_msg_cb(msg_cb)
 
         # UDP / RUDP setup
-        major, minor = sys.version_info[:2]
         if self.proto in (UDP, RUDP):
             # Create a new protocol-based datagram transport.
             """
-            On old Python versions on Windows with ProactorEventLoop,
-            asyncio's default UDP transport does not work. Use
-            a fallback implementation instead.
+            On Windows with ProactorEventLoop, asyncio's default UDP
+            transport does not work reliably across Python versions.
+            Use the polling fallback for all Python versions on Windows.
             """
-            old_python = (major, minor) < (3, 12)
             on_windows = sys.platform == "win32"
             if hasattr(asyncio, "ProactorEventLoop"):
                 with_proactor = isinstance(loop, asyncio.ProactorEventLoop)
             else:
                 with_proactor = False
 
-            if old_python and on_windows and with_proactor:
+            if on_windows and with_proactor:
                 if not hasattr(loop, "udp_poller"):
                     udp_poller = UdpPoller(loop)
                     loop.udp_poller = udp_poller
