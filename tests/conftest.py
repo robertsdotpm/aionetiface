@@ -1,8 +1,13 @@
 """Test configuration for aionetiface test suite."""
+import os
 import sys
 import unittest
 
 import pytest
+
+# Ensure the tests directory is on sys.path so port_helpers is importable
+# by test files even in old pytest / pytest-xdist worker processes.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from aionetiface import aionetiface_setup_event_loop
 from aionetiface.testing import AsyncTestCase, allow_windows_firewall, remove_windows_firewall
