@@ -3,8 +3,7 @@ aionetiface.testing — shared test utilities for aionetiface and dependent repo
 
 Provides:
   AsyncTestCase           — IsolatedAsyncioTestCase backport for Python 3.5+
-                            with ProactorEventLoop fix for Windows < 3.8 and
-                            asyncio.all_tasks compat for Python < 3.7.
+                            with asyncio.all_tasks compat for Python < 3.7.
   FakeInterface           — interface stub presenting a single specific IP,
                             wrapping real route metadata for bind/connect ops.
   FakeInterfaceFactory    — builds a pool of FakeInterface objects from live
@@ -113,15 +112,6 @@ def remove_windows_firewall(rule_name):
 # AsyncTestCase — IsolatedAsyncioTestCase backport
 # ─────────────────────────────────────────────────────────────
 
-if sys.platform == "win32" and sys.version_info < (3, 8):
-    if hasattr(asyncio, "WindowsProactorEventLoopPolicy"):
-        # Python 3.7: set via policy so new_event_loop() also returns ProactorEventLoop
-        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-    elif hasattr(asyncio, "ProactorEventLoop"):
-        # Python 3.5/3.6: policy API not available; set the current loop directly
-        asyncio.set_event_loop(asyncio.ProactorEventLoop())
-
-
 def get_pending_tasks(loop):
     """Return pending asyncio tasks for loop, compatible with Python 3.5+."""
     if sys.version_info >= (3, 7):
@@ -142,12 +132,7 @@ else:
         """
 
         def call_async(self, coro):
-            if (sys.platform == "win32"
-                    and sys.version_info < (3, 7)
-                    and hasattr(asyncio, "ProactorEventLoop")):
-                loop = asyncio.ProactorEventLoop()
-            else:
-                loop = asyncio.new_event_loop()
+            loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
                 return loop.run_until_complete(coro)

@@ -28,6 +28,26 @@ Never remove or comment out `print()` calls. They are intentional debugging and 
 - At network/IO boundaries, catch specific exceptions (`OSError`, `ConnectionError`, `asyncio.TimeoutError`) rather than broad `Exception` sweeps.
 - Pick one error idiom per function: either return a sentinel value or raise — not both.
 
+## Event loop — CustomEventLoop everywhere
+
+Always use `CustomEventLoop` (defined in `net/asyncio/event_loop.py`) on all platforms including Windows. It extends `asyncio.SelectorEventLoop` and installs a `ProxySelector` that signals socket-close futures.
+
+**Never set `ProactorEventLoop` or `WindowsProactorEventLoopPolicy`.** ProactorEventLoop is not needed:
+
+- **UDP on Windows**: handled by `PolledDatagramTransport` in `net/pipe/pipe.py`, which works with any loop type.
+- **`asyncio.create_subprocess_shell` on Windows**: raises `NotImplementedError` on SelectorEventLoop, but `cmd()` in `utility/cmd_tools.py` already catches that and falls back to `subprocess.run` in a thread executor.
+- **No Windows named pipes or other Proactor-specific IPC** is used anywhere in the codebase.
+
+The entry point is `aionetiface_setup_event_loop()` in `entrypoint.py`, which installs `CustomEventLoopPolicy` globally. Call it once at process startup (tests do this in `conftest.py`). Do not call it at module import time.
+
+## Multiprocessing start method — spawn
+
+`aionetiface_setup_event_loop()` sets the multiprocessing start method to `"spawn"` (not `"fork"`). This is intentional and must not be changed:
+
+- `"fork"` copies the parent's open sockets and event-loop state into the child, which causes subtle corruption when the child creates its own event loop — especially on Windows where fork isn't available at all.
+- `"spawn"` starts a clean interpreter with no inherited file descriptors or loop state, matching the behaviour you get on Windows and macOS by default.
+- All platforms in the test matrix (Windows XP–11, Linux, macOS, FreeBSD, Android) support `"spawn"`.
+
 ## Pyflakes false positives in re-export hubs
 
 `do_imports.py` and `__init__.py` are intentional re-export hubs: they import everything from submodules solely to make those names available on the top-level `aionetiface` namespace. Pyflakes cannot distinguish "imported to re-export" from "imported but unused" unless the hub defines a comprehensive `__all__`.
