@@ -449,8 +449,13 @@ class PipeEvents(BaseACKProto):
                 await asyncio.sleep(0)
 
             # Await close if it's possible to do so.
+            # Use wait_for so UDP transports (not registered with the selector)
+            # don't hang here forever — pipe_utils.py uses the same pattern.
             if on_close:
-                await on_close
+                try:
+                    await asyncio.wait_for(on_close, timeout=2.0)
+                except asyncio.TimeoutError:
+                    pass
 
         """
         If it's a TCP server close TCP client cons.
