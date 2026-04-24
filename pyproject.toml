@@ -32,7 +32,6 @@ dependencies = [
     "ecdsa>=0.18",
     "netifaces>=0.11; platform_system != 'Windows'",
     "pyroute2>=0.7; platform_system == 'Linux'",
-    "winregistry>=1.1; platform_system == 'Windows'",
 ]
 
 [project.urls]
