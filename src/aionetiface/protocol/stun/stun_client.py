@@ -115,8 +115,14 @@ class STUNClient:
         """Send a STUN binding request with optional attributes and return the parsed reply."""
         if attrs is None:
             attrs = []
+        caller_pipe = pipe
         pipe = await self._get_dest_pipe(pipe)
-        return await get_stun_reply(self.mode, self.dest, self.dest, pipe, attrs)
+        try:
+            return await get_stun_reply(self.mode, self.dest, self.dest, pipe, attrs)
+        except Exception:
+            if caller_pipe is None and pipe is not None:
+                await pipe.close()
+            raise
 
     # Use a different port for the reply.
     async def get_change_port_reply(

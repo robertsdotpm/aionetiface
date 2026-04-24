@@ -16,6 +16,7 @@ class PolledDatagramTransport:
         self.sock = sock
         self.protocol = protocol
         self.closing = False
+        self.consecutive_errors = 0
 
         self.sock.setblocking(False)
         protocol.connection_made(self)
@@ -28,11 +29,19 @@ class PolledDatagramTransport:
         try:
             while True:
                 data, addr = self.sock.recvfrom(65536)
+                self.consecutive_errors = 0
                 self.protocol.datagram_received(data, addr)
         except BlockingIOError:
-            pass
+            self.consecutive_errors = 0
         except OSError as e:
+            self.consecutive_errors += 1
             self.protocol.error_received(e)
+            # A socket that errors on every recv is permanently broken (e.g.
+            # WSAECONNRESET on every call for a dead IPv6 UDP socket on
+            # Windows 3.8.6).  Close it so poll_loop stops and the event
+            # loop can clean up without waiting for a 60-second test timeout.
+            if self.consecutive_errors >= 10:
+                self.close()
 
     def sendto(self, data: bytes, addr: Optional[Any] = None) -> None:
         """Send a datagram to addr (or the connected remote if addr is None)."""
@@ -53,8 +62,18 @@ class PolledDatagramTransport:
         if self.closing:
             return
         self.closing = True
+        fd = self.sock.fileno()
         self.sock.close()
         self.protocol.connection_lost(None)
+        # PolledDatagramTransport sockets are never registered with the selector,
+        # so ProxySelector.unregister never fires and CLOSE_FUTURES entries for
+        # this fd would never resolve. Signal them manually here.
+        if fd != -1:
+            from .event_loop import CLOSE_FUTURES
+            entries = CLOSE_FUTURES.pop(fd, [])
+            for sock_id, fut in entries:
+                if not fut.done():
+                    self.loop.call_soon(fut.set_result, True)
 
     def is_closing(self) -> bool:
         """Return True if this transport has been closed or is in the process of closing."""

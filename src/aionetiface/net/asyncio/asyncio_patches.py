@@ -11,6 +11,7 @@ import sys
 import stat
 import select
 import errno
+import time
 
 
 from selectors import SelectSelector  # noqa: F401
@@ -32,15 +33,34 @@ def patched_select_modern(
     - Unix: bad file descriptor (errno 9)
     - Interrupted system calls (errno.EINTR)
     """
-    # On Windows, select.select with timeout=None blocks indefinitely inside
-    # a C extension call.  Python cannot deliver async exceptions (e.g. from
-    # pytest-timeout's ctypes.PyThreadState_SetAsyncExc) until the C call
-    # returns, so a None timeout causes an uninterruptible hang.  Cap at 1 s
-    # so the interpreter loop stays reachable and async exceptions are
-    # delivered promptly.  On Unix, select is interruptible via signals so
-    # this cap is not needed there.
-    if sys.platform == "win32" and (timeout is None or timeout > 1.0):
-        timeout = 1.0
+    if sys.platform == "win32":
+        # Cap long/infinite waits so pytest-timeout's async exceptions are
+        # delivered promptly.
+        if timeout is None or timeout > 1.0:
+            timeout = 1.0
+        # Python 3.8.x on Windows has a bug where select.select() hangs
+        # indefinitely despite a non-zero timeout when certain socket
+        # configurations are active (e.g. an IPv6 UDP socket exists anywhere
+        # in the process).  The zero-timeout poll is a non-blocking WinSock
+        # check and never hangs, so we implement the wait ourselves.
+        deadline = time.monotonic() + timeout
+        while True:
+            try:
+                rr, ww, xx = select.select(r, w, x, 0)
+                if rr or ww or xx:
+                    return rr, ww, xx
+            except OSError as e:
+                if getattr(e, "winerror", None) == 10038:
+                    return [], [], []
+                if getattr(e, "errno", None) == 9:
+                    return [], [], []
+                if getattr(e, "errno", None) == errno.EINTR:
+                    return [], [], []
+                raise
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return [], [], []
+            time.sleep(min(0.005, remaining))
     try:
         return select.select(r, w, x, timeout)
     except OSError as e:
