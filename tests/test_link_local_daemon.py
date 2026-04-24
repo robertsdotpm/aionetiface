@@ -17,9 +17,10 @@ Run with:
 
 from typing import Any
 from aionetiface import *
+from conftest import xdist_port_base
 
 
-BASE_PORT = 34600
+BASE_PORT = xdist_port_base(34600)
 MSG = b"link-local scope test"
 
 

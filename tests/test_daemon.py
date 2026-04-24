@@ -1,5 +1,6 @@
 from typing import Any
 from aionetiface import *
+from conftest import xdist_port_base
 
 
 class TestDaemon(unittest.IsolatedAsyncioTestCase):
@@ -8,7 +9,7 @@ class TestDaemon(unittest.IsolatedAsyncioTestCase):
         print(loop)
 
         protos = (TCP, UDP)
-        server_port = 34200
+        server_port = xdist_port_base(34200)
         loopbacks = {IP4: "127.0.0.1", IP6: "::1"}
 
         at_least_one = False

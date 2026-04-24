@@ -1,11 +1,12 @@
 from aionetiface import *
+from conftest import xdist_port_base
 
 
 class TestRUDP(unittest.IsolatedAsyncioTestCase):
     async def test_rudp(self):
         i = await Interface()
         af = i.supported()[0]
-        port = 40000
+        port = xdist_port_base(40000)
         r = await i.route(af).bind(port)
         dest_tup = (r.nic(), port)
         dest = dest_tup

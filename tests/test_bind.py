@@ -11,6 +11,7 @@ without breaking it.
 
 from typing import Any
 from aionetiface import *
+from conftest import xdist_port_base
 
 
 class TestBind(unittest.IsolatedAsyncioTestCase):
@@ -199,8 +200,8 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
             # If not supported.
             return
 
-        route = await i.route(af).bind(13453, "*")
-        bind_tup = ("0.0.0.0", 13453)
+        route = await i.route(af).bind(xdist_port_base(13453, stride=100), "*")
+        bind_tup = ("0.0.0.0", xdist_port_base(13453, stride=100))
         self.assertEqual(route._bind_tups, bind_tup)
         s = await socket_factory(route)
         self.assertTrue(s is not None)
@@ -211,10 +212,10 @@ class TestBind(unittest.IsolatedAsyncioTestCase):
         i = await Interface()
         try:
             af = IP6
-            route = await i.route(af).bind(13453, "*")
+            route = await i.route(af).bind(xdist_port_base(13453, stride=100), "*")
             bind_tup = (
                 "::",
-                13453,
+                xdist_port_base(13453, stride=100),
                 # NIC no and scope ID stuff from getaddrinfo.
                 route._bind_tups[EXT_BIND][2],
                 route._bind_tups[EXT_BIND][3],
