@@ -71,9 +71,9 @@ async def aionetiface_setup_netifaces() -> Any:
 
             # Set destination based on address family.
             if af == IP4:
-                dest = ("8.8.8.8", 60000)
+                dest = ("158.69.27.176", 60000)
             else:
-                dest = ("2001:4860:4860::8888", 60000)
+                dest = ("2607:5300:0060:80b0:0000:0000:0000:0001", 60000)
 
             # Build new UDP socket.
             sock = socket.socket(family=af, type=socket.SOCK_DGRAM)

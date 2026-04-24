@@ -15,7 +15,7 @@ class TestAFsWork(unittest.IsolatedAsyncioTestCase):
         # List of public echo servers.
         addr = {
             UDP: {
-                IP4: {"host": "52.43.121.77", "port": 10001},
+                IP4: {"host": "ovh1.p2pd.net", "port": 10001},
                 # TODO: Find IPv6 UDP public echo server.
             },
             TCP: {

@@ -19,13 +19,13 @@ class TestStunClient(unittest.IsolatedAsyncioTestCase):
         i = await Interface("default")
         print(i)
 
-        dest = ("52.24.174.49", 3478)
+        dest = ("ovh1.p2pd.net", 3478)
         s = STUNClient(IP4, dest, i, mode=RFC5389)
         out = await s.get_wan_ip()
         print(out)
         return
 
-        ctup = ("3.135.212.85", 3479)
+        ctup = ("ovh1.p2pd.net", 3479)
         # out = await s.get_change_port_reply(ctup, p)
         # print(out)
 

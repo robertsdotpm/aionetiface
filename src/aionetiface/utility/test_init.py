@@ -36,7 +36,7 @@ from ..install import *
 # on that historical behaviour, so adding an explicit __all__ would break them.
 
 
-aionetiface_NET_ADDR_BYTES = b"0,3-[0,149.56.128.148,149.56.128.148,10001,1,1,0]-[0,2607:5300:0201:3100:0000:0000:0000:8d2f,fe80:0000:0000:0000:f816:3eff:feae:b2d9,10001,1,1,0]-aionetiface_test_node"
+aionetiface_NET_ADDR_BYTES = b"0,3-[0,158.69.27.176,158.69.27.176,10001,1,1,0]-[0,2607:5300:0060:80b0:0000:0000:0000:0001,fe80:0000:0000:0000:f816:3eff:feae:b2d9,10001,1,1,0]-aionetiface_test_node"
 
 # Only load the test interface on the right machine.
 # Otherwise the name (probably) won't exist.

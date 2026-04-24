@@ -203,7 +203,7 @@ async def discover_nic_wan_ips(
     host_limit = 0
     af_default_nic_ip = ""
     if enable_default:
-        dest = "8.8.8.8" if af == IP4 else "2001:4860:4860::8888"
+        dest = "158.69.27.176" if af == IP4 else "2607:5300:0060:80b0:0000:0000:0000:0001"
         af_default_nic_ip = ip_norm(determine_if_path(af, dest))
         # When the machine has multiple NICs each with a default gateway, the
         # OS may prefer a different NIC's address for routing to the internet.

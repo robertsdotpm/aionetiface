@@ -10,8 +10,7 @@ Demonstrates that change attribute replies through STUN RFC 5389 aren't supporte
 async def main() -> None:
     nic = await Interface()
 
-    # Google STUN server
-    dest = ("74.125.192.127", 19302)
+    dest = ("ovh1.p2pd.net", 3478)
     route = nic.route(IP4)
     pipe = await Pipe(UDP, route=route).connect()
     stun_client = STUNClient(

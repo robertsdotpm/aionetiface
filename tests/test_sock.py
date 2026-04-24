@@ -32,8 +32,8 @@ class TestSock(unittest.IsolatedAsyncioTestCase):
         i = await Interface()
         af = i.supported()[0]
         r = await i.route(af).bind(0)
-        d = ("8.8.8.8", 53)
-        dest = Address("8.8.8.8", 53)
+        d = ("ovh1.p2pd.net", 3478)
+        dest = Address("ovh1.p2pd.net", 3478)
         await dest.res(r)
         dest = dest.select_ip(IP4)
         s = await socket_factory(route=r, dest_addr=dest, sock_type=TCP, conf=NET_CONF)
