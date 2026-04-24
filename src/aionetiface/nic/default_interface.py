@@ -16,7 +16,7 @@ from .nat.nat_utils import nat_info
 
 def get_default_routes(nic: Any) -> Dict[int, Any]:
     """Probe the OS routing table via UDP connect and return a dict of {af: Route} for reachable families."""
-    dests = {IP4: "158.69.27.176", IP6: "2607:5300:0060:80b0:0000:0000:0000:0001"}
+    dests = {IP4: "8.8.8.8", IP6: "2001:4860:4860::8888"}
 
     routes = {}
     for af in (

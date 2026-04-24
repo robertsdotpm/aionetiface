@@ -14,8 +14,8 @@ def load_if_info_fallback(nic: Any) -> None:
 
     # Get IP of default route.
     ips = {
-        IP4: "158.69.27.176",
-        IP6: "2607:5300:0060:80b0:0000:0000:0000:0001",
+        IP4: "8.8.8.8",
+        IP6: "2404:6800:4015:803::200e",
     }
 
     # Build a table of default interface IPs based on con success.
@@ -23,7 +23,7 @@ def load_if_info_fallback(nic: Any) -> None:
     if_addrs = {}
     for af in VALID_AFS:
         try:
-            s = socket.create_connection((ips[af], 3478))
+            s = socket.create_connection((ips[af], 80))
             if_addrs[s.family] = s.getsockname()[0][:]
             s.close()
         except OSError:
