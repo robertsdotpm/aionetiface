@@ -343,12 +343,8 @@ class Pipe:
             Use the polling fallback for all Python versions on Windows.
             """
             on_windows = sys.platform == "win32"
-            if hasattr(asyncio, "ProactorEventLoop"):
-                with_proactor = isinstance(loop, asyncio.ProactorEventLoop)
-            else:
-                with_proactor = False
 
-            if on_windows and with_proactor:
+            if on_windows:
                 if not hasattr(loop, "udp_poller"):
                     udp_poller = UdpPoller(loop)
                     loop.udp_poller = udp_poller
