@@ -289,6 +289,22 @@ async def if_infos_from_wmic() -> List[Dict[str, Any]]:
         entry["defaults"] = defaults
         ret.append(entry)
 
+    # Fallback: if route print returned no usable default route (e.g., partial
+    # output on a slow/old machine under load), use WMIC's own DefaultIPGateway
+    # field to determine which NIC is the default for each AF.
+    any_defaults = any(e["defaults"] for e in ret)
+    if not any_defaults:
+        for af in [IP4, IP6]:
+            route_default = by_name["routes"]["default"].get(af)
+            for entry in ret:
+                if entry["gws"][af] is None:
+                    continue
+                # If route print has a gateway, verify it matches this NIC's WMIC gateway.
+                if route_default is not None and entry["gws"][af] != route_default.get("gw_ip"):
+                    continue
+                entry["defaults"].append(af)
+                break
+
     # On Windows XP, WMIC nicconfig does not include IPv6 addresses.
     # Supplement any NIC that has no IPv6 addresses from netsh, which also
     # gives us the correct IPv6 scope ID to store in entry["no"].
