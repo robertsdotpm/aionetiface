@@ -71,7 +71,7 @@ class PolledDatagramTransport:
         if fd != -1:
             from .event_loop import CLOSE_FUTURES
             entries = CLOSE_FUTURES.pop(fd, [])
-            for sock_id, fut in entries:
+            for _, fut in entries:
                 if not fut.done():
                     self.loop.call_soon(fut.set_result, True)
 
