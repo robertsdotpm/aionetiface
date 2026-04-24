@@ -86,7 +86,7 @@ class TestDaemon(unittest.IsolatedAsyncioTestCase):
                         send_ret = await pipe.send(msg, dest)
 
                         # Receive data back.
-                        data = await pipe.recv(SUB_ALL)
+                        data = await asyncio.wait_for(pipe.recv(SUB_ALL), timeout=10)
                         self.assertEqual(data, msg)
 
                         # Test accept() await.
@@ -96,7 +96,7 @@ class TestDaemon(unittest.IsolatedAsyncioTestCase):
                         self.assertTrue(client_pipe is not None)
                         client_pipe.subscribe(SUB_ALL)
                         await pipe.send(msg, dest)
-                        data = await client_pipe.recv(SUB_ALL)
+                        data = await asyncio.wait_for(client_pipe.recv(SUB_ALL), timeout=10)
                         self.assertEqual(data, msg)
                         print(proto, dest, "works")
                     finally:

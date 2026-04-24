@@ -79,6 +79,8 @@ class UdpPoller:
     def register(self, transport: Any) -> None:
         """Add a PolledDatagramTransport to the set of sockets to be polled."""
         self.sockets.append(transport)
+        if self.task is None or self.task.done():
+            self.task = self.loop.create_task(self.poll_loop())
 
     def close(self) -> None:
         """Schedule cancellation of the polling task (non-blocking)."""
@@ -96,9 +98,8 @@ class UdpPoller:
             self.task = None
 
     async def poll_loop(self) -> None:
-        """Run continuously, polling each registered transport at the configured interval."""
-        while True:
-            # Remove closed transports to avoid accumulation.
+        """Poll registered transports until all are closed or task is cancelled."""
+        while self.sockets:
             self.sockets = [t for t in self.sockets if not t.is_closing()]
             for transport in self.sockets:
                 transport.poll()
