@@ -535,10 +535,10 @@ class Netifaces:
             ] + vectors
 
         # Try different funcs to load IF info.
+        if_infos = []
         for load_if_info in vectors:
             try:
                 if_infos = await asyncio.wait_for(load_if_info(), CMD_TIMEOUT)
-
                 if not len(if_infos):
                     continue
 
