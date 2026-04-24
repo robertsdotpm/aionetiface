@@ -69,6 +69,8 @@ def patched_select_old(
     - Windows: closed socket (winerror 10038)
     - Unix: bad file descriptor (errno 9)
     """
+    if sys.platform == "win32" and (timeout is None or timeout > 1.0):
+        timeout = 1.0
     try:
         r_list, w_list, x_list = select.select(r, w, w, timeout)
     except OSError as e:
