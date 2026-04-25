@@ -6,7 +6,7 @@ Usage:
     python run_tests.py <repo> <python_version> <test_name>
 
     repo           : aionetiface | namebump | sidewire | p2pd
-    python_version : 3.5.10 | 3.8.6 | 3.9.13 | ... | lowest | middle | highest
+    python_version : 3.5.10 | 3.8.6 | 3.9.13 | ... | lowest | middle | highest | random
     test_name      : test_unit | test_pipe | ... | all
 
 Examples:
@@ -20,6 +20,7 @@ import glob
 import multiprocessing
 import os
 import queue
+import random
 import re
 import subprocess
 import sys
@@ -29,7 +30,7 @@ import threading
 # Constants
 # ─────────────────────────────────────────────────────────────────────────────
 
-VERSION = "1.0"
+VERSION = "1.1"
 
 REPO_BRANCHES = {
     "aionetiface": "ai_experiment",
@@ -170,10 +171,10 @@ def list_pyenv_versions():
     return [v for _, v in versioned]
 
 def resolve_python_version(spec):
-    """Resolve 'lowest'/'middle'/'highest'/'system' to an actual version string."""
+    """Resolve 'lowest'/'middle'/'highest'/'random'/'system' to an actual version string."""
     if spec == "system":
         return sys.executable
-    if spec not in ("lowest", "middle", "highest"):
+    if spec not in ("lowest", "middle", "highest", "random"):
         return spec
     available = list_pyenv_versions()
     if not available:
@@ -183,6 +184,8 @@ def resolve_python_version(spec):
         return available[0]
     if spec == "highest":
         return available[-1]
+    if spec == "random":
+        return random.choice(available)
     return available[len(available) // 2]
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -510,10 +513,24 @@ def main():
     print(msg)
     append_log(setup_log, msg)
 
+    # Collect all lines containing "fail" (case-insensitive) from every test
+    # log into a single failed.txt for quick post-run inspection.
+    failed_log = os.path.join(run_dir, "failed.txt")
+    with open(failed_log, "w") as out_fh:
+        for module, path in log_paths:
+            try:
+                with open(path, "r") as fh:
+                    for line in fh:
+                        if "fail" in line.lower():
+                            out_fh.write("[{}] {}\n".format(module, line.rstrip()))
+            except OSError:
+                pass
+
     # Print all log file paths so callers can read them directly.
     print("LOG_FILES_BEGIN")
     print("setup: {}".format(setup_log))
     print("summary: {}".format(summary_log))
+    print("failed: {}".format(failed_log))
     for module, path in log_paths:
         print("{}: {}".format(module, path))
     print("LOG_FILES_END")
