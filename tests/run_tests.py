@@ -30,7 +30,7 @@ import threading
 # Constants
 # ─────────────────────────────────────────────────────────────────────────────
 
-VERSION = "1.2"
+VERSION = "1.3"
 
 REPO_BRANCHES = {
     "aionetiface": "ai_experiment",
@@ -253,6 +253,7 @@ def run_cmd(cmd, cwd=None, log_path=None, timeout=None):
             cwd=cwd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
+            stdin=subprocess.DEVNULL,
             universal_newlines=True,
         )
     except Exception as exc:
