@@ -272,7 +272,11 @@ def setup_repos(python_exe, repo_dirs, setup_log):
         append_log(setup_log, "--- git pull {} ---".format(name))
         run_cmd(["git", "pull"], cwd=d, log_path=setup_log)
 
-    # 3. pip uninstall (reverse dep order)
+    # 3. Ensure wheel is available (required for --no-build-isolation on some Python versions).
+    append_log(setup_log, "--- pip install wheel ---")
+    run_cmd([python_exe, "-m", "pip", "install", "wheel"], log_path=setup_log)
+
+    # 4. pip uninstall (reverse dep order)
     for name in UNINSTALL_ORDER:
         append_log(setup_log, "--- pip uninstall {} ---".format(name))
         run_cmd(
