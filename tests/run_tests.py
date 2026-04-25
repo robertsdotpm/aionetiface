@@ -63,11 +63,15 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 REPO_SEARCH_DIRS = [
     SCRIPT_DIR,
+    os.path.expanduser("~"),
     os.path.expanduser("~/projects"),
     r"C:\Users\x\projects",
     r"C:\Users\matth\projects",
     r"C:\Users\matthew\projects",
     r"C:\Documents and Settings\matthew\projects",
+    r"C:\Documents and Settings\matthew",
+    r"C:\Documents and Settings\x\projects",
+    r"C:\Documents and Settings\x",
     r"C:\Users\Administrator\projects",
     "/home/x/projects",
     "/Users/xx/projects",
@@ -125,6 +129,17 @@ def find_python(version):
     for p in PYTHON_DIRECT:
         if os.path.isfile(p):
             return p
+    # Try system python from PATH (machines without pyenv).
+    for candidate in ("python", "python3"):
+        try:
+            out = subprocess.check_output(
+                [candidate, "--version"],
+                stderr=subprocess.STDOUT,
+            ).decode("utf-8", "replace").strip()
+            if out.startswith("Python 3"):
+                return candidate
+        except (OSError, subprocess.CalledProcessError):
+            pass
     # Last resort: the interpreter running this script.
     return sys.executable
 
@@ -164,7 +179,8 @@ def resolve_python_version(spec):
         return spec
     available = list_pyenv_versions()
     if not available:
-        sys.exit("ERROR: no pyenv Python >= 3.5 found to satisfy '{}'".format(spec))
+        # No pyenv — fall back to C:\py3, PATH python, or sys.executable.
+        return find_python("no_pyenv_fallback")
     if spec == "lowest":
         return available[0]
     if spec == "highest":
@@ -429,7 +445,7 @@ def main():
         # cpu_count of 1 means the value is unreliable (VM exposing fewer
         # vCPUs than the host has).  Tests are I/O-bound so DEFAULT_WORKERS
         # concurrent subprocesses is fine regardless of vCPU count.
-        num_workers = (ncpu - 2) if ncpu > 1 else DEFAULT_WORKERS
+        num_workers = max(1, ncpu - 2) if ncpu > 2 else DEFAULT_WORKERS
     else:
         num_workers = 1
 
