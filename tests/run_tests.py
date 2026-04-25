@@ -357,6 +357,28 @@ def test_worker(python_exe, tests_dir, work_q, results, lock):
         work_q.task_done()
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Orphan cleanup
+# ─────────────────────────────────────────────────────────────────────────────
+
+def kill_orphan_python_processes():
+    """Kill all python.exe processes on Windows except this one."""
+    if sys.platform != "win32":
+        return
+    current_pid = os.getpid()
+    try:
+        subprocess.call(
+            [
+                "taskkill", "/f", "/im", "python.exe",
+                "/fi", "PID ne {}".format(current_pid),
+            ],
+            stdout=open(os.devnull, "w"),
+            stderr=subprocess.STDOUT,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        pass
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -369,6 +391,8 @@ def main():
     parser.add_argument("--workers", type=int, default=0,
                         help="override worker count (default: cpu_count-2)")
     args = parser.parse_args()
+
+    kill_orphan_python_processes()
 
     # Resolve version alias before anything else so the resolved value is used
     # in log filenames, find_python(), and all subsequent logging.
