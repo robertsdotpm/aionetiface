@@ -294,7 +294,7 @@ def setup_repos(python_exe, repo_dirs, setup_log):
         rc, out = run_cmd(
             [
                 python_exe, "-m", "pip", "install",
-                "--no-build-isolation", "--no-deps", "-e", ".",
+                "--no-build-isolation", "-e", ".",
             ],
             cwd=d, log_path=setup_log,
         )
@@ -302,7 +302,7 @@ def setup_repos(python_exe, repo_dirs, setup_log):
         if rc != 0 and "no such option" in out.lower():
             append_log(setup_log, "retrying without --no-build-isolation (old pip)")
             rc, out = run_cmd(
-                [python_exe, "-m", "pip", "install", "--no-deps", "-e", "."],
+                [python_exe, "-m", "pip", "install", "-e", "."],
                 cwd=d, log_path=setup_log,
             )
         if INSTALL_SUCCESS_RE.search(out):
