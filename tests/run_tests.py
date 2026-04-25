@@ -32,7 +32,7 @@ import time
 # Constants
 # ─────────────────────────────────────────────────────────────────────────────
 
-VERSION = "1.8"
+VERSION = "1.9"
 
 REPO_BRANCHES = {
     "aionetiface": "ai_experiment",
@@ -248,14 +248,21 @@ def make_run_dir(repo, version_arg, timestamp):
 # Subprocess runner
 # ─────────────────────────────────────────────────────────────────────────────
 
-def run_cmd(cmd, cwd=None, log_path=None, timeout=None):
+def run_cmd(cmd, cwd=None, log_path=None, timeout=None, env_extra=None):
     """
     Run cmd and capture stdout+stderr.  Append output to log_path if given.
+    env_extra overlays additional env vars onto os.environ for the child.
     Returns (returncode, output_text).
     """
     cmd_str = " ".join(str(c) for c in cmd)
     if log_path:
         append_log(log_path, "$ " + cmd_str)
+
+    if env_extra:
+        merged_env = os.environ.copy()
+        merged_env.update(env_extra)
+    else:
+        merged_env = None
 
     try:
         proc = subprocess.Popen(
@@ -265,6 +272,7 @@ def run_cmd(cmd, cwd=None, log_path=None, timeout=None):
             stderr=subprocess.STDOUT,
             stdin=subprocess.DEVNULL,
             universal_newlines=True,
+            env=merged_env,
         )
     except Exception as exc:
         msg = "[ERROR launching '{}': {}]\n".format(cmd_str, exc)
@@ -515,11 +523,16 @@ def run_single_test(python_exe, tests_dir, module_name, out_path):
     """
     append_log(out_path, "=== START {} ===".format(module_name))
     t0 = time.time()
+    # Tag any aionetiface runtime logs ( log() / log_exception() outputs in
+    # ~/aionetiface/logs/ ) with the test module name so they can be
+    # correlated back to the test that produced them. Without this, logs
+    # are only identifiable by the opaque (pid, tid) suffix.
     rc, _ = run_cmd(
         [python_exe, "-W", "ignore::ResourceWarning", "-m", "unittest", module_name, "-v"],
         cwd=tests_dir,
         log_path=out_path,
         timeout=TEST_TIMEOUT,
+        env_extra={"AIONETIFACE_LOG_TAG": module_name},
     )
     duration = time.time() - t0
     timeout_killed = (rc == -1)
@@ -586,6 +599,26 @@ def test_worker(python_exe, tests_dir, work_q, results, lock):
 # Orphan cleanup
 # ─────────────────────────────────────────────────────────────────────────────
 
+def wipe_aionetiface_logs():
+    """Clear ~/aionetiface/logs at the start of each run.
+
+    Runtime log files (log() / log_exception()) accumulate per (pid, tid)
+    and there's no built-in cleanup. Wiping at startup keeps the dir
+    scannable when triaging a specific run's logs.
+    """
+    logs_dir = os.path.join(os.path.expanduser("~"), "aionetiface", "logs")
+    if not os.path.isdir(logs_dir):
+        return
+    for entry in os.listdir(logs_dir):
+        if not entry.startswith("aionetiface_"):
+            continue
+        path = os.path.join(logs_dir, entry)
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
 def kill_orphan_python_processes():
     """Kill all python.exe processes on Windows except this one."""
     if sys.platform != "win32":
@@ -619,6 +652,7 @@ def main():
     args = parser.parse_args()
 
     kill_orphan_python_processes()
+    wipe_aionetiface_logs()
 
     # Resolve version alias before anything else so the resolved value is used
     # in log filenames, find_python(), and all subsequent logging.
