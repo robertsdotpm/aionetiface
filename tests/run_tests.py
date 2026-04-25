@@ -1,0 +1,414 @@
+#!/usr/bin/env python
+"""
+run_tests.py - cross-platform test runner for the p2pd-family repos.
+
+Usage:
+    python run_tests.py <repo> <python_version> <test_name>
+
+    repo           : aionetiface | namebump | sidewire | p2pd
+    python_version : 3.5.10 | 3.8.6 | 3.9.13 | ...
+    test_name      : test_unit | test_pipe | ... | all
+
+Examples:
+    python run_tests.py p2pd 3.8.6 all
+    python run_tests.py aionetiface 3.5.10 test_pipe
+"""
+
+import argparse
+import datetime
+import glob
+import multiprocessing
+import os
+import queue
+import re
+import subprocess
+import sys
+import threading
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Constants
+# ─────────────────────────────────────────────────────────────────────────────
+
+REPO_BRANCHES = {
+    "aionetiface": "ai_experiment",
+    "p2pd":        "ai_experiment",
+    "namebump":    "main",
+    "sidewire":    "main",
+}
+
+ALL_REPOS       = ["aionetiface", "namebump", "sidewire", "p2pd"]
+UNINSTALL_ORDER = ["p2pd", "namebump", "sidewire", "aionetiface"]
+INSTALL_ORDER   = ["aionetiface", "namebump", "sidewire", "p2pd"]
+
+LOG_DIR       = os.path.join(os.path.expanduser("~"), "aionetiface", "logs")
+PING_INTERVAL = 30   # seconds between ping file updates
+TEST_TIMEOUT  = 300  # 5 minutes per individual test
+
+INSTALL_SUCCESS_RE = re.compile(
+    r"(successfully installed|already satisfied)",
+    re.IGNORECASE,
+)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Search paths — ordered most-common first; script's own parent dir is first
+# so sibling checkouts are found automatically.
+# ─────────────────────────────────────────────────────────────────────────────
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+REPO_SEARCH_DIRS = [
+    SCRIPT_DIR,
+    os.path.expanduser("~/projects"),
+    r"C:\Users\x\projects",
+    r"C:\Users\matth\projects",
+    r"C:\Users\matthew\projects",
+    r"C:\Documents and Settings\matthew\projects",
+    r"C:\Users\Administrator\projects",
+    "/home/x/projects",
+    "/Users/xx/projects",
+    "/data/data/com.termux/files/home/projects",
+    "/root/projects",
+]
+
+PYENV_SEARCH_DIRS = [
+    os.path.join(os.path.expanduser("~"), ".pyenv", "pyenv-win", "versions"),
+    os.path.join(os.path.expanduser("~"), ".pyenv", "versions"),
+    r"C:\Users\x\.pyenv\pyenv-win\versions",
+    r"C:\Users\matth\.pyenv\pyenv-win\versions",
+    r"C:\Users\matthew\.pyenv\pyenv-win\versions",
+    r"C:\Users\Administrator\.pyenv\pyenv-win\versions",
+    "/home/x/.pyenv/versions",
+    "/Users/xx/.pyenv/versions",
+    "/root/.pyenv/versions",
+]
+
+# Non-pyenv Python installations (e.g. Windows XP).
+PYTHON_DIRECT = [
+    r"C:\py3\python.exe",
+]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Path helpers
+# ─────────────────────────────────────────────────────────────────────────────
+
+def sanitize(s):
+    """Strip characters not in [a-zA-Z0-9-_.]."""
+    return re.sub(r"[^a-zA-Z0-9\-_.]", "", s)
+
+def find_repo(name):
+    """Return the directory of repo `name`, or None if not found."""
+    for base in REPO_SEARCH_DIRS:
+        candidate = os.path.join(base, name)
+        if os.path.isdir(os.path.join(candidate, ".git")):
+            return candidate
+    return None
+
+def find_python(version):
+    """Return the path to the Python executable for the given pyenv version."""
+    for base in PYENV_SEARCH_DIRS:
+        for exe in ("python.exe", "python"):
+            p = os.path.join(base, version, exe)
+            if os.path.isfile(p):
+                return p
+    for p in PYTHON_DIRECT:
+        if os.path.isfile(p):
+            return p
+    # Last resort: the interpreter running this script.
+    return sys.executable
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Logging
+# ─────────────────────────────────────────────────────────────────────────────
+
+def now():
+    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+def append_log(path, text):
+    with open(path, "a") as fh:
+        fh.write("[{}] {}\n".format(now(), text))
+
+def make_log_path(repo, version, test_name, subtest, timestamp):
+    name = sanitize("{}-{}-{}-{}-{}".format(repo, version, test_name, subtest, timestamp))
+    return os.path.join(LOG_DIR, name + ".txt")
+
+def make_ping_path(repo, version, test_name, timestamp):
+    name = sanitize("{}-{}-{}-{}-ping".format(repo, version, test_name, timestamp))
+    return os.path.join(LOG_DIR, name + ".txt")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Subprocess runner
+# ─────────────────────────────────────────────────────────────────────────────
+
+def run_cmd(cmd, cwd=None, log_path=None, timeout=None):
+    """
+    Run cmd and capture stdout+stderr.  Append output to log_path if given.
+    Returns (returncode, output_text).
+    """
+    cmd_str = " ".join(str(c) for c in cmd)
+    if log_path:
+        append_log(log_path, "$ " + cmd_str)
+
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            universal_newlines=True,
+        )
+    except Exception as exc:
+        msg = "[ERROR launching '{}': {}]\n".format(cmd_str, exc)
+        if log_path:
+            with open(log_path, "a") as fh:
+                fh.write(msg)
+        return -1, msg
+
+    try:
+        out, _ = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        leftover = proc.communicate()[0] or ""
+        out = leftover + "\n[TIMED OUT after {}s]\n".format(timeout)
+        if log_path:
+            with open(log_path, "a") as fh:
+                fh.write(out)
+        return -1, out
+
+    if log_path:
+        with open(log_path, "a") as fh:
+            fh.write(out)
+    return proc.returncode, out
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Git + install
+# ─────────────────────────────────────────────────────────────────────────────
+
+def setup_repos(python_exe, repo_dirs, setup_log):
+    # 1. git fetch + reset --hard
+    for name in ALL_REPOS:
+        d = repo_dirs.get(name)
+        if not d:
+            append_log(setup_log, "SKIP git reset: {} not found".format(name))
+            continue
+        branch = REPO_BRANCHES.get(name, "main")
+        append_log(setup_log, "--- git reset {} ({}) ---".format(name, branch))
+        run_cmd(["git", "fetch", "origin"], cwd=d, log_path=setup_log)
+        run_cmd(
+            ["git", "reset", "--hard", "origin/{}".format(branch)],
+            cwd=d, log_path=setup_log,
+        )
+
+    # 2. git pull
+    for name in ALL_REPOS:
+        d = repo_dirs.get(name)
+        if not d:
+            continue
+        append_log(setup_log, "--- git pull {} ---".format(name))
+        run_cmd(["git", "pull"], cwd=d, log_path=setup_log)
+
+    # 3. pip uninstall (reverse dep order)
+    for name in UNINSTALL_ORDER:
+        append_log(setup_log, "--- pip uninstall {} ---".format(name))
+        run_cmd(
+            [python_exe, "-m", "pip", "uninstall", "-y", name],
+            log_path=setup_log,
+        )
+
+    # 4. pip install (dep order)
+    for name in INSTALL_ORDER:
+        d = repo_dirs.get(name)
+        if not d:
+            append_log(setup_log, "SKIP install: {} not found".format(name))
+            continue
+        append_log(setup_log, "--- pip install {} ---".format(name))
+        rc, out = run_cmd(
+            [
+                python_exe, "-m", "pip", "install",
+                "--no-build-isolation", "--no-deps", "-e", ".",
+            ],
+            cwd=d, log_path=setup_log,
+        )
+        if INSTALL_SUCCESS_RE.search(out):
+            append_log(setup_log, "OK: {} installed".format(name))
+        else:
+            append_log(
+                setup_log,
+                "WARNING: {} install may have failed (rc={})".format(name, rc),
+            )
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Ping worker
+# ─────────────────────────────────────────────────────────────────────────────
+
+def ping_worker(ping_path, stop_event):
+    """Periodically write a timestamp to ping_path so callers can detect hangs."""
+    while not stop_event.is_set():
+        try:
+            with open(ping_path, "w") as fh:
+                fh.write(now() + "\n")
+        except Exception:
+            pass
+        stop_event.wait(PING_INTERVAL)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test runner
+# ─────────────────────────────────────────────────────────────────────────────
+
+def run_single_test(python_exe, tests_dir, module_name, out_path):
+    """Run one test module; return True if it passed."""
+    append_log(out_path, "=== START {} ===".format(module_name))
+    rc, _ = run_cmd(
+        [python_exe, "-m", "unittest", module_name, "-v"],
+        cwd=tests_dir,
+        log_path=out_path,
+        timeout=TEST_TIMEOUT,
+    )
+    result = "PASSED" if rc == 0 else "FAILED (rc={})".format(rc)
+    append_log(out_path, "=== END {} : {} ===".format(module_name, result))
+    return rc == 0
+
+def test_worker(python_exe, tests_dir, work_q, results, lock):
+    """Thread worker: pull items from work_q until empty."""
+    while True:
+        try:
+            module_name, out_path = work_q.get_nowait()
+        except queue.Empty:
+            break
+        passed = run_single_test(python_exe, tests_dir, module_name, out_path)
+        with lock:
+            results.append((module_name, passed))
+        work_q.task_done()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Main
+# ─────────────────────────────────────────────────────────────────────────────
+
+def main():
+    parser = argparse.ArgumentParser(description="Run tests for a p2pd-family repo.")
+    parser.add_argument("repo",           help="aionetiface | namebump | sidewire | p2pd")
+    parser.add_argument("python_version", help="e.g. 3.8.6")
+    parser.add_argument("test_name",      help="test module name or 'all'")
+    args = parser.parse_args()
+
+    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+
+    # Ensure log directory exists.
+    if not os.path.isdir(LOG_DIR):
+        os.makedirs(LOG_DIR)
+
+    # Resolve python + repo paths.
+    python_exe = find_python(args.python_version)
+    repo_dir   = find_repo(args.repo)
+    if not repo_dir:
+        sys.exit("ERROR: cannot find repo '{}' in search paths".format(args.repo))
+
+    repo_dirs = {}
+    for name in ALL_REPOS:
+        d = find_repo(name)
+        if d:
+            repo_dirs[name] = d
+
+    tests_dir = os.path.join(repo_dir, "tests")
+    if not os.path.isdir(tests_dir):
+        sys.exit("ERROR: tests dir not found: {}".format(tests_dir))
+
+    # Setup + ping logs.
+    setup_log = make_log_path(
+        args.repo, args.python_version, args.test_name, "setup", timestamp
+    )
+    append_log(setup_log, "python_exe : {}".format(python_exe))
+    append_log(setup_log, "repo_dir   : {}".format(repo_dir))
+    append_log(setup_log, "repos found: {}".format(sorted(repo_dirs.keys())))
+
+    ping_path = make_ping_path(
+        args.repo, args.python_version, args.test_name, timestamp
+    )
+    stop_ping = threading.Event()
+    ping_th   = threading.Thread(target=ping_worker, args=(ping_path, stop_ping))
+    ping_th.daemon = True
+    ping_th.start()
+
+    # Git reset + reinstall all repos.
+    setup_repos(python_exe, repo_dirs, setup_log)
+
+    # Discover test modules.
+    if args.test_name == "all":
+        pattern      = os.path.join(tests_dir, "test_*.py")
+        test_modules = sorted(
+            os.path.splitext(os.path.basename(f))[0]
+            for f in glob.glob(pattern)
+        )
+        if not test_modules:
+            sys.exit("ERROR: no test_*.py files found in {}".format(tests_dir))
+    else:
+        test_modules = [args.test_name]
+
+    # Build the work queue; keep ordered list of log paths for final report.
+    work_q    = queue.Queue()
+    log_paths = []
+    for module in test_modules:
+        out_path = make_log_path(
+            args.repo, args.python_version, args.test_name, module, timestamp
+        )
+        log_paths.append((module, out_path))
+        work_q.put((module, out_path))
+
+    # Determine parallelism.
+    if args.test_name == "all":
+        try:
+            ncpu = multiprocessing.cpu_count()
+        except Exception:
+            ncpu = 4
+        num_workers = max(1, ncpu - 2)
+    else:
+        num_workers = 1
+
+    num_workers = min(num_workers, len(test_modules))
+    append_log(setup_log, "workers: {} for {} test files".format(num_workers, len(test_modules)))
+
+    # Run tests.
+    results = []
+    lock    = threading.Lock()
+    threads = []
+    for _ in range(num_workers):
+        t = threading.Thread(
+            target=test_worker,
+            args=(python_exe, tests_dir, work_q, results, lock),
+        )
+        t.start()
+        threads.append(t)
+
+    for t in threads:
+        t.join()
+
+    stop_ping.set()
+
+    # Write summary.
+    total  = len(results)
+    passed = sum(1 for _, ok in results if ok)
+    failed = total - passed
+
+    summary_log = make_log_path(
+        args.repo, args.python_version, args.test_name, "summary", timestamp
+    )
+    append_log(summary_log, "DONE: {}/{} passed, {} failed".format(passed, total, failed))
+    for module, ok in sorted(results):
+        append_log(summary_log, "{}: {}".format(module, "PASS" if ok else "FAIL"))
+
+    msg = "DONE: {}/{} passed, {} failed".format(passed, total, failed)
+    print(msg)
+    append_log(setup_log, msg)
+
+    # Print all log file paths so callers can read them directly.
+    print("LOG_FILES_BEGIN")
+    print("setup: {}".format(setup_log))
+    print("summary: {}".format(summary_log))
+    for module, path in log_paths:
+        print("{}: {}".format(module, path))
+    print("LOG_FILES_END")
+
+    return 0 if failed == 0 else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
