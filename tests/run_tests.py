@@ -29,6 +29,8 @@ import threading
 # Constants
 # ─────────────────────────────────────────────────────────────────────────────
 
+VERSION = "1.0"
+
 REPO_BRANCHES = {
     "aionetiface": "ai_experiment",
     "p2pd":        "ai_experiment",
@@ -422,6 +424,7 @@ def main():
     setup_log = os.path.join(run_dir, "setup.txt")
     ping_path = os.path.join(run_dir, "ping.txt")
 
+    append_log(setup_log, "runner_version : {}".format(VERSION))
     append_log(setup_log, "started_at : {}".format(now()))
     if version_spec != args.python_version:
         append_log(setup_log, "version    : {} -> {}".format(version_spec, args.python_version))
