@@ -109,7 +109,13 @@ def find_repo(name):
     return None
 
 def find_python(version):
-    """Return the path to the Python executable for the given pyenv version."""
+    """Return the path to the Python executable for the given pyenv version.
+
+    If version is an absolute path that exists, it is returned directly.
+    """
+    # Absolute path handed in directly.
+    if os.path.isabs(version) and os.path.isfile(version):
+        return version
     for base in PYENV_SEARCH_DIRS:
         for subdir in ("", "bin"):
             for exe in ("python.exe", "python"):
@@ -151,7 +157,9 @@ def list_pyenv_versions():
     return [v for _, v in versioned]
 
 def resolve_python_version(spec):
-    """Resolve 'lowest'/'middle'/'highest' to an actual version string."""
+    """Resolve 'lowest'/'middle'/'highest'/'system' to an actual version string."""
+    if spec == "system":
+        return sys.executable
     if spec not in ("lowest", "middle", "highest"):
         return spec
     available = list_pyenv_versions()
@@ -275,6 +283,13 @@ def setup_repos(python_exe, repo_dirs, setup_log):
             ],
             cwd=d, log_path=setup_log,
         )
+        # pip < 10 does not support --no-build-isolation; retry without it.
+        if rc != 0 and "no such option" in out.lower():
+            append_log(setup_log, "retrying without --no-build-isolation (old pip)")
+            rc, out = run_cmd(
+                [python_exe, "-m", "pip", "install", "--no-deps", "-e", "."],
+                cwd=d, log_path=setup_log,
+            )
         if INSTALL_SUCCESS_RE.search(out):
             append_log(setup_log, "OK: {} installed".format(name))
         else:
