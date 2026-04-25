@@ -362,6 +362,7 @@ def main():
     setup_log = make_log_path(
         args.repo, args.python_version, args.test_name, "setup", timestamp
     )
+    append_log(setup_log, "started_at : {}".format(now()))
     if version_spec != args.python_version:
         append_log(setup_log, "version    : {} -> {}".format(version_spec, args.python_version))
     append_log(setup_log, "python_exe : {}".format(python_exe))
