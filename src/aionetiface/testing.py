@@ -178,16 +178,30 @@ else:
                 has_setup = hasattr(self_ref, "asyncSetUp")
                 has_teardown = hasattr(self_ref, "asyncTearDown")
 
+                # Per-test budget. Tests that legitimately take longer can
+                # override by setting `async_test_timeout` on the class or
+                # instance. The cap exists so a single hung test cannot
+                # consume the whole 300s subprocess budget; the runner stays
+                # responsive and the failure shows as a clean FAIL instead
+                # of a SIGKILL.
+                test_timeout = getattr(self_ref, "async_test_timeout", 90)
+
                 async def combined():
                     setup_done = False
                     if has_setup:
                         await self_ref.asyncSetUp()
                         setup_done = True
                     try:
-                        await original()
+                        await asyncio.wait_for(original(), timeout=test_timeout)
                     finally:
                         if setup_done and has_teardown:
-                            await self_ref.asyncTearDown()
+                            try:
+                                await asyncio.wait_for(
+                                    self_ref.asyncTearDown(),
+                                    timeout=15,
+                                )
+                            except asyncio.TimeoutError:
+                                pass
 
                 def sync_run():
                     self_ref.call_async(combined())
