@@ -111,10 +111,11 @@ def find_repo(name):
 def find_python(version):
     """Return the path to the Python executable for the given pyenv version."""
     for base in PYENV_SEARCH_DIRS:
-        for exe in ("python.exe", "python"):
-            p = os.path.join(base, version, exe)
-            if os.path.isfile(p):
-                return p
+        for subdir in ("", "bin"):
+            for exe in ("python.exe", "python"):
+                p = os.path.join(base, version, subdir, exe)
+                if os.path.isfile(p):
+                    return p
     for p in PYTHON_DIRECT:
         if os.path.isfile(p):
             return p
@@ -132,10 +133,11 @@ def list_pyenv_versions():
         except OSError:
             continue
         for entry in entries:
-            for exe in ("python.exe", "python"):
-                if os.path.isfile(os.path.join(base, entry, exe)):
-                    seen.add(entry)
-                    break
+            for subdir in ("", "bin"):
+                for exe in ("python.exe", "python"):
+                    if os.path.isfile(os.path.join(base, entry, subdir, exe)):
+                        seen.add(entry)
+                        break
     versioned = []
     for v in seen:
         parts = v.split(".")
