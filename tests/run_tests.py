@@ -30,7 +30,7 @@ import threading
 # Constants
 # ─────────────────────────────────────────────────────────────────────────────
 
-VERSION = "1.3"
+VERSION = "1.4"
 
 REPO_BRANCHES = {
     "aionetiface": "ai_experiment",
@@ -433,7 +433,10 @@ def main():
     version_spec       = args.python_version
     args.python_version = resolve_python_version(version_spec)
 
-    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    timestamp = "{}-{}".format(
+        datetime.datetime.now().strftime("%Y%m%d-%H%M%S"),
+        os.getpid(),
+    )
 
     # Resolve python + repo paths.
     python_exe = find_python(args.python_version)
