@@ -146,10 +146,20 @@ else:
                     pending = get_pending_tasks(loop)
                     for t in pending:
                         t.cancel()
+                    # Bound the cleanup gather: a stray task that swallows
+                    # CancelledError (an Exception subclass on 3.5) must not
+                    # be allowed to block test exit indefinitely. Five seconds
+                    # is generous for a cancel-and-drain.
                     if pending:
-                        loop.run_until_complete(
-                            asyncio.gather(*pending, return_exceptions=True)
-                        )
+                        try:
+                            loop.run_until_complete(
+                                asyncio.wait_for(
+                                    asyncio.gather(*pending, return_exceptions=True),
+                                    timeout=5,
+                                )
+                            )
+                        except asyncio.TimeoutError:
+                            pass
                 finally:
                     loop.close()
                     asyncio.set_event_loop(None)
