@@ -40,11 +40,7 @@ ALL_REPOS       = ["aionetiface", "namebump", "sidewire", "p2pd"]
 UNINSTALL_ORDER = ["p2pd", "namebump", "sidewire", "aionetiface"]
 INSTALL_ORDER   = ["aionetiface", "namebump", "sidewire", "p2pd"]
 
-if sys.platform == "win32":
-    _drive = os.path.splitdrive(os.environ.get("SYSTEMROOT", "C:\\Windows"))[0]
-    LOG_BASE_DIR = os.path.join(_drive + os.sep, "aionetiface")
-else:
-    LOG_BASE_DIR = os.path.join(os.path.expanduser("~"), "aionetiface")
+LOG_BASE_DIR = os.path.join(os.path.expanduser("~"), "test_out")
 PING_INTERVAL   = 30   # seconds between ping file updates
 TEST_TIMEOUT    = 300  # 5 minutes per individual test
 DEFAULT_WORKERS = 4    # fallback for 1-2 vCPU machines; 15 saturates WMIC on single-core Windows
