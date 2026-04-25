@@ -333,6 +333,8 @@ def main():
     parser.add_argument("python_version",
                         help="e.g. 3.8.6  or  lowest | middle | highest")
     parser.add_argument("test_name",      help="test module name or 'all'")
+    parser.add_argument("--workers", type=int, default=0,
+                        help="override worker count (default: cpu_count-2)")
     args = parser.parse_args()
 
     # Resolve version alias before anything else so the resolved value is used
@@ -407,7 +409,9 @@ def main():
         work_q.put((module, out_path))
 
     # Determine parallelism.
-    if args.test_name == "all":
+    if args.workers > 0:
+        num_workers = args.workers
+    elif args.test_name == "all":
         try:
             ncpu = multiprocessing.cpu_count()
         except Exception:
