@@ -32,7 +32,7 @@ import time
 # Constants
 # ─────────────────────────────────────────────────────────────────────────────
 
-VERSION = "1.9"
+VERSION = "1.10"
 
 REPO_BRANCHES = {
     "aionetiface": "ai_experiment",
@@ -516,6 +516,22 @@ def write_result_line(out_path, module_name, status, duration_s,
         pass
 
 
+def _file_contains_no_tests_marker(path):
+    """True if the unittest output for path contains 'NO TESTS RAN'.
+
+    Older Python (≤3.11) prints this line and exits 0; newer Python prints
+    it and exits 5. We treat both as PASS-via-empty.
+    """
+    try:
+        with open(path, "r") as fh:
+            for line in fh:
+                if line.strip().startswith("NO TESTS RAN"):
+                    return True
+    except OSError:
+        pass
+    return False
+
+
 def run_single_test(python_exe, tests_dir, module_name, out_path):
     """Run one test module; return (passed, info_dict) for index/json aggregation.
 
@@ -539,16 +555,25 @@ def run_single_test(python_exe, tests_dir, module_name, out_path):
 
     parsed = parse_subtests(out_path)
 
+    # Detect "NO TESTS RAN" -- Python 3.12+ exits with rc=5 when unittest
+    # discovers a module with zero test methods. Older Pythons exit with
+    # rc=0 in that case. We treat both uniformly as PASS-via-empty so an
+    # incomplete or stub-only test file doesn't break the matrix.
+    no_tests_ran = (rc == 5) or _file_contains_no_tests_marker(out_path)
+
     # Status precedence:
     #   TIMEOUT  - the unittest process was SIGKILL'd before a final OK/FAILED line
     #   FAIL     - any subtest failed/errored, OR final line says FAILED/ERROR
     #   PASS     - rc==0 OR (timeout but unittest already printed final OK)
+    #              OR no tests discovered (empty / stub-only test file)
     if parsed["final_line"] and parsed["final_line"].startswith("OK"):
         status = "PASS"
     elif parsed["final_line"] and (parsed["final_line"].startswith("FAILED") or parsed["final_line"].startswith("ERROR")):
         status = "FAIL"
     elif timeout_killed:
         status = "TIMEOUT"
+    elif no_tests_ran:
+        status = "PASS"
     elif rc == 0:
         status = "PASS"
     else:
