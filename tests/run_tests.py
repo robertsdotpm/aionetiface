@@ -17,6 +17,7 @@ Examples:
 import argparse
 import datetime
 import glob
+import json
 import multiprocessing
 import os
 import queue
@@ -25,12 +26,13 @@ import re
 import subprocess
 import sys
 import threading
+import time
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Constants
 # ─────────────────────────────────────────────────────────────────────────────
 
-VERSION = "1.7"
+VERSION = "1.8"
 
 REPO_BRANCHES = {
     "aionetiface": "ai_experiment",
@@ -291,6 +293,21 @@ def run_cmd(cmd, cwd=None, log_path=None, timeout=None):
 # Git + install
 # ─────────────────────────────────────────────────────────────────────────────
 
+def get_repo_shas(repo_dirs):
+    """Return {repo_name: short_git_sha} for each repo dir, or '?' on failure."""
+    shas = {}
+    for name, d in repo_dirs.items():
+        try:
+            out = subprocess.check_output(
+                ["git", "rev-parse", "--short=7", "HEAD"],
+                cwd=d, stderr=subprocess.STDOUT,
+            ).decode("utf-8", "replace").strip()
+            shas[name] = out
+        except (OSError, subprocess.CalledProcessError):
+            shas[name] = "?"
+    return shas
+
+
 def setup_repos(python_exe, repo_dirs, setup_log):
     # 1. git fetch + reset --hard
     for name in ALL_REPOS:
@@ -373,36 +390,185 @@ def ping_worker(ping_path, stop_event):
 # Test runner
 # ─────────────────────────────────────────────────────────────────────────────
 
-def tests_passed_in_output(out_path):
-    """Return True if the test output file contains a clean unittest OK line."""
+# unittest verbose emits one "test_x (Class) ... ok|FAIL|ERROR|skipped 'reason'"
+# line per subtest, sometimes split across lines when a docstring is shown.
+SUBTEST_LINE_RE = re.compile(
+    r"^(?P<name>test_[A-Za-z0-9_]+)\s+\((?P<cls>[A-Za-z0-9_.]+)\)\s*"
+)
+SUBTEST_VERDICT_RE = re.compile(
+    r"\.{3}\s*(?P<verdict>ok|FAIL|ERROR|skipped(?:\s+'[^']*')?)\s*$"
+)
+UNITTEST_FINAL_RE = re.compile(
+    r"^(?P<status>OK(?:\s*\(.*\))?|FAILED(?:\s*\(.*\))?|ERROR(?:\s*\(.*\))?)\s*$"
+)
+
+
+def parse_subtests(out_path):
+    """Walk the unittest output of one test file and return a verdict summary.
+
+    Returns dict:
+        ran           int       count of subtests that started
+        ok            int
+        fail          int
+        error         int
+        skipped       int
+        last_subtest  str|None  most recent subtest name observed (for hangs)
+        last_verdict  str|None  ok/FAIL/ERROR/skipped/None
+        final_line    str|None  last 'OK'/'FAILED'/'ERROR' summary line, if any
+    """
+    summary = {
+        "ran": 0,
+        "ok": 0,
+        "fail": 0,
+        "error": 0,
+        "skipped": 0,
+        "last_subtest": None,
+        "last_verdict": None,
+        "final_line": None,
+    }
+    pending_name = None
     try:
         with open(out_path, "r") as fh:
-            lines = [l.strip() for l in fh.readlines()]
-        for line in reversed(lines):
-            if line == "OK" or line.startswith("OK ("):
-                return True
-            if line.startswith("FAILED") or line.startswith("ERROR"):
-                return False
+            for raw in fh:
+                line = raw.rstrip("\n")
+                m = SUBTEST_LINE_RE.match(line)
+                if m:
+                    pending_name = m.group("name")
+                    summary["ran"] += 1
+                    summary["last_subtest"] = pending_name
+                    summary["last_verdict"] = None
+                v = SUBTEST_VERDICT_RE.search(line)
+                if v and pending_name is not None:
+                    verdict = v.group("verdict")
+                    if verdict == "ok":
+                        summary["ok"] += 1
+                        summary["last_verdict"] = "ok"
+                    elif verdict.startswith("FAIL"):
+                        summary["fail"] += 1
+                        summary["last_verdict"] = "FAIL"
+                    elif verdict.startswith("ERROR"):
+                        summary["error"] += 1
+                        summary["last_verdict"] = "ERROR"
+                    elif verdict.startswith("skipped"):
+                        summary["skipped"] += 1
+                        summary["last_verdict"] = "skipped"
+                    pending_name = None
+                f = UNITTEST_FINAL_RE.match(line.strip())
+                if f:
+                    summary["final_line"] = f.group("status")
     except OSError:
         pass
-    return False
+    return summary
+
+
+def trim_passing_log(out_path, keep_lines=40):
+    """Truncate a clean PASS log to its last keep_lines lines.
+
+    Skip-only output (which is mostly noise for triage) gets compressed to
+    the tail of the file plus a count header. The full file is preserved
+    on FAIL/ERROR/timeout for diagnostics.
+    """
+    try:
+        with open(out_path, "r") as fh:
+            lines = fh.readlines()
+        if len(lines) <= keep_lines + 5:
+            return
+        head = lines[:2]   # START line + the unittest invocation
+        tail = lines[-keep_lines:]
+        elided = len(lines) - len(head) - len(tail)
+        with open(out_path, "w") as fh:
+            fh.writelines(head)
+            fh.write("[... {} lines elided (passing test, full output suppressed) ...]\n".format(elided))
+            fh.writelines(tail)
+    except OSError:
+        pass
+
+
+def write_result_line(out_path, module_name, status, duration_s,
+                      timeout_killed, parsed):
+    """Write a single machine-parseable RESULT key=value line at the end of out_path."""
+    fields = [
+        "RESULT",
+        "name={}".format(module_name),
+        "status={}".format(status),
+        "duration={:.1f}".format(duration_s),
+        "timeout_killed={}".format(1 if timeout_killed else 0),
+        "ran={}".format(parsed["ran"]),
+        "ok={}".format(parsed["ok"]),
+        "fail={}".format(parsed["fail"]),
+        "error={}".format(parsed["error"]),
+        "skipped={}".format(parsed["skipped"]),
+        "last_subtest={}".format(parsed["last_subtest"] or "-"),
+        "last_verdict={}".format(parsed["last_verdict"] or "-"),
+    ]
+    try:
+        with open(out_path, "a") as fh:
+            fh.write(" ".join(fields) + "\n")
+    except OSError:
+        pass
+
 
 def run_single_test(python_exe, tests_dir, module_name, out_path):
-    """Run one test module; return True if it passed."""
+    """Run one test module; return (passed, info_dict) for index/json aggregation.
+
+    info_dict is suitable for rendering an index.txt row and a failed.json entry.
+    """
     append_log(out_path, "=== START {} ===".format(module_name))
+    t0 = time.time()
     rc, _ = run_cmd(
         [python_exe, "-W", "ignore::ResourceWarning", "-m", "unittest", module_name, "-v"],
         cwd=tests_dir,
         log_path=out_path,
         timeout=TEST_TIMEOUT,
     )
-    # If the process was killed by timeout but unittest printed OK before
-    # hanging (e.g. during event-loop/thread cleanup), treat as passed.
-    if rc == -1 and tests_passed_in_output(out_path):
-        rc = 0
-    result = "PASSED" if rc == 0 else "FAILED (rc={})".format(rc)
-    append_log(out_path, "=== END {} : {} ===".format(module_name, result))
-    return rc == 0
+    duration = time.time() - t0
+    timeout_killed = (rc == -1)
+
+    parsed = parse_subtests(out_path)
+
+    # Status precedence:
+    #   TIMEOUT  - the unittest process was SIGKILL'd before a final OK/FAILED line
+    #   FAIL     - any subtest failed/errored, OR final line says FAILED/ERROR
+    #   PASS     - rc==0 OR (timeout but unittest already printed final OK)
+    if parsed["final_line"] and parsed["final_line"].startswith("OK"):
+        status = "PASS"
+    elif parsed["final_line"] and (parsed["final_line"].startswith("FAILED") or parsed["final_line"].startswith("ERROR")):
+        status = "FAIL"
+    elif timeout_killed:
+        status = "TIMEOUT"
+    elif rc == 0:
+        status = "PASS"
+    else:
+        status = "FAIL"
+
+    passed = (status == "PASS")
+    end_marker = {
+        "PASS":    "PASSED",
+        "FAIL":    "FAILED (rc={})".format(rc),
+        "TIMEOUT": "TIMEOUT (last_subtest={})".format(parsed["last_subtest"] or "-"),
+    }[status]
+    append_log(out_path, "=== END {} : {} ===".format(module_name, end_marker))
+    write_result_line(out_path, module_name, status, duration, timeout_killed, parsed)
+
+    # Compress passing logs so cat *.txt stays scannable.
+    if passed:
+        trim_passing_log(out_path)
+
+    info = {
+        "module": module_name,
+        "status": status,
+        "duration": round(duration, 1),
+        "timeout_killed": bool(timeout_killed),
+        "ran": parsed["ran"],
+        "ok": parsed["ok"],
+        "fail": parsed["fail"],
+        "error": parsed["error"],
+        "skipped": parsed["skipped"],
+        "last_subtest": parsed["last_subtest"],
+        "last_verdict": parsed["last_verdict"],
+    }
+    return passed, info
+
 
 def test_worker(python_exe, tests_dir, work_q, results, lock):
     """Thread worker: pull items from work_q until empty."""
@@ -411,9 +577,9 @@ def test_worker(python_exe, tests_dir, work_q, results, lock):
             module_name, out_path = work_q.get_nowait()
         except queue.Empty:
             break
-        passed = run_single_test(python_exe, tests_dir, module_name, out_path)
+        passed, info = run_single_test(python_exe, tests_dir, module_name, out_path)
         with lock:
-            results.append((module_name, passed))
+            results.append((module_name, passed, info))
         work_q.task_done()
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -500,6 +666,12 @@ def main():
     # Git reset + reinstall all repos.
     setup_repos(python_exe, repo_dirs, setup_log)
 
+    # Record resolved SHAs after the reset/pull so triage knows exactly
+    # what code this run is testing without scrolling install output.
+    shas = get_repo_shas(repo_dirs)
+    sha_str = " ".join("{}={}".format(k, shas[k]) for k in sorted(shas))
+    append_log(setup_log, "git_shas: {}".format(sha_str))
+
     # Discover test modules.
     if args.test_name == "all":
         pattern      = os.path.join(tests_dir, "test_*.py")
@@ -557,15 +729,44 @@ def main():
 
     stop_ping.set()
 
-    # Write summary.
+    # Tally.
     total  = len(results)
-    passed = sum(1 for _, ok in results if ok)
+    passed = sum(1 for _, ok, _ in results if ok)
     failed = total - passed
 
+    # summary.txt — human-readable per-file verdict list.
     summary_log = os.path.join(run_dir, "summary.txt")
     append_log(summary_log, "DONE: {}/{} passed, {} failed".format(passed, total, failed))
-    for module, ok in sorted(results):
+    for module, ok, _info in sorted(results):
         append_log(summary_log, "{}: {}".format(module, "PASS" if ok else "FAIL"))
+
+    # index.txt — one row per test file with status, duration, and the last
+    # subtest seen. Lets agents grep for hangs/fails across the whole matrix
+    # without opening per-test files.
+    index_log = os.path.join(run_dir, "index.txt")
+    info_by_module = {info["module"]: info for _, _, info in results}
+    with open(index_log, "w") as fh:
+        fh.write(
+            "# module status duration_s ran ok fail error skipped last_subtest last_verdict\n"
+        )
+        for module, _ok, _info in sorted(results):
+            i = info_by_module[module]
+            fh.write(
+                "{module} {status} {duration} ran={ran} ok={ok} fail={fail} "
+                "error={error} skipped={skipped} last_subtest={last_subtest} "
+                "last_verdict={last_verdict}\n".format(
+                    module=module,
+                    status=i["status"],
+                    duration=i["duration"],
+                    ran=i["ran"],
+                    ok=i["ok"],
+                    fail=i["fail"],
+                    error=i["error"],
+                    skipped=i["skipped"],
+                    last_subtest=i["last_subtest"] or "-",
+                    last_verdict=i["last_verdict"] or "-",
+                )
+            )
 
     msg = "DONE: {}/{} passed, {} failed  [pid={}]".format(
         passed, total, failed, os.getpid()
@@ -573,24 +774,78 @@ def main():
     print(msg)
     append_log(setup_log, msg)
 
-    # Collect all lines containing "fail" (case-insensitive) from every test
-    # log into a single failed.txt for quick post-run inspection.
+    # failed.json — structured failure list keyed by test-file, anchored on
+    # parser-derived status so it ignores stray "fail" substrings in skip
+    # messages. Includes timeout vs fail distinction and the last subtest
+    # observed (the one that hung, on TIMEOUT).
+    failed_log_json = os.path.join(run_dir, "failed.json")
+    failures = {
+        info["module"]: {
+            "status": info["status"],
+            "duration": info["duration"],
+            "timeout_killed": info["timeout_killed"],
+            "ran": info["ran"],
+            "ok": info["ok"],
+            "fail": info["fail"],
+            "error": info["error"],
+            "skipped": info["skipped"],
+            "last_subtest": info["last_subtest"],
+            "last_verdict": info["last_verdict"],
+        }
+        for _module, ok, info in results
+        if not ok
+    }
+    try:
+        with open(failed_log_json, "w") as fh:
+            json.dump(failures, fh, indent=2, sort_keys=True)
+    except OSError:
+        pass
+
+    # failed.txt — human-readable companion: one block per failing test file
+    # with the captured RESULT line plus the FAIL/ERROR markers from the
+    # unittest output. Anchored on the parser, so skipped tests no longer
+    # show up just because their skip message contained the word "fail".
     failed_log = os.path.join(run_dir, "failed.txt")
     with open(failed_log, "w") as out_fh:
-        for module, path in log_paths:
+        for module, ok, info in sorted(results):
+            if ok:
+                continue
+            out_fh.write(
+                "=== {module} :: {status} (last_subtest={last}) ===\n".format(
+                    module=module,
+                    status=info["status"],
+                    last=info["last_subtest"] or "-",
+                )
+            )
+            path = os.path.join(run_dir, module + ".txt")
             try:
                 with open(path, "r") as fh:
                     for line in fh:
-                        if "fail" in line.lower():
-                            out_fh.write("[{}] {}\n".format(module, line.rstrip()))
+                        if line.startswith("RESULT "):
+                            out_fh.write(line)
+                            continue
+                        # Anchor on unittest's actual marker lines, not on
+                        # any string containing "fail".
+                        stripped = line.lstrip()
+                        if (
+                            stripped.startswith("FAIL:")
+                            or stripped.startswith("ERROR:")
+                            or stripped.startswith("FAILED")
+                            or stripped.startswith("AssertionError")
+                            or "[TIMED OUT" in stripped
+                        ):
+                            out_fh.write(line if line.endswith("\n") else line + "\n")
             except OSError:
                 pass
+            out_fh.write("\n")
 
     # Print all log file paths so callers can read them directly.
     print("LOG_FILES_BEGIN")
     print("setup: {}".format(setup_log))
     print("summary: {}".format(summary_log))
+    print("index: {}".format(index_log))
     print("failed: {}".format(failed_log))
+    print("failed_json: {}".format(failed_log_json))
     for module, path in log_paths:
         print("{}: {}".format(module, path))
     print("LOG_FILES_END")
