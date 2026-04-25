@@ -47,7 +47,7 @@ else:
     LOG_BASE_DIR = os.path.join(os.path.expanduser("~"), "aionetiface")
 PING_INTERVAL   = 30   # seconds between ping file updates
 TEST_TIMEOUT    = 300  # 5 minutes per individual test
-DEFAULT_WORKERS = 15   # fallback when cpu_count is unreliable (VM with 1 vCPU)
+DEFAULT_WORKERS = 4    # fallback for 1-2 vCPU machines; 15 saturates WMIC on single-core Windows
 
 INSTALL_SUCCESS_RE = re.compile(
     r"(successfully installed|already satisfied)",
@@ -335,7 +335,7 @@ def run_single_test(python_exe, tests_dir, module_name, out_path):
     """Run one test module; return True if it passed."""
     append_log(out_path, "=== START {} ===".format(module_name))
     rc, _ = run_cmd(
-        [python_exe, "-m", "unittest", module_name, "-v"],
+        [python_exe, "-W", "ignore::ResourceWarning", "-m", "unittest", module_name, "-v"],
         cwd=tests_dir,
         log_path=out_path,
         timeout=TEST_TIMEOUT,

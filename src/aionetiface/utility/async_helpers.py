@@ -326,7 +326,14 @@ def run_handlers(
 
 
 def submit_to_executor(fn, loop):
-    """Submit fn to a thread-pool and return an awaitable asyncio Future."""
+    """Submit fn to the loop's shared thread-pool and return an awaitable Future.
+
+    Using loop.run_in_executor(None, fn) shares the loop's default
+    ThreadPoolExecutor across all callers (Python's default is cpu_count+4
+    workers), which caps the number of concurrent blocking subprocesses.
+    Per-call ThreadPoolExecutor(max_workers=1) would instead create one OS
+    thread per invocation, saturating a single-core machine under load.
+    """
     return loop.run_in_executor(None, fn)
 
 
