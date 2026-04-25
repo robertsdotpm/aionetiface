@@ -73,7 +73,7 @@ from .win_netsh import if_infos_from_netsh
 from .win_wmic import if_infos_from_wmic
 
 
-CMD_TIMEOUT = 10
+CMD_TIMEOUT = 30
 
 IFS_PS1 = """
 # Load default interface for IPv4 and IPv6.
