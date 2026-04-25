@@ -14,7 +14,7 @@ from aionetiface import *
 from port_helpers import xdist_port_base
 
 
-class TestBind(unittest.IsolatedAsyncioTestCase):
+class TestBind(AsyncTestCase):
     async def test_binder(self) -> None:
         vectors = [
             ["Windows", [IP4, "127.0.0.1", 80, None], ("127.0.0.1", 80)],

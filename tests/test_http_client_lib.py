@@ -3,7 +3,7 @@ from typing import Any
 from aionetiface import *
 
 
-class TestHTTPClientLib(unittest.IsolatedAsyncioTestCase):
+class TestHTTPClientLib(AsyncTestCase):
     # Should break as chunked is not supported.
     async def test_incomplete_read(self) -> None:
         has_thrown = False

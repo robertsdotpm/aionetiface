@@ -2,7 +2,7 @@ from typing import Any
 from aionetiface import *
 
 
-class TestIPRange(unittest.IsolatedAsyncioTestCase):
+class TestIPRange(AsyncTestCase):
     async def test_private_for_single_host_v6(self) -> None:
         ipr = IPRange("::1", bitlen=0)
         self.assertTrue(ipr.is_private)

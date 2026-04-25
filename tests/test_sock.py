@@ -1,7 +1,7 @@
 from aionetiface import *
 
 
-class TestSock(unittest.IsolatedAsyncioTestCase):
+class TestSock(AsyncTestCase):
     async def test_reuse_port(self):
         s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s1.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

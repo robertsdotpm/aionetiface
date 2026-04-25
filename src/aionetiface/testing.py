@@ -27,11 +27,14 @@ Typical test pattern:
 
 import asyncio
 import copy
+import linecache
 import socket
 import subprocess
 import sys
 import unittest
 from typing import Any, List, Optional
+
+from .entrypoint import aionetiface_setup_event_loop
 
 from .net.net_defs import IP4, IP6
 from .net.ip_range import IPRange
@@ -180,6 +183,7 @@ else:
                 setattr(self, self._testMethodName, sync_run)
             return super(AsyncTestCase, self).run(result)
 
+    unittest.IsolatedAsyncioTestCase = AsyncTestCase
 
 # ─────────────────────────────────────────────────────────────
 # Loopback IP probing
@@ -368,6 +372,22 @@ class FakeInterfaceFactory(object):
     def count(self, af):
         """Return the number of available FakeInterface objects for the given AF."""
         return len(self.by_af[af])
+
+
+# ─────────────────────────────────────────────────────────────
+# Module-level setup — runs once when testing is imported by any test file.
+# This replaces conftest.py for pure-unittest runs (python -m unittest discover).
+# ─────────────────────────────────────────────────────────────
+
+aionetiface_setup_event_loop()
+
+# IsolatedAsyncioTestCase (Python 3.8+) sets loop.set_debug(True), which
+# triggers linecache.checkcache() on every call_soon via Handle.__init__.
+# Under parallel file-level test runners this adds 30-60s per test on Windows.
+if sys.version_info >= (3, 8):
+    linecache.checkcache = lambda filename=None: None
+
+allow_windows_firewall("python-tests")
 
 
 def make_fake_nic(real_nic, af, target_ipr):

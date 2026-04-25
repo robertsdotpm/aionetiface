@@ -83,7 +83,7 @@ if platform.system() == "Windows":
 
 if platform.system() == "Windows":
 
-    class TestWinNetifaces(unittest.IsolatedAsyncioTestCase):
+    class TestWinNetifaces(AsyncTestCase):
         async def test_win_netifaces_ps(self):
             try:
                 # test_get_interfaces(self):

@@ -1,7 +1,7 @@
 from aionetiface import *
 
 
-class TestRoute(unittest.IsolatedAsyncioTestCase):
+class TestRoute(AsyncTestCase):
     async def test_invalid_wan(self):
         def ambiguous_af_ip():
             IPRange(0)

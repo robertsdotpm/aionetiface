@@ -1,7 +1,7 @@
 from aionetiface import *
 
 
-class TestNet(unittest.IsolatedAsyncioTestCase):
+class TestNet(AsyncTestCase):
     async def test_ip_norm(self):
         tests = [
             ["1.1.1.1%test", "1.1.1.1"],

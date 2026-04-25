@@ -4,7 +4,7 @@ from aionetiface import *
 import asyncio
 
 
-class TestEventLoops(unittest.IsolatedAsyncioTestCase):
+class TestEventLoops(AsyncTestCase):
     async def test_event_loops_a(self) -> None:
         running_loop = asyncio.get_event_loop()
 

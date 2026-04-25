@@ -58,7 +58,7 @@ async def create_server():
     return server, dest, mr
 
 
-class TestPipe(unittest.IsolatedAsyncioTestCase):
+class TestPipe(AsyncTestCase):
     """
     This test can break when multiple tests are run before it indicating that
     event loop cleanup and such hasnt been done properly in prior tests.

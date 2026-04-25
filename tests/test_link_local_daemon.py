@@ -35,7 +35,7 @@ def _get_link_local(interface: Any):
     return ipr_norm(route.link_locals[0])
 
 
-class TestListenLocalLinkLocal(unittest.IsolatedAsyncioTestCase):
+class TestListenLocalLinkLocal(AsyncTestCase):
     """Daemon.listen_local() binds to link-local addresses and accepts connections."""
 
     async def asyncSetUp(self):

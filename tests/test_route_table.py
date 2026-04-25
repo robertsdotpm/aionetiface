@@ -6,7 +6,7 @@ from aionetiface import *
 RELATED_PLATFORMS = ["Linux", "Darwin", "FreeBSD"]
 
 
-class TestRouteTable(unittest.IsolatedAsyncioTestCase):
+class TestRouteTable(AsyncTestCase):
     async def test_route_table(self):
         if platform.system() in RELATED_PLATFORMS:
             netifaces = await aionetiface_setup_netifaces()

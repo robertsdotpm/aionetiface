@@ -8,6 +8,7 @@ real network interfaces or OS commands are needed.
 
 import platform
 import unittest
+from aionetiface.testing import AsyncTestCase
 from unittest import main
 from typing import Any, List, Dict, Optional
 from aionetiface.settings import IP4, IP6
@@ -569,7 +570,7 @@ PrefixLength   : 64
 # ---------------------------------------------------------------------------
 
 
-class TestNetiaceAddrToIPR(unittest.IsolatedAsyncioTestCase):
+class TestNetiaceAddrToIPR(AsyncTestCase):
     """
     Tests for netiface_addr_to_ipr using simulated netifaces info dicts,
     covering all the edge cases that arise from different OS netmask formats.
@@ -1552,7 +1553,7 @@ class TestNetshParsersExtended(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 
-class TestNetiaceAddrToIPRBlocks(unittest.IsolatedAsyncioTestCase):
+class TestNetiaceAddrToIPRBlocks(AsyncTestCase):
     """
     Tests netiface_addr_to_ipr with block IP assignments (i_host == 0),
     covering IPv4 and IPv6, common prefix lengths, and cross-OS netmask formats.

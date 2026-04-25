@@ -9,7 +9,7 @@ parent_dir = os.path.dirname(__file__)
 EXAMPLES_DIR = os.path.join(parent_dir, "../", "docs/", "examples/")
 
 
-class TestPyExamples(unittest.IsolatedAsyncioTestCase):
+class TestPyExamples(AsyncTestCase):
     async def do_py_example(self, n):
         print(n)
         py_path = os.path.join(EXAMPLES_DIR, "example_" + str(n) + ".py")

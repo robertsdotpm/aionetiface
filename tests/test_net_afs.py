@@ -7,7 +7,7 @@ from typing import Any
 from aionetiface import *
 
 
-class TestAFsWork(unittest.IsolatedAsyncioTestCase):
+class TestAFsWork(AsyncTestCase):
     async def test_afs(self) -> None:
         # TODO: fix this in the future when servers are back up
         return

@@ -3,7 +3,7 @@ from aionetiface import *
 from port_helpers import xdist_port_base
 
 
-class TestDaemon(unittest.IsolatedAsyncioTestCase):
+class TestDaemon(AsyncTestCase):
     async def test_daemon(self) -> None:
         loop = asyncio.get_event_loop()
         print(loop)

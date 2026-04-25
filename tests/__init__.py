@@ -1,3 +1,8 @@
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 try:
     from aionetiface.utility.test_init import *
 except ImportError:

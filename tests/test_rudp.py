@@ -2,7 +2,7 @@ from aionetiface import *
 from port_helpers import xdist_port_base
 
 
-class TestRUDP(unittest.IsolatedAsyncioTestCase):
+class TestRUDP(AsyncTestCase):
     async def test_rudp(self):
         i = await Interface()
         af = i.supported()[0]

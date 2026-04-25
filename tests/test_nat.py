@@ -10,7 +10,7 @@ async def get_test_stun_clients(n: int = 8) -> List[Any]:
     return stun_clients
 
 
-class TestNAT(unittest.IsolatedAsyncioTestCase):
+class TestNAT(AsyncTestCase):
     async def test_preserving_delta(self) -> None:
         n = 8
         stun_clients = await get_test_stun_clients(n)

@@ -7,7 +7,7 @@ from typing import Any
 from aionetiface import *
 
 
-class TestIPv6(unittest.IsolatedAsyncioTestCase):
+class TestIPv6(AsyncTestCase):
     async def test_ipv6(self) -> None:
         """
         i = await Interface()

@@ -2,7 +2,7 @@ from typing import Any
 from aionetiface import *
 
 
-class TestInterface(unittest.IsolatedAsyncioTestCase):
+class TestInterface(AsyncTestCase):
     async def test_regular(self) -> None:
         global aionetiface_fds
         i = await Interface()

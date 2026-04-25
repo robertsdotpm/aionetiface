@@ -3,6 +3,6 @@ from typing import Any
 from aionetiface import *
 
 
-class TestHelloWorld(unittest.IsolatedAsyncioTestCase):
+class TestHelloWorld(AsyncTestCase):
     async def test_hello_world(self) -> None:
         print("hello")

@@ -2,7 +2,7 @@ from typing import Any
 from aionetiface import *
 
 
-class TestIPRange(unittest.IsolatedAsyncioTestCase):
+class TestIPRange(AsyncTestCase):
     async def test_domain_resolve(self) -> None:
         i = await Interface()
         r = i.route()

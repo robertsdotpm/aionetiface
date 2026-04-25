@@ -6,7 +6,7 @@ from typing import Any, Optional, List
 from aionetiface import *
 
 
-class TestCmd(unittest.IsolatedAsyncioTestCase):
+class TestCmd(AsyncTestCase):
     async def do_esc_test(self, s: str) -> Any:
         # So paths with spaces don't break the command.
         py = sys.executable
