@@ -42,9 +42,9 @@ INSTALL_ORDER   = ["aionetiface", "namebump", "sidewire", "p2pd"]
 
 if sys.platform == "win32":
     _drive = os.path.splitdrive(os.environ.get("SYSTEMROOT", "C:\\Windows"))[0]
-    LOG_DIR = os.path.join(_drive + os.sep, "aionetiface", "logs")
+    LOG_BASE_DIR = os.path.join(_drive + os.sep, "aionetiface")
 else:
-    LOG_DIR = os.path.join(os.path.expanduser("~"), "aionetiface", "logs")
+    LOG_BASE_DIR = os.path.join(os.path.expanduser("~"), "aionetiface")
 PING_INTERVAL   = 30   # seconds between ping file updates
 TEST_TIMEOUT    = 300  # 5 minutes per individual test
 DEFAULT_WORKERS = 15   # fallback when cpu_count is unreliable (VM with 1 vCPU)
@@ -182,13 +182,12 @@ def append_log(path, text):
     with open(path, "a") as fh:
         fh.write("[{}] {}\n".format(now(), text))
 
-def make_log_path(repo, version, test_name, subtest, timestamp):
-    name = sanitize("{}-{}-{}-{}-{}".format(repo, version, test_name, subtest, timestamp))
-    return os.path.join(LOG_DIR, name + ".txt")
-
-def make_ping_path(repo, version, test_name, timestamp):
-    name = sanitize("{}-{}-{}-{}-ping".format(repo, version, test_name, timestamp))
-    return os.path.join(LOG_DIR, name + ".txt")
+def make_run_dir(repo, timestamp):
+    """Return (and create) the per-run log directory: LOG_BASE_DIR/<repo>/<timestamp>/"""
+    d = os.path.join(LOG_BASE_DIR, sanitize(repo), sanitize(timestamp))
+    if not os.path.isdir(d):
+        os.makedirs(d)
+    return d
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Subprocess runner
@@ -362,10 +361,6 @@ def main():
 
     timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
-    # Ensure log directory exists.
-    if not os.path.isdir(LOG_DIR):
-        os.makedirs(LOG_DIR)
-
     # Resolve python + repo paths.
     python_exe = find_python(args.python_version)
     repo_dir   = find_repo(args.repo)
@@ -382,20 +377,17 @@ def main():
     if not os.path.isdir(tests_dir):
         sys.exit("ERROR: tests dir not found: {}".format(tests_dir))
 
-    # Setup + ping logs.
-    setup_log = make_log_path(
-        args.repo, args.python_version, args.test_name, "setup", timestamp
-    )
+    # Per-run log directory: ~/aionetiface/<repo>/<timestamp>/
+    run_dir   = make_run_dir(args.repo, timestamp)
+    setup_log = os.path.join(run_dir, "setup.txt")
+    ping_path = os.path.join(run_dir, "ping.txt")
+
     append_log(setup_log, "started_at : {}".format(now()))
     if version_spec != args.python_version:
         append_log(setup_log, "version    : {} -> {}".format(version_spec, args.python_version))
     append_log(setup_log, "python_exe : {}".format(python_exe))
     append_log(setup_log, "repo_dir   : {}".format(repo_dir))
     append_log(setup_log, "repos found: {}".format(sorted(repo_dirs.keys())))
-
-    ping_path = make_ping_path(
-        args.repo, args.python_version, args.test_name, timestamp
-    )
     stop_ping = threading.Event()
     ping_th   = threading.Thread(target=ping_worker, args=(ping_path, stop_ping))
     ping_th.daemon = True
@@ -417,12 +409,12 @@ def main():
         test_modules = [args.test_name]
 
     # Build the work queue; keep ordered list of log paths for final report.
+    # Pre-create every log file blank so hung tests show up as empty files.
     work_q    = queue.Queue()
     log_paths = []
     for module in test_modules:
-        out_path = make_log_path(
-            args.repo, args.python_version, args.test_name, module, timestamp
-        )
+        out_path = os.path.join(run_dir, module + ".txt")
+        open(out_path, "a").close()
         log_paths.append((module, out_path))
         work_q.put((module, out_path))
 
@@ -466,9 +458,7 @@ def main():
     passed = sum(1 for _, ok in results if ok)
     failed = total - passed
 
-    summary_log = make_log_path(
-        args.repo, args.python_version, args.test_name, "summary", timestamp
-    )
+    summary_log = os.path.join(run_dir, "summary.txt")
     append_log(summary_log, "DONE: {}/{} passed, {} failed".format(passed, total, failed))
     for module, ok in sorted(results):
         append_log(summary_log, "{}: {}".format(module, "PASS" if ok else "FAIL"))
