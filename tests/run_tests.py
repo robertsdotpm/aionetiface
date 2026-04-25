@@ -30,7 +30,7 @@ import threading
 # Constants
 # ─────────────────────────────────────────────────────────────────────────────
 
-VERSION = "1.1"
+VERSION = "1.2"
 
 REPO_BRANCHES = {
     "aionetiface": "ai_experiment",
@@ -170,6 +170,19 @@ def list_pyenv_versions():
     versioned.sort()
     return [v for _, v in versioned]
 
+def python_works(exe_path):
+    """Return True if exe_path runs '--version' successfully within 5 seconds."""
+    try:
+        r = subprocess.run(
+            [exe_path, "--version"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=5,
+        )
+        return r.returncode == 0
+    except Exception:
+        return False
+
 def resolve_python_version(spec):
     """Resolve 'lowest'/'middle'/'highest'/'random'/'system' to an actual version string."""
     if spec == "system":
@@ -180,13 +193,28 @@ def resolve_python_version(spec):
     if not available:
         # No pyenv — fall back to C:\py3, PATH python, or sys.executable.
         return find_python("no_pyenv_fallback")
+    mid = len(available) // 2
     if spec == "lowest":
-        return available[0]
-    if spec == "highest":
-        return available[-1]
-    if spec == "random":
-        return random.choice(available)
-    return available[len(available) // 2]
+        primary, rest = available[0], available[1:]
+    elif spec == "highest":
+        primary, rest = available[-1], list(reversed(available[:-1]))
+    elif spec == "random":
+        primary = random.choice(available)
+        rest = [v for v in available if v != primary]
+    else:  # middle — on fallback try versions nearest the centre first
+        primary = available[mid]
+        below = list(reversed(available[:mid]))
+        above = available[mid + 1:]
+        rest = [v for p in zip(below, above) for v in p]
+        if len(below) > len(above):
+            rest += below[len(above):]
+        elif len(above) > len(below):
+            rest += above[len(below):]
+    for version in [primary] + list(rest):
+        exe = find_python(version)
+        if python_works(exe):
+            return version
+    return find_python("no_pyenv_fallback")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Logging
