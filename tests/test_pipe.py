@@ -84,10 +84,16 @@ class TestPipe(AsyncTestCase):
         cs.shutdown(socket.SHUT_RDWR)
         cs.close()
 
+        # Yield to the event loop so the FIN is processed and
+        # connection_lost fires before we check the flag.
+        await asyncio.sleep(0.1)
+
         # Check connection_lost was called.
         if not mr.close_set:
             print("mr close set failed")
             print("test environment may be dirty.")
+
+        self.assertTrue(mr.close_set, "connection_lost not called after FIN")
 
         await asyncio.sleep(3)
 
