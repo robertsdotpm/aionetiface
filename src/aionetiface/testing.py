@@ -33,6 +33,7 @@ import socket
 import subprocess
 import sys
 import unittest
+import warnings
 from typing import Any, List, Optional
 
 from .entrypoint import aionetiface_setup_event_loop
@@ -427,6 +428,10 @@ def _new_event_loop_quiet():
 
 asyncio.new_event_loop = _new_event_loop_quiet
 asyncio.events.new_event_loop = _new_event_loop_quiet
+
+# Suppress ResourceWarning spam from sockets and event loops that are not
+# explicitly closed before GC fires (expected in async tests on teardown).
+warnings.filterwarnings("ignore", category=ResourceWarning)
 
 
 def make_fake_nic(real_nic, af, target_ipr):
