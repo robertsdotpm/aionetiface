@@ -535,16 +535,25 @@ class Netifaces:
             ] + vectors
 
         # Try different funcs to load IF info.
+        # Retry up to 3 times with backoff: Windows drops shell calls when
+        # multiple processes query interfaces simultaneously under parallel load.
         if_infos = []
-        for load_if_info in vectors:
-            try:
-                if_infos = await asyncio.wait_for(load_if_info(), CMD_TIMEOUT)
-                if not len(if_infos):
-                    continue
+        for load_attempt in range(3):
+            for load_if_info in vectors:
+                try:
+                    if_infos = await asyncio.wait_for(load_if_info(), CMD_TIMEOUT)
+                    if not len(if_infos):
+                        continue
 
+                    break
+                except (OSError, asyncio.TimeoutError):
+                    log_exception()
+
+            if if_infos:
                 break
-            except (OSError, asyncio.TimeoutError):
-                log_exception()
+
+            if load_attempt < 2:
+                await asyncio.sleep(2 + load_attempt * 2)
 
         self.by_guid_index = {}
         for if_info in if_infos:

@@ -67,6 +67,7 @@ todo: dont use the commandencoded trick
 """
 
 import platform
+import unittest
 from aionetiface import *
 from aionetiface.testing import AsyncTestCase
 
@@ -173,5 +174,13 @@ if platform.system() == "Windows":
             guid = n.guid(if_name)
             self.assertTrue(len(guid))
 
-    if __name__ == "__main__":
-        main()
+else:
+    class TestWinNetifaces(AsyncTestCase):
+        async def test_win_netifaces_ps(self):
+            self.skipTest("Windows only")
+
+        async def test_win_netifaces_class(self):
+            self.skipTest("Windows only")
+
+if __name__ == "__main__":
+    unittest.main()
