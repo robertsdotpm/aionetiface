@@ -10,11 +10,11 @@ with open(path.join(here, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
 
 install_reqs = [
-    "ntplib>=0.4",
-    "ecdsa>=0.18",
-    "netifaces>=0.11; platform_system != 'Windows'",
-    "pyroute2>=0.7; platform_system == 'Linux'",
-    "winregistry>=1.1; platform_system == 'Windows'",
+    "ntplib",
+    "ecdsa",
+    "netifaces; platform_system != 'Windows'",
+    "pyroute2; platform_system == 'Linux'",
+    "winregistry; platform_system == 'Windows'",
 ]
 
 setup(

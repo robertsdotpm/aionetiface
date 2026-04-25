@@ -28,10 +28,10 @@ classifiers = [
     "Framework :: AsyncIO",
 ]
 dependencies = [
-    "ntplib>=0.4",
-    "ecdsa>=0.18",
-    "netifaces>=0.11; platform_system != 'Windows'",
-    "pyroute2>=0.7; platform_system == 'Linux'",
+    "ntplib",
+    "ecdsa",
+    "netifaces; platform_system != 'Windows'",
+    "pyroute2; platform_system == 'Linux'",
 ]
 
 [project.urls]
