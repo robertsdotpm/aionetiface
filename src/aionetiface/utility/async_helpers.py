@@ -292,13 +292,24 @@ def run_handler(
     Async handlers are scheduled as tasks and tracked in pipe.handler_tasks.
     Sync handlers are called immediately.
     """
-    if inspect.iscoroutinefunction(handler):
+    # asyncio.iscoroutinefunction recognises both native `async def` and the
+    # legacy `@asyncio.coroutine` decorator, where inspect.iscoroutinefunction
+    # has been observed to misclassify nested async-def callbacks on Python
+    # 3.5.0 — leaving the returned coroutine unawaited.
+    if asyncio.iscoroutinefunction(handler):
         task = create_task(async_wrap_errors(handler(data, client_tup, pipe)))
         task.add_done_callback(handler_done_builder(pipe, handler, task))
         pipe.handler_tasks.append(task)
-    else:
-        result = handler(data, client_tup, pipe)
-        handler_done_builder(pipe, handler)(result)
+        return
+
+    result = handler(data, client_tup, pipe)
+    if asyncio.iscoroutine(result):
+        task = create_task(async_wrap_errors(result))
+        task.add_done_callback(handler_done_builder(pipe, handler, task))
+        pipe.handler_tasks.append(task)
+        return
+
+    handler_done_builder(pipe, handler)(result)
 
 
 def run_handlers(

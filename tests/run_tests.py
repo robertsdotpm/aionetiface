@@ -30,7 +30,7 @@ import threading
 # Constants
 # ─────────────────────────────────────────────────────────────────────────────
 
-VERSION = "1.6"
+VERSION = "1.7"
 
 REPO_BRANCHES = {
     "aionetiface": "ai_experiment",
@@ -227,9 +227,17 @@ def append_log(path, text):
     with open(path, "a") as fh:
         fh.write("[{}] {}\n".format(now(), text))
 
-def make_run_dir(repo, timestamp):
-    """Return (and create) the per-run log directory: LOG_BASE_DIR/<repo>/<timestamp>/"""
-    d = os.path.join(LOG_BASE_DIR, sanitize(repo), sanitize(timestamp))
+def make_run_dir(repo, version_arg, timestamp):
+    """Return (and create) the per-run log directory:
+    LOG_BASE_DIR/<repo>/<version_arg>/<timestamp>/
+    where version_arg is the user-supplied alias (lowest/middle/highest/random)
+    or an exact version string."""
+    d = os.path.join(
+        LOG_BASE_DIR,
+        sanitize(repo),
+        sanitize(version_arg),
+        sanitize(timestamp),
+    )
     if not os.path.isdir(d):
         os.makedirs(d)
     return d
@@ -472,8 +480,8 @@ def main():
     if not os.path.isdir(tests_dir):
         sys.exit("ERROR: tests dir not found: {}".format(tests_dir))
 
-    # Per-run log directory: ~/aionetiface/<repo>/<timestamp>/
-    run_dir   = make_run_dir(args.repo, timestamp)
+    # Per-run log directory: ~/test_out/<repo>/<version_arg>/<timestamp-pid>/
+    run_dir   = make_run_dir(args.repo, version_spec, timestamp)
     setup_log = os.path.join(run_dir, "setup.txt")
     ping_path = os.path.join(run_dir, "ping.txt")
 
