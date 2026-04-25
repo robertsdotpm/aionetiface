@@ -30,7 +30,7 @@ import threading
 # Constants
 # ─────────────────────────────────────────────────────────────────────────────
 
-VERSION = "1.4"
+VERSION = "1.5"
 
 REPO_BRANCHES = {
     "aionetiface": "ai_experiment",
@@ -541,7 +541,9 @@ def main():
     for module, ok in sorted(results):
         append_log(summary_log, "{}: {}".format(module, "PASS" if ok else "FAIL"))
 
-    msg = "DONE: {}/{} passed, {} failed".format(passed, total, failed)
+    msg = "DONE: {}/{} passed, {} failed  [pid={}]".format(
+        passed, total, failed, os.getpid()
+    )
     print(msg)
     append_log(setup_log, msg)
 
