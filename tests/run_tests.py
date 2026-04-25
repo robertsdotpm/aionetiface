@@ -45,8 +45,9 @@ if sys.platform == "win32":
     LOG_DIR = os.path.join(_drive + os.sep, "aionetiface", "logs")
 else:
     LOG_DIR = os.path.join(os.path.expanduser("~"), "aionetiface", "logs")
-PING_INTERVAL = 30   # seconds between ping file updates
-TEST_TIMEOUT  = 300  # 5 minutes per individual test
+PING_INTERVAL   = 30   # seconds between ping file updates
+TEST_TIMEOUT    = 300  # 5 minutes per individual test
+DEFAULT_WORKERS = 15   # fallback when cpu_count is unreliable (VM with 1 vCPU)
 
 INSTALL_SUCCESS_RE = re.compile(
     r"(successfully installed|already satisfied)",
@@ -413,10 +414,13 @@ def main():
         num_workers = args.workers
     elif args.test_name == "all":
         try:
-            ncpu = multiprocessing.cpu_count()
+            ncpu = multiprocessing.cpu_count() or 0
         except Exception:
-            ncpu = 4
-        num_workers = max(1, ncpu - 2)
+            ncpu = 0
+        # cpu_count of 1 means the value is unreliable (VM exposing fewer
+        # vCPUs than the host has).  Tests are I/O-bound so DEFAULT_WORKERS
+        # concurrent subprocesses is fine regardless of vCPU count.
+        num_workers = (ncpu - 2) if ncpu > 1 else DEFAULT_WORKERS
     else:
         num_workers = 1
 
