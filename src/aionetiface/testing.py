@@ -26,6 +26,7 @@ Typical test pattern:
 """
 
 import asyncio
+import asyncio.events
 import copy
 import linecache
 import socket
@@ -375,6 +376,27 @@ class FakeInterfaceFactory(object):
 
 
 # ─────────────────────────────────────────────────────────────
+# Quiet exception handler — suppress transient network / cancellation noise
+# so test output isn't drowned in expected errors from torn-down connections.
+# ─────────────────────────────────────────────────────────────
+
+_SUPPRESSED_TEST_EXCS = (
+    OSError,                  # covers ConnectionResetError, BrokenPipeError, etc.
+    asyncio.CancelledError,
+    asyncio.TimeoutError,
+)
+
+
+def _quiet_exception_handler(loop, context):
+    exc = context.get("exception")
+    if exc is not None and isinstance(exc, _SUPPRESSED_TEST_EXCS):
+        return
+    if "Task was destroyed but it is pending" in context.get("message", ""):
+        return
+    loop.default_exception_handler(context)
+
+
+# ─────────────────────────────────────────────────────────────
 # Module-level setup — runs once when testing is imported by any test file.
 # This replaces conftest.py for pure-unittest runs (python -m unittest discover).
 # ─────────────────────────────────────────────────────────────
@@ -388,6 +410,23 @@ if sys.version_info >= (3, 8):
     linecache.checkcache = lambda filename=None: None
 
 allow_windows_firewall("python-tests")
+
+# Patch asyncio.new_event_loop so every test loop — including the one
+# IsolatedAsyncioTestCase creates internally — gets the quiet handler.
+# We patch both the re-export and the original in asyncio.events because
+# internal asyncio code (e.g. asyncio.Runner in 3.11+) imports from the
+# submodule directly.
+_orig_new_event_loop = asyncio.events.new_event_loop
+
+
+def _new_event_loop_quiet():
+    loop = _orig_new_event_loop()
+    loop.set_exception_handler(_quiet_exception_handler)
+    return loop
+
+
+asyncio.new_event_loop = _new_event_loop_quiet
+asyncio.events.new_event_loop = _new_event_loop_quiet
 
 
 def make_fake_nic(real_nic, af, target_ipr):
