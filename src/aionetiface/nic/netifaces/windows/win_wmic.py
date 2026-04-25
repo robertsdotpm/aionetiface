@@ -1,5 +1,6 @@
 """Windows network interface enumeration via WMIC output parsing."""
 import ast
+import random
 import re
 import asyncio
 import sys
@@ -165,15 +166,26 @@ async def do_wmic_cmds() -> List[Any]:
         out = await cmd(cmd_txt)
         return out_handler(None, out)
 
-    # Build list of commands to run.
-    tasks = []
-    for vector in cmd_vectors:
-        out_handler, cmd_meta, _ = vector
-        task = helper(cmd_meta[IP4], out_handler)
-        tasks.append(task)
+    async def run_once():
+        tasks = []
+        for vector in cmd_vectors:
+            out_handler, cmd_meta, _ = vector
+            task = helper(cmd_meta[IP4], out_handler)
+            tasks.append(task)
+        return await safe_gather(*tasks)
 
-    # Run commands concurrently or not.
-    return await safe_gather(*tasks)
+    # On Windows XP, WMIC holds an exclusive file lock.  Concurrent processes
+    # get empty stdout ("Win32 Error: The process cannot access the file").
+    # Retry with jitter until the lock is free — WMIC itself completes in <1s.
+    results = []
+    for attempt in range(8):
+        results = await run_once()
+        main_entries = next((v for _, k, v in results if k == "main"), [])
+        if main_entries:
+            break
+        await asyncio.sleep(0.5 + attempt * 0.3 + random.uniform(0, 0.5))
+
+    return results
 
 
 async def get_ipv6_from_netsh() -> Dict[str, Tuple[int, List[Dict[str, Any]]]]:
