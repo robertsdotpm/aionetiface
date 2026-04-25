@@ -6,7 +6,7 @@ Usage:
     python run_tests.py <repo> <python_version> <test_name>
 
     repo           : aionetiface | namebump | sidewire | p2pd
-    python_version : 3.5.10 | 3.8.6 | 3.9.13 | ...
+    python_version : 3.5.10 | 3.8.6 | 3.9.13 | ... | lowest | middle | highest
     test_name      : test_unit | test_pipe | ... | all
 
 Examples:
@@ -115,6 +115,46 @@ def find_python(version):
             return p
     # Last resort: the interpreter running this script.
     return sys.executable
+
+def list_pyenv_versions():
+    """Return pyenv Python version strings >= 3.5 found on this machine, sorted ascending."""
+    seen = set()
+    for base in PYENV_SEARCH_DIRS:
+        if not os.path.isdir(base):
+            continue
+        try:
+            entries = os.listdir(base)
+        except OSError:
+            continue
+        for entry in entries:
+            for exe in ("python.exe", "python"):
+                if os.path.isfile(os.path.join(base, entry, exe)):
+                    seen.add(entry)
+                    break
+    versioned = []
+    for v in seen:
+        parts = v.split(".")
+        try:
+            t = tuple(int(x) for x in parts)
+        except ValueError:
+            continue
+        if len(t) >= 2 and t >= (3, 5):
+            versioned.append((t, v))
+    versioned.sort()
+    return [v for _, v in versioned]
+
+def resolve_python_version(spec):
+    """Resolve 'lowest'/'middle'/'highest' to an actual version string."""
+    if spec not in ("lowest", "middle", "highest"):
+        return spec
+    available = list_pyenv_versions()
+    if not available:
+        sys.exit("ERROR: no pyenv Python >= 3.5 found to satisfy '{}'".format(spec))
+    if spec == "lowest":
+        return available[0]
+    if spec == "highest":
+        return available[-1]
+    return available[len(available) // 2]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Logging
@@ -286,9 +326,15 @@ def test_worker(python_exe, tests_dir, work_q, results, lock):
 def main():
     parser = argparse.ArgumentParser(description="Run tests for a p2pd-family repo.")
     parser.add_argument("repo",           help="aionetiface | namebump | sidewire | p2pd")
-    parser.add_argument("python_version", help="e.g. 3.8.6")
+    parser.add_argument("python_version",
+                        help="e.g. 3.8.6  or  lowest | middle | highest")
     parser.add_argument("test_name",      help="test module name or 'all'")
     args = parser.parse_args()
+
+    # Resolve version alias before anything else so the resolved value is used
+    # in log filenames, find_python(), and all subsequent logging.
+    version_spec       = args.python_version
+    args.python_version = resolve_python_version(version_spec)
 
     timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
@@ -316,6 +362,8 @@ def main():
     setup_log = make_log_path(
         args.repo, args.python_version, args.test_name, "setup", timestamp
     )
+    if version_spec != args.python_version:
+        append_log(setup_log, "version    : {} -> {}".format(version_spec, args.python_version))
     append_log(setup_log, "python_exe : {}".format(python_exe))
     append_log(setup_log, "repo_dir   : {}".format(repo_dir))
     append_log(setup_log, "repos found: {}".format(sorted(repo_dirs.keys())))
