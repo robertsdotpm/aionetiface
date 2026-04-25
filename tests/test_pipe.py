@@ -17,6 +17,7 @@ so far. Hopefully it works well on other OSes, too.
 """
 
 from aionetiface import *
+from aionetiface.testing import AsyncTestCase
 
 
 class MinReader(asyncio.StreamReaderProtocol):

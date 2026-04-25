@@ -1,6 +1,7 @@
 import uuid
 from typing import Any
 from aionetiface import *
+from aionetiface.testing import AsyncTestCase
 
 
 class TestHelloWorld(AsyncTestCase):

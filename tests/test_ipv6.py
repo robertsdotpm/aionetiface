@@ -5,6 +5,7 @@ nc -4 -u aionetiface.net 7
 
 from typing import Any
 from aionetiface import *
+from aionetiface.testing import AsyncTestCase
 
 
 class TestIPv6(AsyncTestCase):

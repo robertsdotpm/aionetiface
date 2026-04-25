@@ -1,5 +1,6 @@
 from typing import Any, List
 from aionetiface import *
+from aionetiface.testing import AsyncTestCase
 
 
 async def get_test_stun_clients(n: int = 8) -> List[Any]:

@@ -1,5 +1,6 @@
 import os
 from aionetiface import *
+from aionetiface.testing import AsyncTestCase
 
 """
 All of the Python code used in the documentation gets tested

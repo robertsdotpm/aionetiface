@@ -11,6 +11,7 @@ without breaking it.
 
 from typing import Any
 from aionetiface import *
+from aionetiface.testing import AsyncTestCase
 from port_helpers import xdist_port_base
 
 

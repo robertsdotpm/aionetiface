@@ -68,6 +68,7 @@ todo: dont use the commandencoded trick
 
 import platform
 from aionetiface import *
+from aionetiface.testing import AsyncTestCase
 
 if platform.system() == "Windows":
     from aionetiface.nic.netifaces.windows.win_netifaces import (

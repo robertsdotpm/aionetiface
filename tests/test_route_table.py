@@ -1,6 +1,7 @@
 import platform
 import multiprocessing
 from aionetiface import *
+from aionetiface.testing import AsyncTestCase
 
 
 RELATED_PLATFORMS = ["Linux", "Darwin", "FreeBSD"]

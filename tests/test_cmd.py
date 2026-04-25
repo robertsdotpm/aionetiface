@@ -4,6 +4,7 @@ import os
 import multiprocessing
 from typing import Any, Optional, List
 from aionetiface import *
+from aionetiface.testing import AsyncTestCase
 
 
 class TestCmd(AsyncTestCase):
