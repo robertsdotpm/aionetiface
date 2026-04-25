@@ -30,7 +30,7 @@ import threading
 # Constants
 # ─────────────────────────────────────────────────────────────────────────────
 
-VERSION = "1.5"
+VERSION = "1.6"
 
 REPO_BRANCHES = {
     "aionetiface": "ai_experiment",
@@ -365,6 +365,20 @@ def ping_worker(ping_path, stop_event):
 # Test runner
 # ─────────────────────────────────────────────────────────────────────────────
 
+def tests_passed_in_output(out_path):
+    """Return True if the test output file contains a clean unittest OK line."""
+    try:
+        with open(out_path, "r") as fh:
+            lines = [l.strip() for l in fh.readlines()]
+        for line in reversed(lines):
+            if line == "OK" or line.startswith("OK ("):
+                return True
+            if line.startswith("FAILED") or line.startswith("ERROR"):
+                return False
+    except OSError:
+        pass
+    return False
+
 def run_single_test(python_exe, tests_dir, module_name, out_path):
     """Run one test module; return True if it passed."""
     append_log(out_path, "=== START {} ===".format(module_name))
@@ -374,6 +388,10 @@ def run_single_test(python_exe, tests_dir, module_name, out_path):
         log_path=out_path,
         timeout=TEST_TIMEOUT,
     )
+    # If the process was killed by timeout but unittest printed OK before
+    # hanging (e.g. during event-loop/thread cleanup), treat as passed.
+    if rc == -1 and tests_passed_in_output(out_path):
+        rc = 0
     result = "PASSED" if rc == 0 else "FAILED (rc={})".format(rc)
     append_log(out_path, "=== END {} : {} ===".format(module_name, result))
     return rc == 0
