@@ -114,7 +114,7 @@ class DestTup:
         """Return a one-element list containing the address family of this destination."""
         return [self.af]
 
-asdasd
+
 class Address:
     """Lazily-resolved network address that can hold both IPv4 and IPv6 results."""
 
