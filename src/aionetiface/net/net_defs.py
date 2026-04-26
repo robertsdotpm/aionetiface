@@ -154,7 +154,6 @@ BLACK_HOLE_IPS = {IP4: "192.0.2.1", IP6: "0100:0000:0000:0000:0000:0000:0000:000
 VALID_LOOPBACKS = ["127.0.0.1", "::1"]
 VALID_ANY_ADDR = ["0.0.0.0", "::"]
 ANY_ADDR = ["0.0.0.0", "ff02::1", "::/0", "255.255.255.255"]
-LOOPBACK_BIND = 3
 
 # Address object types.
 IPA_TYPES = ipa_types = (ipaddress.IPv4Address, ipaddress.IPv6Address)
@@ -193,6 +192,11 @@ NIC_BIND = 1
 EXT_BIND = 2
 NIC_FAIL = 3
 EXT_FAIL = 4
+# LOOPBACK_BIND: peer reached via 127.X.Y.Z (or ::1). Only meaningful
+# for same-machine peers and only generated when enrich_addr_map_with_loopback
+# has populated dest_info["loopback"]. Tried after NIC_BIND, before
+# EXT_BIND in auto_connect's batched combo race.
+LOOPBACK_BIND = 5
 IP_PRIVATE = 3
 IP_PUBLIC = 4
 IP_APPEND = 5
