@@ -11,7 +11,7 @@ if sys.platform == "win32":
 from typing import Any, Dict, List, Tuple
 from ....net.net_utils import IP4, IP6, VALID_AFS
 from ....utility.cmd_tools import cmd
-from ....utility.utils import safe_gather
+from ....utility.utils import async_wrap_errors, safe_gather
 from ....net.ip_range import IPRange
 from ....net.net_utils import ip_norm
 
@@ -167,10 +167,17 @@ async def do_wmic_cmds() -> List[Any]:
         return out_handler(None, out)
 
     async def run_once():
+        # Wrap each helper in async_wrap_errors so one failing wmic
+        # subprocess (XP holds an exclusive WMIC lock; concurrent
+        # invocations can return empty stdout / raise) doesn't
+        # orphan the other two helper coroutines via safe_gather's
+        # sequential-await short-circuit on Python 3.5.  Result list
+        # entries become None for failing helpers; the main-entries
+        # check below handles missing data the same way it always did.
         tasks = []
         for vector in cmd_vectors:
             out_handler, cmd_meta, _ = vector
-            task = helper(cmd_meta[IP4], out_handler)
+            task = async_wrap_errors(helper(cmd_meta[IP4], out_handler))
             tasks.append(task)
         return await safe_gather(*tasks)
 
@@ -179,7 +186,10 @@ async def do_wmic_cmds() -> List[Any]:
     # Retry with jitter until the lock is free — WMIC itself completes in <1s.
     results = []
     for attempt in range(8):
-        results = await run_once()
+        raw = await run_once()
+        # async_wrap_errors substitutes None for failed helpers; filter
+        # before iterating so the unpack below doesn't crash.
+        results = [r for r in raw if r is not None]
         main_entries = next((v for _, k, v in results if k == "main"), [])
         if main_entries:
             break
