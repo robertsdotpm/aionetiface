@@ -55,6 +55,13 @@ async def socket_factory(
 
     # Bind to the specific interface if set. On Linux, root is sometimes
     # needed to bind to a non-default interface, but not the default one.
+    #
+    # Skip SO_BINDTODEVICE when the destination is loopback: 127.x and
+    # ::1 don't route through any physical NIC, so device-binding the
+    # connect socket makes the kernel return EINVAL on connect(). The
+    # interface metadata (NIC IP, route family) still applies normally
+    # for bind() below; this only suppresses the L2-pin sockopt for
+    # loopback destinations.
     try:
         if route.interface is not None:
             # TODO: probably cache this.

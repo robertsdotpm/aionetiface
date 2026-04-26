@@ -300,9 +300,21 @@ def get_interfaces() -> Dict[str, Dict[Any, Any]]:
         if name is None:
             name = "<adapter {0}>".format(adapter.IfIndex)
 
+        # AdapterName is the curly-brace GUID -- carry it through so the
+        # netifaces vector adapter below can use it as the by_guid_index key.
+        adapter_name = adapter.AdapterName
+        if isinstance(adapter_name, bytes):
+            try:
+                adapter_name = adapter_name.decode("ascii")
+            except UnicodeDecodeError:
+                adapter_name = adapter_name.decode("latin-1", errors="replace")
+        if adapter_name is None:
+            adapter_name = ""
+
         info = {
             "name": name,
             "description": adapter.Description or "",
+            "guid": adapter_name,
             "ifindex": int(adapter.IfIndex),
             "ipv6_ifindex": int(adapter.Ipv6IfIndex),
             "mac": mac_from_physical(
@@ -370,3 +382,116 @@ def to_netifaces_shape(interfaces: Dict[str, Dict[Any, Any]]) -> Dict[str, Dict[
             per_iface[AF_LINK].append({"addr": info["mac"]})
         out[name] = per_iface
     return out
+
+
+# ---------------------------------------------------------------------------
+# Netifaces-shaped vector adapter.
+#
+# Netifaces.start() in win_netifaces walks a vectors list of async
+# coroutines, each returning a list of if_info dicts in a specific
+# shape. We expose if_infos_from_iphlpapi() here so it can be prepended
+# to that list as the primary Windows path. When iphlpapi succeeds (every
+# Windows version from XP SP1 onward), the WMIC + netsh + PowerShell
+# fallbacks never run -- skipping their slow shell calls + XP's WMIC
+# lock contention.
+# ---------------------------------------------------------------------------
+
+
+def cidr_to_netmask_v4(prefix: int) -> str:
+    """Convert an IPv4 prefix length to dotted-quad netmask, matching netifaces."""
+    if prefix <= 0:
+        return "0.0.0.0"
+    if prefix >= 32:
+        return "255.255.255.255"
+    mask = (0xFFFFFFFF << (32 - prefix)) & 0xFFFFFFFF
+    return "{0}.{1}.{2}.{3}".format(
+        (mask >> 24) & 0xFF, (mask >> 16) & 0xFF,
+        (mask >> 8) & 0xFF, mask & 0xFF,
+    )
+
+
+async def if_infos_from_iphlpapi() -> List[Dict[str, Any]]:
+    """Translate get_interfaces() into the netifaces-vector if_info shape.
+
+    Returns a list of dicts each containing::
+
+        {
+            "guid":     "<{xxxxxxxx-xxxx-...}>",
+            "name":     "<friendly name>",
+            "no":       <ifindex>,
+            "mac":      "aa:bb:cc:dd:ee:ff",
+            "addr":     {IP4: [{"addr","af","host_limit","netmask"}, ...],
+                          IP6: [...]},
+            "gws":      {IP4: None, IP6: None},
+            "defaults": [],
+        }
+
+    Adapters with neither v4 nor v6 unicast addresses are filtered out
+    -- the existing vectors do the same so callers can iterate over
+    if_infos without guarding for empty AF lists.
+
+    Gateways are not extracted from GetAdaptersAddresses here even
+    though the API exposes them; downstream is_default() falls back to
+    a sock-trick UDP probe when gws is empty, and that already works
+    on every supported Windows version. Adding gateway parsing here
+    means widening the IP_ADAPTER_ADDRESSES struct (FirstPrefix,
+    FirstWinsServerAddress, FirstGatewayAddress) which we don't need
+    for the immediate "interface enumeration" job.
+    """
+    if not is_supported():
+        return []
+
+    # Local imports so the module stays loadable on non-Windows even
+    # if the host code happens to import this name.
+    from ....net.net_defs import IP4, IP6
+    from ....net.ip_range import IPRange
+    from ....net.net_utils import af_bitlen
+
+    interfaces = get_interfaces()
+
+    if_infos = []
+    for friendly, info in interfaces.items():
+        addr_info = {IP4: [], IP6: []}
+        for v4 in info[socket.AF_INET]:
+            try:
+                ipr = IPRange(v4["addr"])
+            except (ValueError, TypeError):
+                continue
+            host_limit = v4.get("prefix") or af_bitlen(IP4)
+            addr_info[IP4].append({
+                "addr": v4["addr"],
+                "af": IP4,
+                "host_limit": host_limit,
+                "netmask": cidr_to_netmask_v4(host_limit),
+            })
+        for v6 in info[socket.AF_INET6]:
+            try:
+                ipr = IPRange(v6["addr"])
+            except (ValueError, TypeError):
+                continue
+            host_limit = v6.get("prefix") or af_bitlen(IP6)
+            # netifaces doesn't fill IPv6 netmask in any meaningful way
+            # cross-platform; the existing PS1 path leaves it omitted
+            # and downstream consumers compute reach via host_limit.
+            addr_info[IP6].append({
+                "addr": v6["addr"],
+                "af": IP6,
+                "host_limit": host_limit,
+                "netmask": None,
+            })
+
+        # Drop addressless adapters; downstream selectors trip on them.
+        if not addr_info[IP4] and not addr_info[IP6]:
+            continue
+
+        if_infos.append({
+            "guid": info.get("guid") or friendly,
+            "name": friendly,
+            "no": info["ifindex"] or info["ipv6_ifindex"],
+            "mac": info["mac"],
+            "addr": addr_info,
+            "gws": {IP4: None, IP6: None},
+            "defaults": [],
+        })
+
+    return if_infos

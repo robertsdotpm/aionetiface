@@ -70,6 +70,7 @@ from ....net.ip_range import IPRange
 from ....utility.utils import fstr, log, log_exception, to_n, ip_f
 from ....utility.cmd_tools import cmd, get_powershell_path, ps1_exec_trick
 from .win_netsh import if_infos_from_netsh
+from .win_iphlpapi import if_infos_from_iphlpapi, is_supported as iphlpapi_is_supported
 from .win_wmic import if_infos_from_wmic
 
 
@@ -510,7 +511,11 @@ class Netifaces:
 
     async def start(self) -> "Netifaces":
         # Different approaches for getting NIC info on Windows.
-        # All of which use shell commands to keep it portable.
+        # iphlpapi.GetAdaptersAddresses (XP SP1+) is the primary path
+        # because it's a single ctypes call -- no shell subprocess, no
+        # WMIC lock contention on XP, no PowerShell version checks.
+        # The shell-based fallbacks stay in the list so a quirky
+        # locked-down install can still produce interface info.
         vectors = [
             # WMIC is well supported on all Windows versions but
             # needs 3 commands to get all information.
@@ -519,6 +524,8 @@ class Netifaces:
             # need a special routing service manually enabled.
             if_infos_from_netsh,
         ]
+        if iphlpapi_is_supported():
+            vectors.insert(0, if_infos_from_iphlpapi)
 
         # Get platform version.
         vmaj, vmin, vpatch = [int(x) for x in platform.version().split(".")]
