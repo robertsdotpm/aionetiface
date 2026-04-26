@@ -1,4 +1,5 @@
 from aionetiface import *
+from aionetiface import get_infra  # explicit -- not always re-exported by wildcard
 from aionetiface.testing import AsyncTestCase
 
 
@@ -32,17 +33,45 @@ class TestSock(AsyncTestCase):
         loop = asyncio.get_event_loop()
         i = await Interface()
         af = i.supported()[0]
-        r = await i.route(af).bind(0)
-        d = ("ovh1.p2pd.net", 3478)
-        dest = Address("ovh1.p2pd.net", 3478)
-        await dest.res(r)
-        dest = dest.select_ip(IP4)
-        s = await socket_factory(route=r, dest_addr=dest, sock_type=TCP, conf=NET_CONF)
-        con_task = asyncio.create_task(loop.sock_connect(s, dest.tup))
+        # Pick several STUN-TCP servers from get_infra so one unreachable
+        # host doesn't fail the socket-factory test. First one that opens
+        # cleanly wins.
+        try:
+            groups = get_infra(IP4, TCP, "STUN(see_ip)", no=5)
+        except Exception:
+            groups = []
+        hosts = []
+        for group in groups:
+            if not group:
+                continue
+            entry = group[0]
+            fqn = (entry.get("fqns") or [entry.get("ip")])[0]
+            if fqn:
+                hosts.append((fqn, entry.get("port", 3478)))
+        if not hosts:
+            hosts = [("ovh1.p2pd.net", 3478)]
 
-        await asyncio.wait_for(con_task, 2)
-        if s is not None:
-            s.close()
+        last_err = None
+        connected = False
+        for host, port in hosts:
+            r = await i.route(af).bind(0)
+            try:
+                dest = Address(host, port)
+                await dest.res(r)
+                dest = dest.select_ip(IP4)
+                s = await socket_factory(route=r, dest_addr=dest, sock_type=TCP, conf=NET_CONF)
+                con_task = asyncio.create_task(loop.sock_connect(s, dest.tup))
+                await asyncio.wait_for(con_task, 2)
+                connected = True
+                if s is not None:
+                    s.close()
+                break
+            except (OSError, ConnectionError, asyncio.TimeoutError, LookupError) as exc:
+                last_err = exc
+                continue
+
+        if not connected:
+            self.skipTest("No reachable STUN-TCP host (last error: {!r})".format(last_err))
 
     async def test_high_port_reuse(self):
         # Config for reuse.
