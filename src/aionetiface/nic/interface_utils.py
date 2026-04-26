@@ -291,37 +291,67 @@ async def load_interfaces(
     timeout: int = 4,
 ) -> List[Any]:
     """
-    When an interface is loaded, it is placed into a clearing queue.
-    The event loop cycles through this queue, switching between tasks as they
-    become eligible to run. Because completion time depends on how many other
-    interfaces are also pending, timeouts are set relative to the total number of
-    active interfaces rather than per task in isolation. This ensures that delays from
-    other tasks are accounted for and no single timeout is miscalculated by
-    assuming immediate execution.
+    Load every NIC concurrently with a per-NIC wall-clock cap.
+
+    Sequential loading was the historical shape, but on hosts with a
+    pile of fake / virtual adapters (Windows 11 Hyper-V switches, WSL
+    bridges, leftover loopback drivers) one NIC's STUN probe sitting
+    on its full ``timeout`` budget would block every NIC behind it.
+    A 30-fake-adapter machine could spend 4 minutes here before the
+    real interfaces ever got probed, and `Node.start()` would tip
+    over the test runner's 300s SIGKILL budget.
+
+    Now each NIC's (start + load_nat) runs as an independent task
+    via ``asyncio.gather``, and each task is wrapped in
+    ``asyncio.wait_for`` capped at roughly twice the per-call
+    ``timeout`` so a single hung adapter bounces out without
+    holding up the rest. Total wall time is bounded by the slowest
+    successful NIC, not the sum of all NICs.
     """
-    nics = []
-    for if_name in if_names:
-        try:
-            nic = Interface(if_name)
-            await nic.start(
-                min_agree=min_agree,
-                max_agree=max_agree,
-                timeout=timeout,
-            )
+    # Cap each NIC's total time. timeout is the per-call STUN budget;
+    # there are two waits (start + load_nat) plus a small slack so the
+    # inner deadlines fire before the outer one.
+    per_nic_cap = (2 * timeout) + 1
 
-            if not skip_nat:
-                nat = await async_wrap_errors(nic.load_nat(timeout=timeout))
+    # Bounded concurrency. Pure unlimited gather() turned out to be
+    # unreliable on Windows: nic.start / nic.load_nat shell out to
+    # netsh / wmic / powershell, and firing 30 of those at once
+    # exhibits intermittent failures. A small semaphore keeps the
+    # shellouts orderly while still letting the slow STUN probes on
+    # multiple NICs overlap, which is where the real wall-clock win
+    # comes from.
+    LOAD_CONCURRENCY = 4
+    sem = asyncio.Semaphore(LOAD_CONCURRENCY)
 
-                if nat is None:
-                    log("Could not load NAT for " + to_s(if_name))
+    async def load_one(if_name: Any) -> Optional[Any]:
+        async with sem:
+            try:
+                nic = Interface(if_name)
 
-            nics.append(nic)
-        except asyncio.CancelledError:  # pylint: disable=try-except-raise
-            raise
-        except (OSError, asyncio.TimeoutError, InterfaceNotFound, InterfaceInvalidAF):
-            log_exception()
+                async def setup() -> None:
+                    await nic.start(
+                        min_agree=min_agree,
+                        max_agree=max_agree,
+                        timeout=timeout,
+                    )
+                    if not skip_nat:
+                        nat = await async_wrap_errors(nic.load_nat(timeout=timeout))
+                        if nat is None:
+                            log("Could not load NAT for " + to_s(if_name))
 
-    return nics
+                await asyncio.wait_for(setup(), timeout=per_nic_cap)
+                return nic
+            except asyncio.CancelledError:  # pylint: disable=try-except-raise
+                raise
+            except (OSError, asyncio.TimeoutError, InterfaceNotFound, InterfaceInvalidAF):
+                log_exception()
+                return None
+            except Exception:  # pylint: disable=broad-except
+                log_exception()
+                return None
+
+    results = await asyncio.gather(*[load_one(n) for n in if_names])
+    return [nic for nic in results if nic is not None]
 
 
 def get_nic_for_af(nic_list: List[Any]) -> Dict[int, Optional[Any]]:
