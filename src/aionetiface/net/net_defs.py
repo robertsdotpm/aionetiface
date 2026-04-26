@@ -61,8 +61,6 @@ __all__ = [
     "VALID_LOCALHOST",
     "NIC_BIND",
     "EXT_BIND",
-    "NIC_FAIL",
-    "EXT_FAIL",
     "IP_PRIVATE",
     "IP_PUBLIC",
     "IP_APPEND",
@@ -190,8 +188,6 @@ V4_VALID_LOCALHOST = ["localhost", "127.0.0.1"]
 VALID_LOCALHOST = ["localhost", "::1", "127.0.0.1"]
 NIC_BIND = 1
 EXT_BIND = 2
-NIC_FAIL = 3
-EXT_FAIL = 4
 # LOOPBACK_BIND: peer reached via 127.X.Y.Z (or ::1). Only meaningful
 # for same-machine peers and only generated when enrich_addr_map_with_loopback
 # has populated dest_info["loopback"]. Tried after NIC_BIND, before
