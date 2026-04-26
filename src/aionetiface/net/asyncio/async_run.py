@@ -61,7 +61,24 @@ def async_run(main: Any, *, debug: bool = False) -> Any:
     from ...entrypoint import aionetiface_setup_event_loop
     aionetiface_setup_event_loop()
 
-    if events._get_running_loop() is not None:
+    # events._get_running_loop() is the cheap "is anything running"
+    # check on Python 3.6+, but Python 3.5 doesn't have it. Fall back
+    # to inspecting the default loop's is_running() flag, which works
+    # uniformly. (Inside an async context, asyncio.get_event_loop()
+    # returns the active loop and .is_running() == True; outside one
+    # we either get a fresh non-running loop or RuntimeError, and
+    # both mean "not running".)
+    running_loop = None
+    if hasattr(events, "_get_running_loop"):
+        running_loop = events._get_running_loop()
+    else:
+        try:
+            cand = asyncio.get_event_loop()
+            if cand.is_running():
+                running_loop = cand
+        except RuntimeError:
+            pass
+    if running_loop is not None:
         raise RuntimeError("asyncio.run() cannot be called from a running event loop")
 
     if not coroutines.iscoroutine(main):
