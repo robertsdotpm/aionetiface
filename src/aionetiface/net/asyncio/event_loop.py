@@ -42,10 +42,11 @@ class ProxySelector:
         symptom we hit during ``Nickname.start()`` running parallel
         TCP connect / close cycles via ``asyncio.gather``.
 
-        Recovery: scan every registered fd, try ``select`` on each one
-        in isolation, drop the ones that raise the same error, and
-        retry the full select. Worst case the loop loses a tick to
-        the per-fd probe, but it survives the spurious failure.
+        Recovery: walk every registered fd, validate each one's
+        fileobj.fileno() in isolation (which raises OSError if the
+        underlying socket is gone), unregister the dead ones, and
+        retry the full select. Single pass, no nested select() calls
+        so a healthy registered FD can't be misidentified as bad.
         """
         try:
             return self.selector.select(timeout)
@@ -57,30 +58,23 @@ class ProxySelector:
             if winerror not in (10038,) and errno not in (9,):
                 raise
 
-            # Find the offending FD(s) and quietly evict them.
+            # Walk the fd_map and evict any whose underlying file
+            # object's fileno() raises -- those are the closed-but-
+            # still-registered ones. Healthy FDs pass fileno() and
+            # stay put.
             bad_fds = []
             try:
                 fd_map = dict(self.selector.get_map())
             except Exception:  # pylint: disable=broad-except
                 fd_map = {}
             for fd, key in fd_map.items():
+                fileobj = getattr(key, "fileobj", None)
+                target = fileobj if fileobj is not None else fd
                 try:
-                    self.selector.select(0)
-                except OSError as inner:
-                    if getattr(inner, "winerror", None) == 10038 or getattr(inner, "errno", None) == 9:
-                        # The error fired before we could narrow it. Try
-                        # checking this single FD via fileno() -> hits
-                        # WinError 10038 if the underlying socket is dead.
-                        try:
-                            sock_obj = key.fileobj if hasattr(key, "fileobj") else fd
-                            sock_obj.fileno()  # raises if FD is gone
-                        except OSError:
-                            bad_fds.append(fd)
-                            continue
-                    else:
-                        raise
-                else:
-                    break
+                    if hasattr(target, "fileno"):
+                        target.fileno()
+                except (OSError, ValueError):
+                    bad_fds.append(fd)
 
             for fd in bad_fds:
                 try:
