@@ -15,7 +15,7 @@ netifaces-compatible dict the rest of the codebase can consume.
 
 Usage:
 
-    from aionetiface.utility.win_iphlpapi import (
+    from aionetiface.nic.netifaces.windows.win_iphlpapi import (
         is_supported, get_interfaces,
     )
 
