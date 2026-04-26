@@ -111,14 +111,29 @@ def aionetiface_setup_event_loop() -> None:
         # Older Python
         SelectSelector._select = patched_select_old
 
-    # If default isn't spawn then change it.
-    # But only if it hasn't already been set.
-    if multiprocessing.get_start_method() != "spawn":
-        start_method = multiprocessing.get_start_method(allow_none=True)
-
-        # First time setting this otherwise it will throw an error.
-        if start_method is None:
-            multiprocessing.set_start_method("spawn")
+    # Force the multiprocessing start method to "spawn".
+    #
+    # Old shape only set spawn when get_start_method(allow_none=True)
+    # returned None -- but the very first non-None query latches the
+    # default ("fork" on Linux) into place, after which allow_none=True
+    # also returns "fork" and the spawn upgrade silently never runs.
+    # ProcessPoolExecutor then uses fork, which on Linux duplicates
+    # parent FDs (asyncio selector, controlling-terminal TTY) into the
+    # child. A child crash's cleanup can close those FDs in the parent
+    # too -- observed: a same-NIC punch worker crashing closed bash's
+    # stdin/stdout and the terminal window with it.
+    #
+    # force=True lets us override even when something already locked the
+    # method. RuntimeError still fires if a child process tried to call
+    # this from a non-main thread; the guard preserves that.
+    if multiprocessing.get_start_method(allow_none=True) != "spawn":
+        try:
+            multiprocessing.set_start_method("spawn", force=True)
+        except RuntimeError:
+            # Already locked into a non-overridable context (rare;
+            # happens when a frozen-bundle entry-point ran multiprocessing
+            # before us). Nothing safe to do here.
+            pass
 
     patch_asyncio_backports(CustomEventLoop)
     policy = asyncio.get_event_loop_policy()
