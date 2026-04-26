@@ -19,12 +19,79 @@ class ProxySelector:
         self.selector = selector_instance
         self.loop = loop
 
-        # Proxy standard methods
-        self.select = selector_instance.select
+        # Proxy standard methods. select is wrapped (not bound directly)
+        # so we can catch WinError 10038 ("not a socket") that fires on
+        # older Windows (XP) when an FD is closed externally between
+        # transport.close() and the next selector.select(). Bare
+        # propagation kills the loop; surgical recovery by unregistering
+        # the bad FD and retrying keeps the rest of the registered
+        # sockets functional.
         self.close = selector_instance.close
         self.register = selector_instance.register
         self.get_map = selector_instance.get_map
         self.get_key = selector_instance.get_key
+
+    def select(self, timeout: Any = None) -> Any:
+        """Forward to the underlying selector, recovering from stale-FD errors.
+
+        On Windows XP (and other older Winsock stacks) a closed socket
+        whose FD hasn't been unregistered yet causes
+        ``select.select(...)`` to raise ``OSError: [WinError 10038]``
+        ("operation attempted on something that is not a socket").
+        Asyncio doesn't catch this and the whole event loop dies --
+        symptom we hit during ``Nickname.start()`` running parallel
+        TCP connect / close cycles via ``asyncio.gather``.
+
+        Recovery: scan every registered fd, try ``select`` on each one
+        in isolation, drop the ones that raise the same error, and
+        retry the full select. Worst case the loop loses a tick to
+        the per-fd probe, but it survives the spurious failure.
+        """
+        try:
+            return self.selector.select(timeout)
+        except OSError as exc:
+            winerror = getattr(exc, "winerror", None)
+            errno = getattr(exc, "errno", None)
+            # 10038 is WSAENOTSOCK on Windows. EBADF (9) is the closest
+            # POSIX analogue; cover both for safety on weird stacks.
+            if winerror not in (10038,) and errno not in (9,):
+                raise
+
+            # Find the offending FD(s) and quietly evict them.
+            bad_fds = []
+            try:
+                fd_map = dict(self.selector.get_map())
+            except Exception:  # pylint: disable=broad-except
+                fd_map = {}
+            for fd, key in fd_map.items():
+                try:
+                    self.selector.select(0)
+                except OSError as inner:
+                    if getattr(inner, "winerror", None) == 10038 or getattr(inner, "errno", None) == 9:
+                        # The error fired before we could narrow it. Try
+                        # checking this single FD via fileno() -> hits
+                        # WinError 10038 if the underlying socket is dead.
+                        try:
+                            sock_obj = key.fileobj if hasattr(key, "fileobj") else fd
+                            sock_obj.fileno()  # raises if FD is gone
+                        except OSError:
+                            bad_fds.append(fd)
+                            continue
+                    else:
+                        raise
+                else:
+                    break
+
+            for fd in bad_fds:
+                try:
+                    self.maybe_signal_removal(fd, 0, None)
+                    self.selector.unregister(fd)
+                except (KeyError, ValueError, OSError):
+                    pass
+
+            # Retry once. If it fails again, propagate -- something
+            # other than a stale FD is wrong.
+            return self.selector.select(timeout)
 
     def maybe_signal_removal(self, fd: Any, events: int, data: Any) -> None:
         """Helper to signal if FD is being completely unregistered."""
