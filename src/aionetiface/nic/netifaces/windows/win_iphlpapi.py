@@ -446,8 +446,41 @@ async def if_infos_from_iphlpapi() -> List[Dict[str, Any]]:
     from ....net.net_defs import IP4, IP6
     from ....net.ip_range import IPRange
     from ....net.net_utils import af_bitlen
+    from ....utility.utils import fstr, log, log_exception
 
     interfaces = get_interfaces()
+
+    def sanitize_prefix(raw_prefix: Any, af: int) -> int:
+        """Return raw_prefix iff it's a sensible CIDR for af, else af_bitlen(af).
+
+        Windows iphlpapi.GetAdaptersAddresses leaves OnLinkPrefixLength
+        as a UCHAR (0-255). For Teredo / 6to4 / ISATAP / NDIS-WAN
+        miniports the field is often uninitialised or filled with a
+        sentinel, so a value like 218 or 255 leaks through. Clamp here
+        rather than letting it propagate -- a host route fallback
+        (af_bitlen) is the safest default and keeps the rest of the
+        adapter walk going.
+        """
+        max_bits = af_bitlen(af)
+        if raw_prefix is None:
+            return max_bits
+        try:
+            n = int(raw_prefix)
+        except (TypeError, ValueError):
+            log(fstr(
+                "win_iphlpapi: unparseable prefix {0!r} for af={1}; "
+                "defaulting to /{2}",
+                (raw_prefix, af, max_bits),
+            ))
+            return max_bits
+        if n < 0 or n > max_bits:
+            log(fstr(
+                "win_iphlpapi: out-of-range prefix {0} for af={1} "
+                "(valid 0..{2}); defaulting to /{2}",
+                (n, af, max_bits),
+            ))
+            return max_bits
+        return n
 
     if_infos = []
     for friendly, info in interfaces.items():
@@ -457,19 +490,24 @@ async def if_infos_from_iphlpapi() -> List[Dict[str, Any]]:
                 ipr = IPRange(v4["addr"])
             except (ValueError, TypeError):
                 continue
-            host_limit = v4.get("prefix") or af_bitlen(IP4)
+            host_limit = sanitize_prefix(v4.get("prefix"), IP4) or af_bitlen(IP4)
+            try:
+                netmask = cidr_to_netmask_v4(host_limit)
+            except (ValueError, TypeError):
+                log_exception()
+                continue
             addr_info[IP4].append({
                 "addr": v4["addr"],
                 "af": IP4,
                 "host_limit": host_limit,
-                "netmask": cidr_to_netmask_v4(host_limit),
+                "netmask": netmask,
             })
         for v6 in info[socket.AF_INET6]:
             try:
                 ipr = IPRange(v6["addr"])
             except (ValueError, TypeError):
                 continue
-            host_limit = v6.get("prefix") or af_bitlen(IP6)
+            host_limit = sanitize_prefix(v6.get("prefix"), IP6) or af_bitlen(IP6)
             # netifaces doesn't fill IPv6 netmask in any meaningful way
             # cross-platform; the existing PS1 path leaves it omitted
             # and downstream consumers compute reach via host_limit.

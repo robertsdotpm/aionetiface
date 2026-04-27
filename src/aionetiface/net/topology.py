@@ -216,11 +216,25 @@ def make_node_addr(
     """
     ensure_resolved(interface_list)
 
-    # Make the program crash early on invalid addr inputs.
-    assert isinstance(pub_key_hex, (str, bytes))
-    assert isinstance(machine_id, (str, bytes))
-    assert len(interface_list)
-    assert port
+    # Public-API input validation: raise on bad addr inputs so callers
+    # see a typed error instead of an AssertionError that python -O
+    # would silently strip.
+    if not isinstance(pub_key_hex, (str, bytes)):
+        raise TypeError(
+            "pub_key_hex must be str or bytes, got {0}".format(
+                type(pub_key_hex).__name__,
+            )
+        )
+    if not isinstance(machine_id, (str, bytes)):
+        raise TypeError(
+            "machine_id must be str or bytes, got {0}".format(
+                type(machine_id).__name__,
+            )
+        )
+    if not len(interface_list):
+        raise ValueError("interface_list must contain at least one interface")
+    if not port:
+        raise ValueError("port must be a non-zero integer")
 
     bufs = []
     for af in [IP4, IP6]:

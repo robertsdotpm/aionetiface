@@ -88,7 +88,12 @@ class PipeClient(ACKUDP):
         """Register a subscription for messages matching sub, optionally routing them to handler."""
         b_msg_p, client_tup = sub
         if client_tup is not None:
-            assert isinstance(client_tup[1], int)
+            if not isinstance(client_tup[1], int):
+                raise TypeError(
+                    "subscribe: client_tup[1] (port) must be int, got {0}".format(
+                        type(client_tup[1]).__name__,
+                    )
+                )
             client_tup = norm_client_tup(client_tup)
             sub = (b_msg_p, client_tup)
 
@@ -146,7 +151,12 @@ class PipeClient(ACKUDP):
             # Check client_addr matches their host pattern.
             if m_client_tup is not None:
                 # Also check the source port.
-                assert isinstance(m_client_tup[1], int)
+                if not isinstance(m_client_tup[1], int):
+                    raise TypeError(
+                        "subscription pattern port must be int, got {0}".format(
+                            type(m_client_tup[1]).__name__,
+                        )
+                    )
                 if m_client_tup[1]:
                     if m_client_tup != client_tup:
                         continue
@@ -193,7 +203,12 @@ class PipeClient(ACKUDP):
         recv_timeout = timeout or self.conf["recv_timeout"]
         msg_p, addr_p = sub
         if addr_p is not None:
-            assert isinstance(addr_p[1], int)
+            if not isinstance(addr_p[1], int):
+                raise TypeError(
+                    "recv: addr pattern port must be int, got {0}".format(
+                        type(addr_p[1]).__name__,
+                    )
+                )
             addr_p = client_tup_norm(addr_p)
             sub = (msg_p, addr_p)
 
