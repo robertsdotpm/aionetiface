@@ -92,8 +92,23 @@ def netmask_to_cidr(netmask: str) -> int:
 
 
 def cidr_to_netmask(host_limit: int, af: int) -> str:
-    """Convert a CIDR prefix length to a dotted-decimal (IPv4) or exploded (IPv6) netmask string."""
+    """Convert a CIDR prefix length to a dotted-decimal (IPv4) or exploded (IPv6) netmask string.
+
+    Windows iphlpapi.GetAdaptersAddresses can return out-of-range
+    OnLinkPrefixLength values for some interfaces (e.g. 255 sentinel,
+    or values left over from another address family on transition
+    technologies / 6to4 / Teredo). Without clamping, "1" * host_limit
+    overflows the 32-/128-bit space and IPv4Address / IPv6Address
+    raise AddressValueError during interface enumeration. Clamp to
+    [0, end] so an out-of-range value is treated as a host route,
+    which is the most restrictive safe default and preserves the
+    rest of the netifaces walk.
+    """
     end = 32 if af == AF_INET else 128
+    if host_limit < 0:
+        host_limit = 0
+    elif host_limit > end:
+        host_limit = end
     buf = "1" * host_limit
     buf += "0" * (end - host_limit)
     n = int(buf, 2)
