@@ -3,7 +3,7 @@ import socket
 import struct
 from typing import Any, Optional
 from ..utility.utils import fstr, log, log_exception, to_b
-from .net_defs import TCP, NET_CONF, NOT_WINDOWS, NIC_BIND, LOOPBACK_BIND
+from .net_defs import IP4, IP6, TCP, NET_CONF, NOT_WINDOWS, NIC_BIND, LOOPBACK_BIND
 
 
 async def socket_factory(
@@ -56,12 +56,12 @@ async def socket_factory(
     # Bind to the specific interface if set. On Linux, root is sometimes
     # needed to bind to a non-default interface, but not the default one.
     #
-    # Skip SO_BINDTODEVICE when the destination is loopback: 127.x and
-    # ::1 don't route through any physical NIC, so device-binding the
-    # connect socket makes the kernel return EINVAL on connect(). The
-    # interface metadata (NIC IP, route family) still applies normally
-    # for bind() below; this only suppresses the L2-pin sockopt for
-    # loopback destinations.
+    # Skip the device-pinning sockopt when the destination is loopback:
+    # 127.x and ::1 don't route through any physical NIC, so device-
+    # binding the connect socket makes the kernel return EINVAL on
+    # connect(). The interface metadata (NIC IP, route family) still
+    # applies normally for bind() below; this only suppresses the
+    # L2-pin sockopt for loopback destinations.
     try:
         if route.interface is not None:
             # TODO: probably cache this.
@@ -71,8 +71,59 @@ async def socket_factory(
                 log_exception()
                 is_default = True
 
-            if not is_default and NOT_WINDOWS:
-                sock.setsockopt(socket.SOL_SOCKET, 25, to_b(route.interface.id))
+            if NOT_WINDOWS:
+                # Linux: SO_BINDTODEVICE takes the interface name as
+                # bytes. Skip when the route is the system default
+                # because root is sometimes required for non-default
+                # devices and the default route doesn't need pinning
+                # (the OS picks it anyway).
+                if not is_default:
+                    sock.setsockopt(
+                        socket.SOL_SOCKET, 25, to_b(route.interface.id),
+                    )
+            else:
+                # Windows: IP_UNICAST_IF / IPV6_UNICAST_IF (option 31).
+                # Forces egress through the specified interface
+                # regardless of routing-table preference. Critical on
+                # hosts with multiple equal-metric default routes (LAN
+                # + cellular, multi-homed corporate, ...) where the
+                # kernel would otherwise round-robin between them and
+                # the bound source IP wouldn't match the picked path
+                # -- packets drop silently and TCP connect times out.
+                # With IP_UNICAST_IF set, source and egress always
+                # agree.
+                #
+                # Set unconditionally (no is_default guard): on a
+                # single-NIC machine the option is a no-op (the OS
+                # would pick that NIC anyway); on multi-default-route
+                # machines is_default is unreliable because the probe
+                # at startup may have picked a different NIC than the
+                # real connect(), so we can't trust it as a gating
+                # condition.
+                #
+                # IPv4 takes the if_index in NETWORK byte order; IPv6
+                # in host byte order. route.interface.id on Windows is
+                # the integer if_index (nic_no).
+                try:
+                    if_index = int(route.interface.id)
+                    if route.af == IP4:
+                        # IPPROTO_IP = 0; IP_UNICAST_IF = 31
+                        sock.setsockopt(
+                            socket.IPPROTO_IP, 31,
+                            struct.pack("!I", if_index),
+                        )
+                    else:
+                        # IPPROTO_IPV6 = 41; IPV6_UNICAST_IF = 31
+                        sock.setsockopt(
+                            socket.IPPROTO_IPV6, 31,
+                            struct.pack("=I", if_index),
+                        )
+                except (OSError, ValueError, TypeError):
+                    # If if_index is unparsable or the option isn't
+                    # supported on this Windows build, fall back to
+                    # bind-source-only behaviour. Better than crashing
+                    # the socket creation.
+                    log_exception()
     except OSError:
         log_exception()
         # Try continue -- an exception isn't always accurate.
