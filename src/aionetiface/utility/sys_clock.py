@@ -101,11 +101,15 @@ class SysClock:
                 probes.append((af, (s["ip"], s["port"])))
 
         if not probes:
-            log(
-                "SysClock: no NTP servers available for supported AFs; using system clock."
+            raise RuntimeError(
+                "SysClock.start: no NTP servers available for supported AFs. "
+                "Cross-machine protocol correctness depends on a synchronised "
+                "clock; refusing to silently fall back to wall clock which on "
+                "old VMs (XP/Vista BIOS drift) routinely runs hours off and "
+                "causes signal-channel TTL drops bidirectionally. Either fix "
+                "the NIC's AF support, configure local NTP, or call "
+                "SysClock(ntp=time.time()) explicitly to opt into wall-clock."
             )
-            self._use_system_clock()
-            return self
 
         # Fire all probes concurrently so slow or dead servers don't block
         # the fast ones.  First non-None result wins.
@@ -122,14 +126,32 @@ class SysClock:
                 self._ntp_loaded = True
                 return self
 
-        # All NTP probes failed (network down, firewall on UDP 123, etc.).
-        # Fall back to the system clock so time() never raises.
-        log("SysClock: all NTP probes failed; falling back to system clock.")
-        self._use_system_clock()
-        return self
+        # Every NTP probe failed (network down, UDP/123 firewall,
+        # all NTP servers unreachable). We can't silently fall back to
+        # wall clock here: cross-machine protocol correctness depends
+        # on a synchronised clock, and XP/Vista BIOS drift means the
+        # local wall clock is routinely 11+ hours off, which silently
+        # breaks signal-channel TTL checks bidirectionally with peers.
+        # Surface the failure loudly so the operator sees it instead
+        # of debugging mystery NO_ECHOes for hours.
+        raise RuntimeError(
+            "SysClock.start: all NTP probes failed (network down, UDP/123 "
+            "firewall, or all NTP servers unreachable). Refusing to silently "
+            "fall back to wall clock -- on old VMs that wall clock can be "
+            "hours off and corrupts the signal channel. Fix NTP "
+            "reachability or call SysClock(ntp=time.time()) to opt into "
+            "wall-clock explicitly."
+        )
 
     def _use_system_clock(self) -> None:
-        """Seed self.ntp from the local system clock as a last resort."""
+        """Seed self.ntp from the local system clock.
+
+        Only used when the caller passes ntp=time.time() into
+        __init__ explicitly to opt out of NTP. start() no longer
+        falls back to this silently -- a missing NTP synchronisation
+        is now a loud RuntimeError because silent fallback was
+        masking real cross-machine clock-drift bugs.
+        """
         self.ntp = time.time()
         self._ntp_loaded = False  # signal that this is not NTP-accurate
 
