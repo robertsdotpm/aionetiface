@@ -119,8 +119,26 @@ async def shutdown_executor_with_timeout(executor: Any, timeout: int = 3) -> Non
 
 
 async def shutdown_proc_pool(proc_pool: Any) -> None:
-    """Shut down a ProcessPoolExecutor, escalating to SIGKILL if needed."""
+    """Shut down a punch worker pool (ThreadPoolExecutor or ProcessPoolExecutor).
+
+    p2pd's tcp_punch plugin uses ThreadPoolExecutor now (Windows Python
+    3.8 ProcessPoolExecutor was unstable), so this function gets passed
+    a thread pool in the typical case. The multiprocessing-specific
+    teardown (_processes, active_children, terminate) is skipped when
+    the pool isn't a process pool. Threads exit when their target
+    function returns, and ThreadPoolExecutor.shutdown handles the rest.
+    """
     log("trying to shut down pp executor waiting.")
+
+    # Fast path for ThreadPoolExecutor: no _processes attribute, just
+    # shutdown(). cancel_futures available on 3.9+.
+    is_process_pool = hasattr(proc_pool, "_processes")
+    if not is_process_pool:
+        if sys.version_info >= (3, 9):
+            proc_pool.shutdown(wait=False, cancel_futures=True)
+        else:
+            proc_pool.shutdown(wait=False)
+        return
 
     executor_pids = set()
     try:
