@@ -57,15 +57,57 @@ def validate_node_addr(addr: Any) -> Optional[Any]:
     return addr
 
 
+def parse_server_hints(buf: Any) -> List[Any]:
+    """Decode a server-hint section into a list of {af, host, port} dicts.
+
+    Wire shape: [af,host,port]|[af,host,port]|... or empty/b'0'.
+    Used for the optional MQTT-broker-hint and TURN-server-hint
+    sections in node addresses (positions 5 and 6 of the addr_bytes
+    split on '^'). The hints let a peer advertise "I am reliably
+    connected at these third-party servers right now"; remote
+    callers prefer publishing/relaying via these before falling
+    back to their own rendezvous-derived candidate set, which
+    sidesteps the broker-set non-convergence class of bug.
+    """
+    if not buf or buf == b"0":
+        return []
+    out = []
+    for entry in buf.split(b"|"):
+        if len(entry) < 2:
+            continue
+        inner = entry[1:-1] if entry[:1] == b"[" and entry[-1:] == b"]" else entry
+        parts = inner.split(b",")
+        if len(parts) != 3:
+            continue
+        try:
+            af = to_n(parts[0])
+            host = to_s(parts[1])
+            port = to_n(parts[2])
+        except (ValueError, TypeError):
+            continue
+        if not host or not port:
+            continue
+        out.append({"af": af, "host": host, "port": port})
+    return out
+
+
 def parse_node_addr(addr: Any) -> Optional[Any]:
-    """Decode a serialised node address byte string into a structured dict keyed by address family."""
+    """Decode a serialised node address byte string into a structured dict keyed by address family.
+
+    The wire format has two valid shapes:
+      4 parts (legacy): af0^af1^pub_key_hex^machine_id
+      6 parts (with hints): af0^af1^pub_key_hex^machine_id^mqtt_brokers^turn_servers
+
+    Older addrs without hint sections are accepted and produce
+    empty mqtt_brokers / turn_servers lists in the parsed dict.
+    """
     # Already passed.
     if isinstance(addr, dict):
         return addr
 
     addr = to_b(addr)
     af_parts = addr.split(b"^")
-    if len(af_parts) != 4:
+    if len(af_parts) not in (4, 6):
         log("p2p addr invalid parts")
         return None
 
@@ -90,6 +132,8 @@ def parse_node_addr(addr: Any) -> Optional[Any]:
         "machine_id": to_s(af_parts[3]),
         "vk": None,
         "bytes": addr,
+        "mqtt_brokers": parse_server_hints(af_parts[4]) if len(af_parts) == 6 else [],
+        "turn_servers": parse_server_hints(af_parts[5]) if len(af_parts) == 6 else [],
     }
 
     for af_index, af_part in enumerate(af_parts[:2]):
@@ -193,6 +237,25 @@ def is_node_addr_us(addr_bytes: Any, if_list: List[Any]) -> bool:
     return False
 
 
+def encode_server_hints(hints: List[Any]) -> bytes:
+    """Encode a list of {af, host, port} hint dicts into wire bytes.
+
+    Output shape matches parse_server_hints: [af,host,port]|...
+    Empty list / None -> b"0" sentinel (matching the AF-with-no-routes convention).
+    """
+    if not hints:
+        return b"0"
+    parts = []
+    for h in hints:
+        af = h.get("af")
+        host = h.get("host")
+        port = h.get("port")
+        if af is None or not host or not port:
+            continue
+        parts.append(b"[%d,%b,%d]" % (int(af), to_b(host), int(port)))
+    return b"|".join(parts) if parts else b"0"
+
+
 def make_node_addr(
     pub_key_hex: Any,
     machine_id: Any,
@@ -201,12 +264,22 @@ def make_node_addr(
     ip: Any = None,
     nat: Any = None,
     if_index: Any = None,
+    mqtt_brokers: Optional[List[Any]] = None,
+    turn_servers: Optional[List[Any]] = None,
 ) -> bytes:
     """
     Encode node address information into a compact byte string.
 
     Wire format (fields separated by '^'):
         [IP4 interfaces] ^ [IP6 interfaces] ^ pub_key_hex ^ machine_id
+        [^ mqtt_brokers ^ turn_servers]
+
+    The mqtt_brokers and turn_servers sections are optional and
+    only emitted when at least one is non-empty. Each hint entry
+    has shape [af,host,port], joined by '|' within a section.
+    Empty hint sections are encoded as b'0'. Receivers that do not
+    pass these args produce 4-part addrs which older parsers
+    accept unchanged.
 
     Each interface entry has the shape:
         [netiface_index, if_index, ext_ip, nic_ip, port, nat_type, delta_type, delta_val]
@@ -312,6 +385,14 @@ def make_node_addr(
 
     bufs.append(to_b(pub_key_hex))
     bufs.append(to_b(machine_id))
+
+    # Optional hint sections. Append both only when at least one is
+    # non-empty so 4-part legacy addrs round-trip identically when
+    # callers don't pass the new args.
+    if mqtt_brokers or turn_servers:
+        bufs.append(encode_server_hints(mqtt_brokers or []))
+        bufs.append(encode_server_hints(turn_servers or []))
+
     return b"^".join(bufs)
 
 
