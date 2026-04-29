@@ -412,6 +412,79 @@ def rm_path(path, setup_log, label):
         )
 
 
+SIBLING_NAMES = ("aionetiface", "namebump", "sidewire", "p2pd")
+
+
+def strip_sibling_deps(repo_dir, setup_log):
+    """Remove sibling entries from pyproject.toml / setup.py before pip install.
+
+    Without this step, pip processes install_requires for each repo
+    and resolves the sibling names by pulling the latest published
+    wheels from PyPI / the local cache.  Those wheels land in
+    site-packages where they shadow whichever editable install we
+    set up against the projects/ checkout, depending on sys.path
+    order.  We end up with a sweep that runs against a mix of
+    editable-from-checkout for some siblings and stale-wheel-from-
+    PyPI for others -- exactly the contamination class install_check
+    exists to catch.
+
+    Stripping the sibling lines from pyproject.toml + setup.py
+    before pip install forces pip to skip them entirely.
+    INSTALL_ORDER guarantees the siblings are already editable-
+    installed in dependency order before any consumer is processed,
+    so satisfying their import is not pip's job.
+
+    The next setup_repos pass starts with `git reset --hard origin`,
+    which restores the source files automatically -- so this rewrite
+    is intentionally non-destructive across runs.  We do NOT touch
+    third-party deps (ecdsa, ntplib, netifaces, aiomysql, ...).
+    """
+    for fname in ("pyproject.toml", "setup.py"):
+        path = os.path.join(repo_dir, fname)
+        if not os.path.isfile(path):
+            continue
+        try:
+            with open(path) as fh:
+                src = fh.read()
+        except OSError:
+            continue
+
+        new = src
+        for sib in SIBLING_NAMES:
+            esc = re.escape(sib)
+            # Multi-line list entry (pyproject.toml-style):
+            #     "aionetiface",
+            #     "aionetiface"
+            new = re.sub(
+                r'^\s*"' + esc + r'"\s*,?\s*\n',
+                "",
+                new,
+                flags=re.MULTILINE,
+            )
+            # Inline list entry with trailing comma:
+            #     install_requires=["aionetiface", "ecdsa"]
+            new = re.sub(r'"' + esc + r'"\s*,\s*', "", new)
+            # Inline list entry as last element (no trailing comma):
+            #     install_requires=["ecdsa", "aionetiface"]
+            new = re.sub(r',\s*"' + esc + r'"', "", new)
+
+        if new != src:
+            try:
+                with open(path, "w") as fh:
+                    fh.write(new)
+                append_log(
+                    setup_log,
+                    "stripped sibling deps from {}".format(path),
+                )
+            except OSError as exc:
+                append_log(
+                    setup_log,
+                    "WARNING: could not strip sibling deps from {}: {!r}".format(
+                        path, exc,
+                    ),
+                )
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Git + install
 # ─────────────────────────────────────────────────────────────────────────────
@@ -497,6 +570,15 @@ def setup_repos(python_exe, repo_dirs, setup_log):
         if not d:
             append_log(setup_log, "SKIP install: {} not found".format(name))
             continue
+        # Strip sibling entries from this repo's pyproject.toml /
+        # setup.py before pip processes install_requires. INSTALL_ORDER
+        # guarantees siblings are already editable-installed by the
+        # time we reach a consumer, so leaving the deps in just gives
+        # pip an excuse to pull a stale wheel from PyPI/cache that
+        # shadows our editable install. Restored on next run by the
+        # git reset --hard at the top of setup_repos.
+        strip_sibling_deps(d, setup_log)
+
         append_log(setup_log, "--- pip install {} ---".format(name))
         rc, out = run_cmd(
             [
