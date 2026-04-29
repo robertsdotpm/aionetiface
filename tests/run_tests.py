@@ -51,11 +51,6 @@ PING_INTERVAL   = 30   # seconds between ping file updates
 TEST_TIMEOUT    = 300  # 5 minutes per individual test
 DEFAULT_WORKERS = 4    # fallback for 1-2 vCPU machines; 15 saturates WMIC on single-core Windows
 
-INSTALL_SUCCESS_RE = re.compile(
-    r"(successfully installed|already satisfied)",
-    re.IGNORECASE,
-)
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Search paths — ordered most-common first; script's own parent dir is first
 # so sibling checkouts are found automatically.
@@ -527,9 +522,24 @@ def setup_repos(python_exe, repo_dirs, setup_log):
         append_log(setup_log, "--- git pull {} ---".format(name))
         run_cmd(["git", "pull"], cwd=d, log_path=setup_log)
 
-    # 3. Ensure wheel is available (required for --no-build-isolation on some Python versions).
-    append_log(setup_log, "--- pip install wheel ---")
-    run_cmd([python_exe, "-m", "pip", "install", "wheel"], log_path=setup_log)
+    # 3. Ensure wheel is available, then explicitly install the
+    # non-sibling third-party deps that every repo declares. We
+    # switched the sibling install path to `python setup.py develop
+    # --no-deps` (works on every setuptools/pip combination from
+    # 3.5.0 to 3.13, no PEP 517/660 surprises) which means pip never
+    # sees the install_requires list -- so any dep we don't install
+    # explicitly here would be missing at import time. The full list
+    # is the union of every repo's declared third-party deps:
+    # ecdsa (all four), ntplib (aionetiface), netifaces (aionetiface
+    # non-Windows -- pip installs harmlessly on Windows too),
+    # pyroute2 (aionetiface Linux -- pure-Python wheel installs
+    # everywhere, just inert on non-Linux), aiomysql (namebump).
+    append_log(setup_log, "--- pip install wheel + third-party deps ---")
+    run_cmd(
+        [python_exe, "-m", "pip", "install",
+         "wheel", "ecdsa", "ntplib", "netifaces", "pyroute2", "aiomysql"],
+        log_path=setup_log,
+    )
 
     # 4. Aggressive uninstall (reverse dep order). Plain `pip uninstall`
     # is not enough on its own:
@@ -564,38 +574,38 @@ def setup_repos(python_exe, repo_dirs, setup_log):
     append_log(setup_log, "--- pip cache purge ---")
     run_cmd([python_exe, "-m", "pip", "cache", "purge"], log_path=setup_log)
 
-    # 4. pip install (dep order)
+    # 4. setup.py develop (dep order). Switched off `pip install -e`
+    # because the modern editable-install machinery (PEP 517/660)
+    # is not uniformly supported across the matrix -- old setuptools
+    # on Python 3.5 / Vista / XP can fall through with cryptic build-
+    # backend errors. `python setup.py develop --no-deps` works on
+    # every setuptools >= 0.7c1 (i.e. always), produces the same
+    # .egg-link + easy-install.pth output, and bypasses pip's
+    # install_requires resolution entirely so a stale wheel can't
+    # land in site-packages mid-install. It emits a deprecation
+    # warning on setuptools 58+ but is not removed -- gives us
+    # plenty of runway to revisit if/when it actually goes away.
     for name in INSTALL_ORDER:
         d = repo_dirs.get(name)
         if not d:
             append_log(setup_log, "SKIP install: {} not found".format(name))
             continue
-        # Strip sibling entries from this repo's pyproject.toml /
-        # setup.py before pip processes install_requires. INSTALL_ORDER
-        # guarantees siblings are already editable-installed by the
-        # time we reach a consumer, so leaving the deps in just gives
-        # pip an excuse to pull a stale wheel from PyPI/cache that
-        # shadows our editable install. Restored on next run by the
-        # git reset --hard at the top of setup_repos.
+        # Belt + suspenders: --no-deps already prevents sibling
+        # resolution, but legacy easy_install fallbacks inside
+        # `setup.py develop` historically grabbed deps even with
+        # --no-deps in some setuptools versions. Strip the sibling
+        # lines too so there's no entry for develop to chase.
+        # Restored on next run by the git reset --hard at the top
+        # of setup_repos.
         strip_sibling_deps(d, setup_log)
 
-        append_log(setup_log, "--- pip install {} ---".format(name))
+        append_log(setup_log, "--- setup.py develop {} ---".format(name))
         rc, out = run_cmd(
-            [
-                python_exe, "-m", "pip", "install",
-                "--no-build-isolation", "-e", ".",
-            ],
+            [python_exe, "setup.py", "develop", "--no-deps"],
             cwd=d, log_path=setup_log,
         )
-        # pip < 10 does not support --no-build-isolation; retry without it.
-        if rc != 0 and "no such option" in out.lower():
-            append_log(setup_log, "retrying without --no-build-isolation (old pip)")
-            rc, out = run_cmd(
-                [python_exe, "-m", "pip", "install", "-e", "."],
-                cwd=d, log_path=setup_log,
-            )
-        if INSTALL_SUCCESS_RE.search(out):
-            append_log(setup_log, "OK: {} installed".format(name))
+        if rc == 0:
+            append_log(setup_log, "OK: {} installed (develop)".format(name))
         else:
             append_log(
                 setup_log,
