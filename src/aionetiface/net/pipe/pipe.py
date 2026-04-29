@@ -216,8 +216,15 @@ class Pipe:
         In that case, just use the first available route at first supported AF.
         """
         if route is None:
-            # For legacy code that passes Interface.
-            route = self.nic.route()
+            # For legacy code that passes Interface (or AFGroup): pick the
+            # first supported AF and fetch its route. Interface.supported()
+            # returns the AFs in priority order; AFGroup.supported() returns
+            # the AFs the group was constructed with in insertion order.
+            # Either way, [0] reproduces the previous "first available
+            # route at first supported AF" semantics without depending on
+            # the now-unavailable zero-arg `nic.route()` form.
+            af = self.nic.supported()[0]
+            route = self.nic.route(af)
 
         # Routes all need to be bound.
         if not route.resolved:

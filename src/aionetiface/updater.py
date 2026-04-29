@@ -127,7 +127,12 @@ async def update_server_list(
     if (sys_clock.time() - infra["timestamp"]) >= one_month_sec:
         try:
             addr = ("ovh1.p2pd.net", 8000)
-            client = WebCurl(addr, nic.route())
+            # Pick the first supported AF -- ovh1.p2pd.net resolves to
+            # both v4 and v6, and we just need a route for the curl
+            # client. AFGroup-friendly: works whether nic is Interface
+            # (supported()[0] = primary AF) or AFGroup (= first AF
+            # inserted into the group).
+            client = WebCurl(addr, nic.route(nic.supported()[0]))
             resp = await client.get("/servers")
             resp_buf = to_s(resp.out)
             resp_infra = json.loads(resp_buf)

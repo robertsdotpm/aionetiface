@@ -192,10 +192,14 @@ class Address:
             ipr = IPRange(host)
             ipr.is_loopback = False
 
-            # Set route from NIC.
+            # Set route from NIC. Pass the IPRange's af so AFGroup
+            # picks the correct per-AF Interface; on a single-Interface
+            # nic, this is the same primary route the no-arg form
+            # returned (Interface.route(af) is identical to its
+            # zero-arg primary when af is the only AF supported).
             if self.nic is not None:
                 if route is None:
-                    route = self.nic.route()
+                    route = self.nic.route(ipr.af)
 
             # Used to patch IPv6 private IPs.
             if route is not None:
