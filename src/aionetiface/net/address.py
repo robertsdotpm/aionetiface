@@ -86,23 +86,30 @@ async def sock_res_domain(
 def resolve_dest_tup(af: int, ip: str, port: int, sock_type: int = _socket.SOCK_STREAM) -> Any:
     """Return a sendto/connect tuple for af/ip/port, resolving v6 link-local scope.
 
-    IPv6 link-local addresses with a scope suffix (fe80::...%ens34, ...%2)
-    need the (host, port, flowinfo, scope_id) 4-tuple form for the
-    kernel to route them deterministically -- the bare 2-tuple
+    IPv6 link-local addresses with a scope suffix (fe80::...%ens34,
+    ...%2) need the (host, port, flowinfo, scope_id) 4-tuple form for
+    the kernel to route them deterministically -- the bare 2-tuple
     silently falls back to the OS-default NIC on multi-NIC hosts.
-    getaddrinfo synchronously parses the %scope notation for IP
-    literals; on lookup failure we fall back to the 2-tuple.
 
-    Used by both DestTup (TCP, default) and the udp_punch engine
-    (DGRAM) so the v6 4-tuple handling is in one place rather than
-    re-implemented per call site.
+    The %scope notation in *ip* was already attached by
+    patch_connect_ip when the Address resolver ran; we just have to
+    split it back out into the 4-tuple form the kernel wants.  No
+    getaddrinfo round-trip needed -- we already paid that cost
+    upstream.
+
+    sock_type is accepted for call-site symmetry with DestTup but is
+    unused here (the parsed scope_id works for both TCP and UDP).
     """
     if af == IP6 and "%" in ip:
+        host, scope = ip.rsplit("%", 1)
         try:
-            infos = _socket.getaddrinfo(ip, port, _socket.AF_INET6, sock_type)
-            return infos[0][4]
-        except OSError:
-            return (ip, port)
+            scope_id = int(scope)
+        except ValueError:
+            try:
+                scope_id = _socket.if_nametoindex(scope)
+            except (OSError, AttributeError):
+                return (ip, port)
+        return (host, port, 0, scope_id)
     return (ip, port)
 
 
