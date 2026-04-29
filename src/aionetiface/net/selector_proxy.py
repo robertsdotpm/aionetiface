@@ -124,13 +124,18 @@ def selector_proxy(
         log_exception()
 
     finally:
-        # Final cleanup for the selector and any remaining sockets
+        # Final cleanup for the selector and any remaining sockets.
+        # selector.unregister() raises KeyError when the socket isn't
+        # registered (close_pair above already removed it on a peer
+        # disconnect / OSError). KeyError must be caught here too --
+        # the previous OSError-only catch let it propagate, killing
+        # the worker after a successful tcp_punch had established
+        # the socket pair, before the wrap returned to the caller.
         for s in [socket_p, socket_r]:
             if s:
                 try:
-                    # Double check if still registered before closing
                     selector.unregister(s)
-                except OSError:
+                except (KeyError, OSError):
                     pass
                 try:
                     s.close()
