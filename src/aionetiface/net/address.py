@@ -83,6 +83,29 @@ async def sock_res_domain(
     return results
 
 
+def resolve_dest_tup(af: int, ip: str, port: int, sock_type: int = _socket.SOCK_STREAM) -> Any:
+    """Return a sendto/connect tuple for af/ip/port, resolving v6 link-local scope.
+
+    IPv6 link-local addresses with a scope suffix (fe80::...%ens34, ...%2)
+    need the (host, port, flowinfo, scope_id) 4-tuple form for the
+    kernel to route them deterministically -- the bare 2-tuple
+    silently falls back to the OS-default NIC on multi-NIC hosts.
+    getaddrinfo synchronously parses the %scope notation for IP
+    literals; on lookup failure we fall back to the 2-tuple.
+
+    Used by both DestTup (TCP, default) and the udp_punch engine
+    (DGRAM) so the v6 4-tuple handling is in one place rather than
+    re-implemented per call site.
+    """
+    if af == IP6 and "%" in ip:
+        try:
+            infos = _socket.getaddrinfo(ip, port, _socket.AF_INET6, sock_type)
+            return infos[0][4]
+        except OSError:
+            return (ip, port)
+    return (ip, port)
+
+
 class DestTup:
     """Resolved destination tuple holding address family, IP, port, and IP-range metadata."""
 
@@ -94,17 +117,7 @@ class DestTup:
         self.ip = ip
         self.port = port
         self.ipr = ipr
-        # IPv6 link-local addresses with a scope (%ens34, %2) need a 4-tuple
-        # (host, port, flowinfo, scope_id) for sock_connect to work.
-        # getaddrinfo resolves the scope notation synchronously for IP literals.
-        if af == IP6 and "%" in ip:
-            try:
-                infos = _socket.getaddrinfo(ip, port, _socket.AF_INET6, _socket.SOCK_STREAM)
-                self.tup = infos[0][4]
-            except OSError:
-                self.tup = (ip, port)
-        else:
-            self.tup = (ip, port)
+        self.tup = resolve_dest_tup(af, ip, port, _socket.SOCK_STREAM)
         self.is_private = ipr.is_private
         self.is_public = ipr.is_public
         self.is_loopback = ipr.is_loopback
