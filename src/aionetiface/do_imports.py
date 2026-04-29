@@ -27,6 +27,7 @@ if __name__ != "__main__":
     from .net.asyncio.create_udp_fallback import *
     from .net.pipe.pipe import *
     from .nic.interface import Interface  # noqa: F401
+    from .nic.af_group import AFGroup  # noqa: F401
     # Re-export interface-util helpers: these were historically available on
     # the top-level ``aionetiface`` namespace because ``entrypoint.py`` did
     # ``from .nic.interface_utils import *`` and had no ``__all__``. Now that
