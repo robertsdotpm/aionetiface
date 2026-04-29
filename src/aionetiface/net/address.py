@@ -139,6 +139,14 @@ class DestTup:
             self.tup = (ip, port, flow_id, scope_id)
         else:
             self.tup = (ip, port)
+        # is_loopback is consumed by socket_factory to skip the L2
+        # device-pin sockopts on loopback destinations (the kernel
+        # returns EINVAL when connect()ing to 127.x with
+        # SO_BINDTODEVICE set). Recomputing here from the ip string
+        # keeps behaviour identical to the previous ipr-derived
+        # field without forcing every caller to thread an IPRange
+        # through this constructor.
+        self.is_loopback = ip in VALID_LOOPBACKS
         self.resolved = True
 
     def supported(self) -> List[int]:
