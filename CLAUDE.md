@@ -171,3 +171,9 @@ If pip was accidentally upgraded past 21.x on a 3.5.0 interpreter:
 python -m ensurepip
 python -m pip install "pip==20.3.4" "setuptools<50"
 ```
+
+## PNP/MQTT propagation race after Nickname.put
+
+`Nickname.put` returns success when at least one PNP server has stored the entry. The other configured servers may still be propagating the record. MQTT subscriptions can take a moment to be globally accepted similarly. A peer that calls `Nickname.get` (or routes signaling via the MQTT topic) immediately after `put` completes can race a server that hasn't yet observed the put / accepted the subscribe, and will silently hang in the resolve or dispatch step.
+
+**This affects every cross-node flow built on top of `Nickname`.** Callers whose flow is listener-then-connector MUST allow a settling window of ~8 seconds between the listener's `Nickname.put` returning and the connector's `Nickname.get` firing. The reference implementation is `p2pd/demo/__main__.py:setup_node`, which inserts `await asyncio.sleep(8)` after `Nickname.put`. The full warning lives in `p2pd/node/node_start.py`.
