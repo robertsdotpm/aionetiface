@@ -124,18 +124,27 @@ def selector_proxy(
         log_exception()
 
     finally:
-        # Final cleanup for the selector and any remaining sockets.
-        # selector.unregister() raises KeyError when the socket isn't
-        # registered (close_pair above already removed it on a peer
-        # disconnect / OSError). KeyError must be caught here too --
-        # the previous OSError-only catch let it propagate, killing
-        # the worker after a successful tcp_punch had established
-        # the socket pair, before the wrap returned to the caller.
+        # Final cleanup. Three exception classes can fire here, all of
+        # them mean "this socket is no longer in the selector", all of
+        # them must be swallowed so we proceed to close the socket and
+        # the selector itself:
+        #   * KeyError -- selector.unregister() on a socket that was
+        #     already removed by close_pair on a peer disconnect.
+        #   * OSError -- generic kernel-level "selector entry is gone"
+        #     across various platforms.
+        #   * ValueError -- the socket has been closed already, so
+        #     fileno() returns -1 and selectors.py's _fileobj_lookup
+        #     raises before selector.unregister gets a chance to do
+        #     its KeyError check.
+        # Letting any of these propagate killed the punching worker
+        # AFTER tcp_punch had successfully established the socket
+        # pair, producing NO_ECHO failures that look identical to a
+        # NAT-prediction miss.
         for s in [socket_p, socket_r]:
             if s:
                 try:
                     selector.unregister(s)
-                except (KeyError, OSError):
+                except (KeyError, OSError, ValueError):
                     pass
                 try:
                     s.close()
