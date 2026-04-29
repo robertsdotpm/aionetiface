@@ -25,6 +25,17 @@ def apply_nic_pin_sockopts(sock: Any, route: Any) -> None:
     if route is None or route.interface is None:
         return
 
+    iface_id = route.interface.id
+    if iface_id is None:
+        # Default route on Windows occasionally yields a route whose
+        # interface object exists but whose .id is None (probe at
+        # interface-load time hadn't returned a nic_no yet). Skip the
+        # NIC-pin sockopt cleanly rather than letting int(None) raise
+        # a TypeError that's caught + logged as a stacktrace -- the
+        # fallback is "let the kernel pick", which is the right
+        # behaviour for a default route anyway.
+        return
+
     try:
         try:
             is_default = route.interface.is_default(route.af)
@@ -35,11 +46,11 @@ def apply_nic_pin_sockopts(sock: Any, route: Any) -> None:
         if NOT_WINDOWS:
             if not is_default:
                 sock.setsockopt(
-                    socket.SOL_SOCKET, 25, to_b(route.interface.id),
+                    socket.SOL_SOCKET, 25, to_b(iface_id),
                 )
         else:
             try:
-                if_index = int(route.interface.id)
+                if_index = int(iface_id)
                 if route.af == IP4:
                     sock.setsockopt(
                         socket.IPPROTO_IP, 31,
