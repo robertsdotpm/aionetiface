@@ -60,25 +60,30 @@ async def async_res_domain(
 
 async def sock_res_domain(
     host: str, route: Optional[Any] = None
-) -> List[Tuple[int, str]]:
-    """Resolve a hostname via the OS getaddrinfo call, returning (af, ip) pairs for known families."""
+) -> List[Tuple[int, Any]]:
+    """Resolve a hostname via getaddrinfo; returns (af, sockaddr) pairs for known families.
+
+    sockaddr is the kernel's address tuple from getaddrinfo result[4]
+    -- (host, port) for v4, (host, port, flowinfo, scope_id) for v6.
+    Preserved end-to-end so callers don't have to re-resolve scope
+    info downstream.
+    """
     loop = get_running_loop()
 
-    # Uses a process pool executor.
+    # Uses a threading pool executor.
     # Caution needed here.
     addr_infos = await loop.getaddrinfo(
         host,
         None,
     )
 
-    # Pull out IP4 and IP6 results.
     results = []
     for addr_info in addr_infos:
         for af in VALID_AFS:
             if af == addr_info[0]:
-                ip = ip_norm(addr_info[4][0])
-                result = (af, ip)
-                results.append(result)
+                sockaddr = list(addr_info[4])
+                sockaddr[0] = ip_norm(sockaddr[0])
+                results.append((af, tuple(sockaddr)))
 
     return results
 
@@ -114,20 +119,26 @@ def resolve_dest_tup(af: int, ip: str, port: int, sock_type: int = _socket.SOCK_
 
 
 class DestTup:
-    """Resolved destination tuple holding address family, IP, port, and IP-range metadata."""
+    """Resolved destination holding af/ip/port plus the v6 flow + scope ids.
 
-    def __init__(self, af: int, ip: str, port: int, ipr: Any) -> None:
-        if ipr is None:
-            raise KeyError("AF not found for address")
+    The kernel-facing 4-tuple form for v6 link-local sendto/connect
+    is built from these fields; v4 and globally-routable v6 collapse
+    to the 2-tuple form. ipr metadata (is_private / is_public /
+    is_loopback) was previously cached here off the IPRange that
+    Address.res() built; callers that need those flags now read
+    them from the IPRange directly via Address.v4_ipr / v6_ipr.
+    """
 
+    def __init__(self, af: int, ip: str, port: int, flow_id: int, scope_id: int) -> None:
         self.af = af
         self.ip = ip
         self.port = port
-        self.ipr = ipr
-        self.tup = resolve_dest_tup(af, ip, port, _socket.SOCK_STREAM)
-        self.is_private = ipr.is_private
-        self.is_public = ipr.is_public
-        self.is_loopback = ipr.is_loopback
+        self.flow_id = flow_id
+        self.scope_id = scope_id
+        if af == IP6 and scope_id:
+            self.tup = (ip, port, flow_id, scope_id)
+        else:
+            self.tup = (ip, port)
         self.resolved = True
 
     def supported(self) -> List[int]:
@@ -147,7 +158,16 @@ class Address:
         self.conf = conf if conf is not None else NET_CONF
         self.IP6 = self.IP4 = None
         self.v6_ipr = self.v4_ipr = None
+        # v6 flow_id / scope_id captured during resolution so select_ip
+        # can build a DestTup without re-resolving. For the
+        # getaddrinfo path, scope comes straight from sockaddr[3];
+        # for the IP-literal path, scope is derived from nic_id (the
+        # interface index that patch_connect_ip just attached as %).
+        # v4 has no flow/scope concept so the fields stay at 0.
+        self.v6_flow_id = 0
+        self.v6_scope_id = 0
         self.resolved = False
+        self.dest_tup = None
 
     async def res(
         self, route: Optional[Any] = None, host: Optional[Any] = None
@@ -188,23 +208,23 @@ class Address:
             if ipr.af == IP6:
                 self.IP6 = ip
                 self.v6_ipr = ipr
+                # IP-literal path: scope comes from nic_id (the
+                # interface index that patch_connect_ip just appended
+                # as %). int() handles Windows' numeric ids; the
+                # if_nametoindex fallback handles Unix names.
+                if nic_id is not None and self.v6_scope_id == 0:
+                    try:
+                        self.v6_scope_id = int(nic_id)
+                    except (TypeError, ValueError):
+                        try:
+                            self.v6_scope_id = _socket.if_nametoindex(str(nic_id))
+                        except (OSError, AttributeError):
+                            pass
         except asyncio.CancelledError:  # pylint: disable=try-except-raise
             raise
         except (ValueError, OSError):
             # Resolve domain to IP.
             try:
-                # Uses a manual DNS req to resolve a domain.
-                # Bypasses any DNS errors.
-                results = await asyncio.wait_for(
-                    async_res_domain(host, route), self.conf["dns_timeout"]
-                )
-
-                # Ensure some IPs returned.
-                if not len(results):
-                    raise ValueError("Using fallback DNS")
-            except asyncio.CancelledError:  # pylint: disable=try-except-raise
-                raise
-            except (OSError, asyncio.TimeoutError, ValueError, ImportError):
                 # If that fails -- fallback to getaddrinfo.
                 results = await asyncio.wait_for(
                     sock_res_domain(host, route), self.conf["dns_timeout"]
@@ -213,11 +233,18 @@ class Address:
                 # Otherwise complete failure.
                 if not len(results):
                     raise LookupError("could not resolve addr.")
+            except (OSError, asyncio.TimeoutError, ValueError, ImportError):
+                raise
 
-            # Save results in class field.
-            for result in results:
-                _, ip = result
-                await self.res(route=route, host=ip)
+            # Save results in class field. sock_res_domain returns
+            # (af, sockaddr) where sockaddr is the kernel's tuple --
+            # 2-tuple for v4, 4-tuple for v6 -- so we capture
+            # flow/scope here directly without re-resolving.
+            for af, sockaddr in results:
+                if af == IP6 and len(sockaddr) >= 4:
+                    self.v6_flow_id = sockaddr[2]
+                    self.v6_scope_id = sockaddr[3]
+                await self.res(route=route, host=sockaddr[0])
 
         self.resolved = True
         return self
@@ -228,11 +255,17 @@ class Address:
     def select_ip(self, af: int) -> "DestTup":
         """Return a DestTup for the resolved IP matching the given address family."""
         if af == IP4:
-            ip, ipr = self.IP4, self.v4_ipr
+            if self.IP4 is None:
+                raise KeyError("AF not found for address")
+            return DestTup(af, self.IP4, self.port, 0, 0)
         if af == IP6:
-            ip, ipr = self.IP6, self.v6_ipr
-
-        return DestTup(af, ip, self.port, ipr)
+            if self.IP6 is None:
+                raise KeyError("AF not found for address")
+            # Scope was captured in res(): from getaddrinfo's
+            # sockaddr[3] for the domain path, or from nic_id for the
+            # IP-literal path. No re-resolve needed here.
+            return DestTup(af, self.IP6, self.port, self.v6_flow_id, self.v6_scope_id)
+        raise KeyError("AF not found for address")
 
 
 async def resolv_dest(af: int, dest: Any, nic: Any) -> Any:
