@@ -116,6 +116,28 @@ class AFGroup:
         """Return whether the Interface chosen for *af* is the host's default route."""
         return self.for_af(af).is_default(af, gws)
 
+    @classmethod
+    def from_interfaces(cls, interfaces: List[Interface]) -> "AFGroup":
+        """Build an AFGroup from a list of Interfaces, picking first-match per AF.
+
+        Walks *interfaces* in order; for each AF, the first interface that
+        supports it wins. Lets a caller express simple per-AF preferences
+        purely by NIC ordering -- e.g. pass [mobile_v4_only, primary_dual]
+        and the v4 path uses the mobile NIC while the v6 path uses primary.
+        Callers that want a different mapping (or to skip an AF entirely)
+        should construct AFGroup with an explicit dict instead.
+        """
+        if not interfaces:
+            raise ValueError("AFGroup.from_interfaces: empty interfaces list")
+        by_af = {}
+        for iface in interfaces:
+            for af in iface.what_afs():
+                if af not in by_af:
+                    by_af[af] = iface
+        if not by_af:
+            raise ValueError("AFGroup.from_interfaces: no AF coverage across given interfaces")
+        return cls(by_af)
+
     def interfaces(self) -> List[Interface]:
         """Return the unique Interfaces in this group (deduped, insertion order)."""
         seen = []
