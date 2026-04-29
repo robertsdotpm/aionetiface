@@ -23,6 +23,7 @@ import os
 import queue
 import random
 import re
+import shutil
 import subprocess
 import sys
 import threading
@@ -64,21 +65,25 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 REPO_SEARCH_DIRS = [
     SCRIPT_DIR,
-    os.path.expanduser("~"),
     os.path.expanduser("~/projects"),
     r"C:\Users\x\projects",
     r"C:\Users\matth\projects",
     r"C:\Users\matthew\projects",
     r"C:\Documents and Settings\matthew\projects",
-    r"C:\Documents and Settings\matthew",
     r"C:\Documents and Settings\x\projects",
-    r"C:\Documents and Settings\x",
     r"C:\Users\Administrator\projects",
     "/home/x/projects",
     "/Users/xx/projects",
     "/data/data/com.termux/files/home/projects",
     "/root/projects",
 ]
+# Strict projects/-only policy: do NOT search bare home directories
+# (~, C:\Users\<u>\, C:\Documents and Settings\<u>\). A stale clone
+# at ~/aionetiface (or equivalent) would otherwise be picked up by
+# find_repo, sync_repos updates only the projects/ checkout, and the
+# Python interpreter ends up importing the stale code while the test
+# runner believes the fresh code is being tested. Single canonical
+# location prevents the divergence.
 
 PYENV_SEARCH_DIRS = [
     os.path.join(os.path.expanduser("~"), ".pyenv", "pyenv-win", "versions"),
@@ -297,6 +302,116 @@ def run_cmd(cmd, cwd=None, log_path=None, timeout=None, env_extra=None):
             fh.write(out)
     return proc.returncode, out
 
+def get_site_packages(python_exe, setup_log):
+    """Return the site-packages directory used by python_exe, or None if it can't be determined."""
+    rc, out = run_cmd(
+        [
+            python_exe, "-c",
+            "import sysconfig,sys;sys.stdout.write(sysconfig.get_paths()['purelib'])",
+        ],
+        log_path=setup_log,
+    )
+    if rc != 0:
+        append_log(setup_log, "WARNING: could not resolve site-packages for {}".format(python_exe))
+        return None
+    path = out.strip()
+    if not path or not os.path.isdir(path):
+        append_log(setup_log, "WARNING: resolved site-packages does not exist: {!r}".format(path))
+        return None
+    return path
+
+
+def purge_site_packages_residue(site_packages, pkg, setup_log):
+    """Remove leftover <pkg>* dirs/files and .pth references after pip uninstall.
+
+    Targets:
+      * <site-packages>/<pkg>/             -- module dir from a wheel install
+      * <site-packages>/<pkg>-*.dist-info/ -- pip metadata
+      * <site-packages>/<pkg>-*.egg-info/  -- legacy setuptools metadata
+      * <site-packages>/<pkg>.egg-link     -- editable install pointer
+      * <site-packages>/<pkg>-*.egg/       -- old-style installed egg
+      * any line in <site-packages>/*.pth referencing the package's
+        path (handles both editable installs and easy_install entries)
+    """
+    if not site_packages or not os.path.isdir(site_packages):
+        return
+
+    pkg_lower = pkg.lower()
+    for entry in os.listdir(site_packages):
+        entry_lower = entry.lower()
+        full = os.path.join(site_packages, entry)
+
+        # Case-insensitive exact-name dir match (Windows fs is
+        # case-insensitive; pip may write either casing depending on
+        # version).
+        if entry_lower == pkg_lower and os.path.isdir(full):
+            rm_path(full, setup_log, "module dir")
+            continue
+
+        # Metadata + egg patterns: prefix match with a delimiter so we
+        # don't accidentally nuke an unrelated package whose name
+        # starts with this one.
+        for suffix in (".dist-info", ".egg-info", ".egg"):
+            if entry_lower.startswith(pkg_lower + "-") and entry_lower.endswith(suffix):
+                rm_path(full, setup_log, suffix.lstrip("."))
+                break
+
+        # editable install pointer
+        if entry_lower == pkg_lower + ".egg-link":
+            rm_path(full, setup_log, "egg-link")
+
+    # Clean .pth files: remove lines that reference the package's
+    # source path. Editable installs append a path line like
+    # 'C:\\Users\\matth\\projects\\aionetiface\\src' to a .pth file
+    # which keeps the import resolving even after pip uninstall fails
+    # to remove the .pth entry.
+    for entry in os.listdir(site_packages):
+        if not entry.endswith(".pth"):
+            continue
+        pth_path = os.path.join(site_packages, entry)
+        try:
+            with open(pth_path, "r") as fh:
+                lines = fh.readlines()
+        except OSError:
+            continue
+        kept = [
+            ln for ln in lines
+            if pkg_lower not in ln.lower()
+        ]
+        if len(kept) != len(lines):
+            try:
+                with open(pth_path, "w") as fh:
+                    fh.writelines(kept)
+                append_log(
+                    setup_log,
+                    "purged {} line(s) referencing {} from {}".format(
+                        len(lines) - len(kept), pkg, entry,
+                    ),
+                )
+            except OSError:
+                append_log(
+                    setup_log,
+                    "WARNING: could not rewrite {} to drop {} entries".format(
+                        entry, pkg,
+                    ),
+                )
+
+
+def rm_path(path, setup_log, label):
+    """Remove a file or directory, logging the action."""
+    try:
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+        else:
+            os.remove(path)
+        append_log(setup_log, "removed {} {}".format(label, path))
+    except OSError as exc:
+        append_log(
+            setup_log,
+            "WARNING: could not remove {} {}: {!r}".format(label, path, exc),
+        )
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Git + install
 # ─────────────────────────────────────────────────────────────────────────────
@@ -343,13 +458,38 @@ def setup_repos(python_exe, repo_dirs, setup_log):
     append_log(setup_log, "--- pip install wheel ---")
     run_cmd([python_exe, "-m", "pip", "install", "wheel"], log_path=setup_log)
 
-    # 4. pip uninstall (reverse dep order)
+    # 4. Aggressive uninstall (reverse dep order). Plain `pip uninstall`
+    # is not enough on its own:
+    #   * Some package metadata (.dist-info / .egg-info) survives a
+    #     single uninstall pass when an older/newer install layered on
+    #     top of a different one. A second uninstall removes the
+    #     residual record.
+    #   * Editable installs leave .pth files in site-packages whose
+    #     entries point at the dev checkout. If a wheel install later
+    #     puts a copy in site-packages too, the .pth entry can keep
+    #     resolving the import to a stale path; we delete those lines.
+    #   * Loose <pkg>* directories left in site-packages from a botched
+    #     uninstall continue to satisfy `import <pkg>` even after pip
+    #     reports no installation. We rm them outright.
+    #   * pip's wheel cache occasionally serves an older sdist than the
+    #     local checkout when the local version string didn't bump;
+    #     purging the cache forces a fresh build off the working tree.
+    site_packages = get_site_packages(python_exe, setup_log)
     for name in UNINSTALL_ORDER:
-        append_log(setup_log, "--- pip uninstall {} ---".format(name))
+        append_log(setup_log, "--- pip uninstall {} (pass 1) ---".format(name))
         run_cmd(
             [python_exe, "-m", "pip", "uninstall", "-y", name],
             log_path=setup_log,
         )
+        append_log(setup_log, "--- pip uninstall {} (pass 2) ---".format(name))
+        run_cmd(
+            [python_exe, "-m", "pip", "uninstall", "-y", name],
+            log_path=setup_log,
+        )
+        if site_packages:
+            purge_site_packages_residue(site_packages, name, setup_log)
+    append_log(setup_log, "--- pip cache purge ---")
+    run_cmd([python_exe, "-m", "pip", "cache", "purge"], log_path=setup_log)
 
     # 4. pip install (dep order)
     for name in INSTALL_ORDER:
@@ -379,6 +519,28 @@ def setup_repos(python_exe, repo_dirs, setup_log):
                 setup_log,
                 "WARNING: {} install may have failed (rc={})".format(name, rc),
             )
+
+    # Strictly verify what python_exe actually imports for each
+    # sibling. The install steps above can succeed (rc=0, "OK")
+    # while leaving the import path broken: stale wheel in
+    # site-packages shadows the editable checkout, an old clone
+    # outside the expected root takes precedence on sys.path, etc.
+    # When that happens, the test suite runs against stale code and
+    # produces misleading verdicts. Failing here is loud, immediate,
+    # and tells us exactly which sibling diverged.
+    append_log(setup_log, "--- verify install (p2pd.install_check) ---")
+    rc, out = run_cmd(
+        [python_exe, "-m", "p2pd.install_check", "--strict"],
+        log_path=setup_log,
+    )
+    if rc != 0:
+        append_log(
+            setup_log,
+            "FATAL: sibling install verification failed (rc={}). "
+            "Tests would run against stale/divergent code; aborting.".format(rc),
+        )
+        raise SystemExit(2)
+    append_log(setup_log, "OK: sibling installs verified consistent")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Ping worker
