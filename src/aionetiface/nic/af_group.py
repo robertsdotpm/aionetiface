@@ -49,8 +49,8 @@ class AFGroup:
                     )
                 if af not in iface.what_afs():
                     raise ValueError(fstr(
-                        "AFGroup: interface {0!r} does not support af {1}",
-                        (iface.name, af),
+                        "AFGroup: interface {0} does not support af {1}",
+                        (repr(iface.name), af),
                     ))
                 by_af[af] = iface
         elif isinstance(interfaces, Interface):
@@ -58,8 +58,8 @@ class AFGroup:
                 by_af[af] = interfaces
         else:
             raise TypeError(fstr(
-                "AFGroup: expected Interface, dict, or AFGroup; got {0!r}",
-                (type(interfaces).__name__,),
+                "AFGroup: expected Interface, dict, or AFGroup; got {0}",
+                (repr(type(interfaces).__name__),),
             ))
 
         self.by_af = by_af
