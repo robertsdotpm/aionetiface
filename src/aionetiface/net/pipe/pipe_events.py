@@ -85,15 +85,19 @@ class PipeEvents(BaseACKProto):
         # List of other pipes that pipe to this.
         self.parent_pipes = []
 
-        # Process messages in real time.
-        self.msg_cbs = []
+        # Process messages in real time. Sets so duplicate-add (e.g.
+        # when a plugin pre-populates pipe_events to win the
+        # connection_made race AND the on_plugin_done callback later
+        # tries to attach the same dispatcher) is a no-op instead of
+        # double-firing every callback.
+        self.msg_cbs = set()
 
         # Ran when a connection ends.
-        self.end_cbs = []
+        self.end_cbs = set()
 
         # Ran when a connection is made.
         # For TCP this is a new connection.
-        self.up_cbs = []
+        self.up_cbs = set()
 
         # List of tasks for send / recv / subscribe.
         """
@@ -143,7 +147,7 @@ class PipeEvents(BaseACKProto):
     # Can execute code on new cons, dropped cons, and new msgs.
     def run_handlers(
         self,
-        handlers: List[Any],
+        handlers: Any,  # iterable of callables (set, list, tuple)
         client_tup: Optional[Tuple[Any, ...]] = None,
         data: Optional[bytes] = None,
     ) -> None:
@@ -244,44 +248,40 @@ class PipeEvents(BaseACKProto):
         return self
 
     def add_msg_cb(self, msg_cb: Callable[..., Any]) -> "PipeEvents":
-        """Append msg_cb to the list of callbacks invoked on every incoming message."""
-        self.msg_cbs.append(msg_cb)
+        """Add msg_cb to the set of callbacks invoked on every incoming message (idempotent)."""
+        self.msg_cbs.add(msg_cb)
         return self
 
     def del_msg_cb(self, msg_cb: Callable[..., Any]) -> "PipeEvents":
-        """Remove msg_cb from the message callback list."""
-        if msg_cb in self.msg_cbs:
-            self.msg_cbs.remove(msg_cb)
-
+        """Remove msg_cb from the message callback set."""
+        self.msg_cbs.discard(msg_cb)
         return self
 
     def add_up_cb(self, up_cb: Callable[..., Any]) -> "PipeEvents":
-        """Append up_cb to the list of callbacks invoked when a new connection is established."""
-        self.up_cbs.append(up_cb)
+        """Add up_cb to the set of callbacks invoked when a new connection is established."""
+        self.up_cbs.add(up_cb)
         return self
 
     def del_up_cb_cb(self, up_cb: Callable[..., Any]) -> "PipeEvents":
-        """Remove up_cb from the connection-established callback list."""
-        if up_cb in self.up_cbs:
-            self.up_cbs.remove(up_cb)
-
+        """Remove up_cb from the connection-established callback set."""
+        self.up_cbs.discard(up_cb)
         return self
 
     def add_end_cb(self, end_cb: Callable[..., Any]) -> "PipeEvents":
-        """Append end_cb to the list of callbacks invoked when a connection is lost."""
-        self.end_cbs.append(end_cb)
+        """Add end_cb to the set of callbacks invoked when a connection is lost."""
+        was_present = end_cb in self.end_cbs
+        self.end_cbs.add(end_cb)
 
-        # Make sure it runs if this is already closed.
-        if not self.is_running:
+        # Make sure it runs if this is already closed -- but only fire it
+        # the first time it's added so a duplicate add doesn't double-run.
+        if not self.is_running and not was_present:
             self.run_handlers([end_cb])
 
         return self
 
     def del_end_cb(self, end_cb: Callable[..., Any]) -> "PipeEvents":
-        """Remove end_cb from the connection-lost callback list."""
-        if end_cb in self.end_cbs:
-            self.end_cbs.remove(end_cb)
-
+        """Remove end_cb from the connection-lost callback set."""
+        self.end_cbs.discard(end_cb)
         return self
 
     # Called only once for UDP.
