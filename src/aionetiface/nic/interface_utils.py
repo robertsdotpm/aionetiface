@@ -171,35 +171,52 @@ def get_ifs_by_af_intersect(if_list: List[Any]) -> List[Any]:
 
 
 def is_nic_default(nic: Any, af: int, gws: Optional[Any] = None) -> bool:
-    """Return True if nic is the default-route interface for the given address family."""
-    def try_netiface_check(af, gws):
-        """Check the netifaces gateway table to see if this NIC is the default for the given AF."""
-        af = af_to_netiface(af)
-        if not gws:
-            gws = netiface_gateways(nic.netifaces, get_interface_type, preference=af)
+    """Return True if nic owns the IP the OS would pick for outbound traffic on af.
 
-        def_gws = gws["default"]
-        if af not in def_gws:
+    Cross-platform: a single ``Interface("default")`` is constructed lazily and
+    cached on the Interface class. Its routes are populated via the UDP-connect
+    trick (see ``default_interface.get_default_routes``) which asks the kernel
+    directly which source IP it would use for an arbitrary external destination.
+    We then compare that IP against the addresses netifaces reports for ``nic``.
+    Multi-NIC hosts work naturally — only one NIC owns the source IP, so only
+    one returns True per AF. The ``gws`` argument is accepted for API
+    compatibility but ignored.
+    """
+    # Deferred import: interface_utils is imported by interface.py.
+    from .interface import Interface  # noqa: F401  pylint: disable=import-outside-toplevel
+
+    if Interface.default is None:
+        try:
+            Interface.default = Interface("default")
+        except OSError:
+            log_exception()
             return False
-        info = def_gws[af]
-        if info[1] == nic.name:
-            return True
+
+    default = Interface.default
+    try:
+        default_ip = default.rp[af].routes[0].nic()
+    except (KeyError, IndexError, AttributeError, LookupError):
         return False
 
-    def try_sock_trick(af):
-        """Use a dummy UDP connect to determine the default interface name for af and compare to this NIC."""
-        if_name = get_default_iface(nic.netifaces, afs=[af])
-        if if_name == "":
-            return False
-
-        return nic.name == if_name
+    if not getattr(nic, "netifaces", None) or not getattr(nic, "name", None):
+        return False
 
     try:
-        ret = try_sock_trick(af) or try_netiface_check(af, gws)
-        return ret
-    except (OSError, KeyError, AttributeError):
+        addrs = nic.netifaces.ifaddresses(nic.name).get(int(af), [])
+    except (KeyError, ValueError, OSError):
         log_exception()
         return False
+
+    for addr in addrs:
+        ip = addr.get("addr", "")
+        if not ip:
+            continue
+        # Strip IPv6 scope id (e.g. "fe80::1%eth0").
+        ip = ip.split("%", 1)[0]
+        if ip == default_ip:
+            return True
+
+    return False
 
 
 def nic_from_dict(d: Dict[str, Any], Interface: Any) -> Any:

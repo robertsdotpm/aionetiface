@@ -28,6 +28,12 @@ from .default_interface import use_default_interface
 class Interface:
     """Represents a single network interface with resolved routes, NAT info, and address families."""
 
+    # Process-wide cache of the OS-default pseudo-interface. Populated either
+    # eagerly by aionetiface_setup_netifaces() or lazily on first is_default()
+    # call. Holds a single Interface("default") whose routes are derived from
+    # the kernel's UDP-connect source-IP trick (cross-platform).
+    default: Optional["Interface"] = None
+
     def __init__(
         self,
         name: Optional[Any] = None,

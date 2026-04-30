@@ -476,25 +476,29 @@ async def win_load_interface_state(if_results: List[Dict[str, Any]]) -> Dict[str
 
 
 def win_set_gateways(by_guid_index: Dict[str, Any]) -> Dict[Any, Any]:
-    """Returns a netifaces-style gateways dict built from the given GUID-indexed interface data."""
+    """Returns a netifaces-style gateways dict built from the given GUID-indexed interface data.
+
+    Every NIC that has a configured gateway is listed in ``gws[af]`` regardless
+    of whether it is the OS-selected default route. ``gws["default"][af]`` is
+    populated only for the NIC the OS picked. The previous version only
+    listed NICs that won the default-route slot, which on multi-NIC hosts
+    (e.g. a LAN NIC + a mobile NIC) hid working gateways from ``is_nic_default``
+    and any caller asking "does this NIC have a gateway?".
+    """
     gws = {"default": {}, int(IP4): [], int(IP6): []}
 
     for _, addr_info in by_guid_index.items():
-        # Set defaults for different AFs.
-        for af in addr_info["defaults"]:
-            # If no gateway for af found skip.
-            if addr_info["gws"][af] is None:
+        for af in (IP4, IP6):
+            gw = addr_info["gws"].get(af)
+            # Empty string / None / missing entry == no gateway.
+            if not gw:
                 continue
 
-            # Default field for gateway.
-            gws["default"][int(af)] = (addr_info["gws"][af], addr_info["name"])
+            is_default = af in addr_info["defaults"]
+            gws[int(af)].append((gw, addr_info["name"], is_default))
 
-            # Add to list of gateways.
-            if len(addr_info["gws"][af]):
-                is_default = af in addr_info["defaults"]
-                gws[int(af)].append(
-                    (addr_info["gws"][af], addr_info["name"], is_default)
-                )
+            if is_default:
+                gws["default"][int(af)] = (gw, addr_info["name"])
 
     return gws
 

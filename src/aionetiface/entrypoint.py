@@ -4,7 +4,7 @@ import multiprocessing
 import socket
 import sys
 from typing import Any
-from .utility.utils import get_running_loop, log
+from .utility.utils import get_running_loop, log, log_exception
 from .net.net_defs import AF_ANY, IP4
 from .net.asyncio.event_loop import CustomEventLoop, CustomEventLoopPolicy
 from .net.asyncio.async_run import patch_asyncio_backports, async_run
@@ -91,6 +91,18 @@ async def aionetiface_setup_netifaces() -> Any:
                 sock.close()
 
         _cached_netifaces = netifaces
+
+        # Eagerly load the OS-default pseudo-interface so per-NIC is_default()
+        # checks during the load_interfaces sweep don't race lazy init or
+        # repeat the UDP-connect trick once per NIC. Deferred import avoids
+        # the entrypoint <-> interface.load_interface module cycle.
+        from .nic.interface import Interface  # pylint: disable=import-outside-toplevel
+        if Interface.default is None:
+            try:
+                Interface.default = Interface("default")
+            except OSError:
+                log_exception()
+
         return netifaces
 
 
