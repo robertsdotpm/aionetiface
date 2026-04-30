@@ -4,6 +4,34 @@ suite with lots of calls to resolve external IPs then you hit the same servers m
 times. Then those servers interpret it as a DoS and add a temp limit on messages.
 That would make tests fail sometimes when it otherwise works. Caching addresses
 for IFs in some way could be a good idea.
+
+Windows XP gateway-detection caveat
+-----------------------------------
+On Windows XP, the OS introspection APIs (PowerShell Get-NetIPInterface,
+WMIC Win32_NetworkAdapterConfiguration, netsh interface ip show) sometimes
+return a *blank* default gateway for an adapter even when the adapter is
+fully working: ``ipconfig /all`` shows the gateway, ``ping`` to it succeeds,
+and the route is in the routing table.  The blank-gateway condition flaps
+intermittently -- often correlated with DHCP lease renewals -- and makes
+NIC discovery, STUN, and PNP signaling silently flake.
+
+Workaround: configure a *fixed* gateway IP and a *fixed* metric on the
+adapter so the OS never has to re-derive them from DHCP:
+
+    Network Connections > <adapter> > Properties > Internet Protocol (TCP/IP)
+        > Properties > Advanced... > IP Settings tab
+        > Default gateways:  Add...  set Gateway = 10.0.1.1
+                             Untick "Automatic metric"
+                             Set "Interface metric" to a fixed value (e.g. 10)
+        > OK
+
+The blank-gateway condition is logged at WARNING via win_set_gateways
+("blank gateway -- may be a bug"); see code in
+nic/netifaces/windows/win_netifaces.py.
+
+This was confirmed empirically: the XP test VM went from ~50% NIC-load
+failures under repeated launches to 100% success after the fixed-gateway
++ fixed-metric change.
 """
 
 import copy
