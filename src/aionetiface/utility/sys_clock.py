@@ -23,7 +23,7 @@ import time
 from typing import Any, Optional, Tuple
 from ..vendor.ntp_client import NTPClient
 from ..net.net_defs import UDP
-from .utils import log, log_exception, async_test
+from .utils import log, log_exception, async_test, fstr
 from ..servers import get_infra
 
 
@@ -118,12 +118,28 @@ class SysClock:
             return_exceptions=True,
         )
 
+        wall_at_call = time.time()
+        successes = [r for r in results if not isinstance(r, Exception) and r]
+        log(fstr(
+            "SysClock.start: probes={0} successes={1} wall_at_call={2}",
+            (len(probes), len(successes), int(wall_at_call)),
+        ))
         for result in results:
             if isinstance(result, Exception):
                 continue
             if result:
                 self.ntp = result
                 self._ntp_loaded = True
+                # Surface the NTP <-> wall-clock skew so when peers
+                # later end up in adjacent rendezvous buckets the log
+                # tells you which side's clock was off and by how much.
+                log(fstr(
+                    "SysClock.start: ntp={0} wall={1} delta={2}s ({3} samples agreed)",
+                    (
+                        int(self.ntp), int(wall_at_call),
+                        int(wall_at_call - self.ntp), len(successes),
+                    ),
+                ))
                 return self
 
         # Every NTP probe failed (network down, UDP/123 firewall,

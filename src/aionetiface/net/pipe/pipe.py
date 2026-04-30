@@ -307,15 +307,27 @@ class Pipe:
             loop = await self.get_loop()
             self.sock.settimeout(0)
             self.sock.setblocking(0)
-            # Pass the coroutine directly — no intermediate create_task needed.
-            # wait_for wraps it in a task internally and cancels it on timeout,
-            # avoiding the "orphaned task" pattern that leaks on older Python.
+            # Bind/dest visibility on every TCP client connect helps when
+            # punch sockets fail with WinError 10049 / 10042 (wrong-NIC
+            # bind) or when the destination resolved to a surprising IP.
+            try:
+                local_tup = self.sock.getsockname()
+            except OSError:
+                local_tup = None
+            log(fstr(
+                "Pipe.connect: tcp local={0} dest={1} con_timeout={2}s",
+                (local_tup, self.dest.tup, self.conf.get("con_timeout")),
+            ))
             try:
                 await asyncio.wait_for(
                     loop.sock_connect(self.sock, self.dest.tup),
                     self.conf["con_timeout"],
                 )
             except asyncio.TimeoutError as exc:
+                log(fstr(
+                    "Pipe.connect: TCP connect timed out local={0} dest={1}",
+                    (local_tup, self.dest.tup),
+                ))
                 raise OSError("TCP connect timed out") from exc
 
     async def setup_pipe_events(self, msg_cb: Any = None, up_cb: Any = None) -> None:

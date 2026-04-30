@@ -74,7 +74,19 @@ def apply_nic_pin_sockopts(sock: Any, route: Any) -> None:
                         socket.IPPROTO_IPV6, 31,
                         struct.pack("=I", if_index),
                     )
-            except (OSError, ValueError, TypeError):
+                log(
+                    "apply_nic_pin_sockopts: pinned socket to "
+                    "if_index={0} af={1} is_default={2}".format(
+                        if_index, route.af, is_default,
+                    )
+                )
+            except (OSError, ValueError, TypeError) as exc:
+                log(
+                    "apply_nic_pin_sockopts: pin FAILED if_index={0} "
+                    "af={1}: {2} ({3})".format(
+                        iface_id, route.af, type(exc).__name__, repr(exc),
+                    )
+                )
                 log_exception()
     except OSError:
         log_exception()

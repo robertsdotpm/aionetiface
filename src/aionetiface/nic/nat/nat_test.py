@@ -28,6 +28,8 @@ from typing import Any, Dict, List, Optional, Tuple
 from ...utility.utils import (
     async_wrap_errors,
     ip_f,
+    log,
+    fstr,
 )
 from ...errors import ErrorCantLoadNATInfo
 from ...net.net_defs import IP4, IP6, UDP
@@ -328,6 +330,10 @@ async def nic_load_nat(
         await pipe.close()
 
     # Sanity check nat / delta details.
+    log(fstr(
+        "nic_load_nat: nic={0} af={1} nat_type={2} delta={3}",
+        (nic.name, af, nat_type, delta),
+    ))
     if None in [nat_type, delta]:
         raise ErrorCantLoadNATInfo("Unable to load nat.")
 

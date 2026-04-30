@@ -2,7 +2,7 @@
 import asyncio
 import socket as _socket
 from typing import Any, List, Optional, Tuple
-from ..utility.utils import strip_none, to_s, get_running_loop
+from ..utility.utils import strip_none, to_s, get_running_loop, log, fstr
 from .net_defs import IP4, IP6, NET_CONF, VALID_AFS, VALID_LOOPBACKS
 from .net_utils import ip_norm
 from .ip_range import IPRange, ipr_norm
@@ -242,14 +242,26 @@ class Address:
             # Resolve domain to IP.
             try:
                 # If that fails -- fallback to getaddrinfo.
+                log(fstr(
+                    "Address.res: DNS lookup host={0} timeout={1}s",
+                    (host, self.conf.get("dns_timeout")),
+                ))
                 results = await asyncio.wait_for(
                     sock_res_domain(host, route), self.conf["dns_timeout"]
                 )
+                log(fstr(
+                    "Address.res: DNS lookup host={0} -> {1} result(s)",
+                    (host, len(results)),
+                ))
 
                 # Otherwise complete failure.
                 if not len(results):
                     raise LookupError("could not resolve addr.")
-            except (OSError, asyncio.TimeoutError, ValueError, ImportError):
+            except (OSError, asyncio.TimeoutError, ValueError, ImportError) as exc:
+                log(fstr(
+                    "Address.res: DNS lookup host={0} FAILED: {1}",
+                    (host, repr(exc)),
+                ))
                 raise
 
             # Save results in class field. sock_res_domain returns

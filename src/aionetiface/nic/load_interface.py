@@ -189,9 +189,26 @@ async def load_interface(
     for af, routes, link_locals in results:
         nic.rp[af] = RoutePool(routes, link_locals)
 
+    # Per-AF STUN summary so an "InterfaceNotFound" failure points at
+    # the AF whose discovery failed, instead of disappearing into a
+    # bare InterfaceNotFound traceback.
+    for af in VALID_AFS:
+        log(fstr(
+            "load_interface STUN summary: nic={0} af={1} routes={2} link_locals={3}",
+            (
+                nic.name, af,
+                len(nic.rp[af].routes) if af in nic.rp else 0,
+                len(getattr(nic.rp.get(af, None), "link_locals", []) or []) if af in nic.rp else 0,
+            ),
+        ))
+
     # Update stack type based on routable.
     nic.stack = get_interface_stack(nic.rp)
     if nic.stack not in VALID_STACKS:
+        log(fstr(
+            "load_interface: nic={0} -> InterfaceNotFound (stack={1} not in {2})",
+            (nic.name, nic.stack, VALID_STACKS),
+        ))
         raise InterfaceNotFound
     nic.resolved = True
 
