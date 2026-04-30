@@ -136,7 +136,11 @@ class DestTup:
         self.flow_id = flow_id
         self.scope_id = scope_id
         if af == IP6 and scope_id:
-            self.tup = (ip, port, flow_id, scope_id)
+            # patch_connect_ip may have appended %nic_id to ip for the
+            # 2-tuple case. Strip it here -- the 4-tuple carries scope_id
+            # in position 3, and inet_pton rejects "fe80::1%2" as invalid.
+            ip_bare = ip.split("%", 1)[0] if "%" in ip else ip
+            self.tup = (ip_bare, port, flow_id, scope_id)
         else:
             self.tup = (ip, port)
         # is_loopback is consumed by socket_factory to skip the L2
