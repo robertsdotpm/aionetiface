@@ -52,11 +52,24 @@ def apply_nic_pin_sockopts(sock: Any, route: Any) -> None:
             try:
                 if_index = int(iface_id)
                 if route.af == IP4:
+                    # IP_UNICAST_IF (level=IPPROTO_IP, optname=31) expects the
+                    # interface index in NETWORK byte order on Windows. Using
+                    # native order ("=I") on little-endian x86 puts the real
+                    # index value into the high-order bytes, which Windows
+                    # reads as a bogus interface and rejects with WinError
+                    # 10049 ("The requested address is not valid in its
+                    # context"). The error was caught by the surrounding
+                    # try/except so it didn't crash, but the socket was left
+                    # unpinned -- connects then went out via whatever NIC the
+                    # kernel routing picked, which on multi-NIC hosts could
+                    # silently break tcp_punch by missing the intended LAN.
                     sock.setsockopt(
                         socket.IPPROTO_IP, 31,
-                        struct.pack("=I", if_index),
+                        struct.pack("!I", if_index),
                     )
                 else:
+                    # IPV6_UNICAST_IF (level=IPPROTO_IPV6, optname=31) takes
+                    # the index in HOST byte order, unlike its v4 sibling.
                     sock.setsockopt(
                         socket.IPPROTO_IPV6, 31,
                         struct.pack("=I", if_index),
