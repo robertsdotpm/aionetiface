@@ -488,10 +488,22 @@ def win_set_gateways(by_guid_index: Dict[str, Any]) -> Dict[Any, Any]:
     gws = {"default": {}, int(IP4): [], int(IP6): []}
 
     for _, addr_info in by_guid_index.items():
+        addrs = addr_info.get("addr") or {}
         for af in (IP4, IP6):
             gw = addr_info["gws"].get(af)
             # Empty string / None / missing entry == no gateway.
             if not gw:
+                # NIC has at least one IP for this AF but no gateway --
+                # surfaced loudly because we hit it on Windows XP where
+                # ipconfig /all + ping confirmed a working gateway but
+                # the introspection API returned blank.  Don't raise --
+                # downstream code deals with missing gateways already --
+                # but log so the condition is visible.
+                if addrs.get(af):
+                    log(fstr(
+                        "blank gateway -- may be a bug: nic={0} af={1} has IP(s) but no gateway",
+                        (addr_info.get("name", "?"), af),
+                    ))
                 continue
 
             is_default = af in addr_info["defaults"]
