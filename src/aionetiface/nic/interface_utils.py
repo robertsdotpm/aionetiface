@@ -87,12 +87,12 @@ def get_interface_type(name: str) -> int:
     if re.match(r"en[0-9]+", name) is not None:
         return INTERFACE_ETHERNET
 
-    eth_names = ["eth", "eno", "ens", "enp", "enx", "ethernet"]
+    eth_names = ["eth", "eno", "ens", "enp", "enx", "ethernet", "local area connection"]
     for eth_name in eth_names:
         if eth_name in name:
             return INTERFACE_ETHERNET
 
-    wlan_names = ["wlx", "wlp", "wireless", "wlan", "wifi"]
+    wlan_names = ["wlx", "wlp", "wireless", "wlan", "wifi", "wireless network connection"]
     for wlan_name in wlan_names:
         if wlan_name in name:
             return INTERFACE_WIRELESS
