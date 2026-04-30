@@ -32,7 +32,7 @@ class Interface:
     # eagerly by aionetiface_setup_netifaces() or lazily on first is_default()
     # call. Holds a single Interface("default") whose routes are derived from
     # the kernel's UDP-connect source-IP trick (cross-platform).
-    default: Optional["Interface"] = None
+    default = None  # type: Optional["Interface"]
 
     def __init__(
         self,
