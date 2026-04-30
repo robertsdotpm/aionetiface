@@ -54,7 +54,7 @@ def apply_nic_pin_sockopts(sock: Any, route: Any) -> None:
                 if route.af == IP4:
                     sock.setsockopt(
                         socket.IPPROTO_IP, 31,
-                        struct.pack("!I", if_index),
+                        struct.pack("=I", if_index),
                     )
                 else:
                     sock.setsockopt(
@@ -117,20 +117,7 @@ async def socket_factory(
     # Pin egress to route.interface on multi-NIC hosts. Loopback dest
     # ranges through any NIC at L3 so this is a no-op for them; the
     # helper itself handles route.interface=None safely.
-    #
-    # Skip for TCP. tcp_punch's reverse_server (the local listener
-    # that the punching-process worker thread connects back to) goes
-    # through socket_factory and would inherit IP_UNICAST_IF on
-    # Windows. That sockopt forces SYN-ACK egress through the pinned
-    # NIC even on local connections, which on modern Windows
-    # (Win10+/Server 2022) defeats the loopback fast path AND can
-    # collide with WFP "spoofed traffic" filters when the reply
-    # appears to ingress on the same NIC its source IP belongs to.
-    # Net effect: tcp_punch convergence drops to 0 on those VMs
-    # while UDP punching (which actually needs the pin for
-    # multi-NIC NAT prediction) is unaffected. UDP keeps it.
-    if sock_type != TCP:
-        apply_nic_pin_sockopts(sock, route)
+    apply_nic_pin_sockopts(sock, route)
 
     # Default = use any IPv4 NIC.
     # For IPv4 -- bind address
