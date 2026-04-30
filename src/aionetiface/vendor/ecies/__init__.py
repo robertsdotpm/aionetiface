@@ -35,6 +35,19 @@ def encrypt(receiver_pk: bytes, msg: bytes) -> bytes:
 
 # SigningKey: receiver_sk, bytes: msg
 def decrypt(receiver_sk: Any, msg: bytes) -> bytes:
+    # Defensive: callers occasionally pass None when an upstream
+    # proto_recv timed out / closed the pipe -- without this guard
+    # the slice below blows up as TypeError("'NoneType' is not
+    # subscriptable") which the call-site retry layers misclassify
+    # as a hard programming error instead of a transient network
+    # blip. Surface the real cause.
+    if msg is None:
+        raise ValueError("ecies.decrypt: input msg is None (receive layer probably timed out)")
+    if len(msg) < 33:
+        raise ValueError(
+            "ecies.decrypt: msg too short ({0} bytes, need >=33)".format(len(msg))
+        )
+
     # Generate unique per message key.
     ephemeral_keys = ECDH(curve=SECP256k1)
     ephemeral_keys.load_private_key(receiver_sk)
