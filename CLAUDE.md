@@ -74,6 +74,58 @@ After running tests on Windows, check the system event log for firewall notifica
 - Also check the Windows Security Center / Action Center tray for queued blocked-app alerts
 - Cross-reference any TURN/STUN/UDP test timeouts against bind tuples that were blocked
 
+## Test agents — obscure TCP/IP event-log errors
+
+When tcp_punch / udp_punch flakes silently on Windows (binds succeed, no
+errors logged in our app log, but the peer never receives the SYN), the
+real signal is in the System event log under source "Tcpip". Two events
+matter and neither is intuitively named:
+
+- **Event 4226** — *"TCP/IP has reached the security limit imposed on
+  the number of concurrent TCP connect attempts."* This is the
+  half-open SYN cap; default 10 on XP SP2+, 50 on Vista SP1, removed
+  on Win7+. Firing 16 simultaneous connect_ex on XP trips it; the
+  excess SYNs are queued silently with no error returned to the caller.
+
+- **Event 4227** — *"TCP/IP failed to establish an outgoing connection
+  because the selected local endpoint was recently used to connect to
+  the same remote endpoint."* This is **TIME_WAIT lockout**. Windows
+  refuses to reuse a 4-tuple `(local_ip, local_port, remote_ip,
+  remote_port)` that's still in TIME_WAIT (~240 s). For tcp_punch with
+  bucket-deterministic ports this means back-to-back tests in the same
+  NTP window get blocked at the kernel before the SYN ever leaves.
+  `SO_LINGER 0` on close (RST instead of FIN) prevents TIME_WAIT
+  entirely; widening the port pool makes collisions rarer.
+
+How to query them on a remote VM:
+
+Modern Windows (Vista+):
+
+```powershell
+powershell "Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Tcpip'} -MaxEvents 50"
+```
+
+Windows XP (no PowerShell `Get-WinEvent`):
+
+```cmd
+cscript //nologo C:\WINDOWS\system32\eventquery.vbs /L System /FI "Source eq Tcpip"
+```
+
+Firewall stealth-mode (both):
+
+```cmd
+reg query "HKLM\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\StandardProfile" /v "DisableStealthMode"
+reg query "HKLM\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\StandardProfile" /v "EnableFirewall"
+```
+
+(`DisableStealthMode=1` → stealth OFF, good; absent or 0 → stealth ON,
+silently drops unsolicited inbound TCP/UDP — looks identical to a punch
+that just didn't land.)
+
+`p2pd_test_run/windows_tcpip_diag.py` runs all of the above in one
+script + dumps `arp -a`, filtered `ipconfig /all`, and `netstat -s`.
+First port-of-call when a Windows VM goes silent.
+
 ## Test agents — interface checks
 
 When running tests on a remote machine, parse `ip addr` / `ipconfig /all` output carefully: ensure **all** interfaces are reported, not just the first. When a second adapter is added (e.g. a second NIC for external connectivity), it must be detected and included in the ENV vs BUG categorisation for any test that depends on interface count, routing, or address selection.
