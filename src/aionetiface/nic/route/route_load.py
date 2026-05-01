@@ -451,38 +451,6 @@ async def discover_nic_wan_ips(
     if af == IP4 and not routes and priv_iprs:
         link_locals = priv_iprs
 
-    # IPv6: when STUN failed for every src_ip, the NIC still has usable
-    # IPv6 (link-local at minimum, often a public 2400:: too -- these
-    # OSes can ping IPv6 sites just fine, the box just couldn't reach
-    # *our* STUN pool). Without this fallback get_interface_stack()
-    # below classifies the NIC as IPv4-only and supported() refuses
-    # any v6 use, so a peer asking for af=23 punch hits "AF_INET6 not
-    # supported by this interface" even though OS-level IPv6 works.
-    # Synthesize each non-link-local v6 address as its own direct
-    # route (ext == nic; IPv6 typically has no NAT) and promote the
-    # link-locals to routes too -- with the scope_id plumbing the
-    # tcp_punch engine just got, link-local IS a valid LAN target.
-    if af == IP6 and not routes:
-        for ipr in priv_iprs + pub_iprs:
-            ip_str = ip_norm(str(ipr[0]))
-            ext_ipr = IPRange(ip_str, bitlen=0)
-            nic_ipr = IPRange(ip_str, bitlen=0)
-            nic_ipr.is_private = False
-            nic_ipr.is_public = True
-            routes.append(Route(af, [nic_ipr], [ext_ipr], interface))
-        for ll_ipr in link_locals:
-            ip_str = ip_norm(str(ll_ipr[0]))
-            ext_ipr = IPRange(ip_str, bitlen=0)
-            nic_ipr = IPRange(ip_str, bitlen=0)
-            nic_ipr.is_private = True
-            nic_ipr.is_public = False
-            routes.append(Route(af, [nic_ipr], [ext_ipr], interface))
-        if routes:
-            log("[IFLOAD]   af=23 STUN failed; synthesised {0} v6 routes "
-                "from {1} priv/pub + {2} link_locals".format(
-                    len(routes), len(priv_iprs) + len(pub_iprs), len(link_locals),
-                ))
-
     # Set link locals in route list.
     [r.set_link_locals(link_locals) for r in routes]
 
