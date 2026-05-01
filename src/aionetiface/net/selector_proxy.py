@@ -207,7 +207,8 @@ def selector_proxy(
                         # UDP "connection reset" surfaces on Windows
                         # when an ICMP unreachable comes back from a
                         # previous send(). For TCP it's a real close.
-                        # Either way, tear down.
+                        if sock_proto == socket.SOCK_DGRAM:
+                            continue
                         close_pair(sock, peers, selector, buffers)
                         if socket_p not in peers:
                             break
