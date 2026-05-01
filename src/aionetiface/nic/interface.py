@@ -35,7 +35,6 @@ failures under repeated launches to 100% success after the fixed-gateway
 """
 
 import copy
-import platform
 import pprint
 from typing import Any, Dict, Iterator, List, Optional
 from ..utility.utils import async_test, fstr
@@ -79,17 +78,6 @@ class Interface:
         self.resolved = False
         self.netiface_index = None
         self.id = self.mac = self.nic_no = None
-        # XP has separate v4 / v6 interface index spaces (TCPIP vs
-        # TCPIP6 services); the nic_no surfaced from netifaces is
-        # the v4 index and points at the wrong interface for v6
-        # binds. Vista+ unified the stacks so v4 and v6 share the
-        # index. Per-AF v6_scope_id captured during start() (read
-        # from netifaces' fe80::%scope on the matching link-local)
-        # so callers that need to bind / connect a link-local v6
-        # address use the right scope id regardless of OS. None
-        # means "not set; fall back to nic.id" -- the right
-        # behaviour on Vista+ where they're the same anyway.
-        self.v6_scope_id = None
         self.nat = nat or nat_info()
         self.name = name
         self.rp = {IP4: RoutePool(), IP6: RoutePool()}
@@ -151,31 +139,31 @@ class Interface:
         self.nat = nat
         return nat
 
-    def get_scope_id(self) -> Any:
-        """Return the platform-appropriate interface scope identifier (name or numeric index)."""
-        if not self.resolved:
-            raise ValueError("interface is not resolved")
+    def get_nic_id(self, af: Optional[int] = None) -> Any:
+        """Return the kernel-level interface index for af.
 
-        # Interface specified by no on windows.
-        if platform.system() == "Windows":
-            return self.nic_no
-        # Other platforms just use the name
-        return self.name
-
-    def scope_id_for(self, af: int) -> Any:
-        """Return the kernel-level interface index appropriate for af.
-
-        For IPv6 on hosts where the v4 / v6 stacks have separate
-        interface index spaces (Windows XP's TCPIP vs TCPIP6 services),
-        load_interface captures the v6-side index from netifaces'
-        fe80::%scope entry as nic.v6_scope_id. Use that when binding
-        or sending on a v6 link-local; fall back to nic.id when the
-        stack is unified (Vista+, Linux, etc.) or when v6_scope_id
-        wasn't populated.
+        Defers to the netifaces backend's get_nic_id when present
+        (Windows shim, fallback shim, test shim). For PyPI netifaces
+        on POSIX -- which has no get_nic_id -- parse the %scope
+        token off a link-local entry in ifaddresses for af=IP6, and
+        otherwise return the interface name (POSIX uses names as
+        scope ids and the kernel accepts them in fe80::%scope
+        directly).
         """
-        if af == IP6 and self.v6_scope_id is not None:
-            return self.v6_scope_id
-        return self.id
+        if hasattr(self.netifaces, "get_nic_id"):
+            return self.netifaces.get_nic_id(af, self.name)
+        
+        if af == IP6:
+            try:
+                addrs = self.netifaces.ifaddresses(self.name).get(IP6, [])
+            except (KeyError, OSError, ValueError):
+                addrs = []
+            for entry in addrs:
+                addr = entry.get("addr", "")
+                if "%" in addr:
+                    return addr.rsplit("%", 1)[1]
+                
+        return self.name
 
     def nic(self, af: int) -> Optional[str]:
         """Return the NIC IP string for the primary route on this interface for the given address family."""

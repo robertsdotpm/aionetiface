@@ -300,7 +300,7 @@ class FakeInterface(object):
     def is_default(self, af=None, gws=None):
         return False
 
-    def get_scope_id(self):
+    def get_nic_id(self, af=None):
         return self.id
 
 

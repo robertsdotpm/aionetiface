@@ -53,5 +53,14 @@ def load_if_info_fallback(nic: Any) -> None:
 
             return ret
 
+        def get_nic_id(self, af, name):
+            """Parity with Netifaces.get_nic_id; the fallback has no
+            real ifindex source so return the interface name -- the
+            kernel accepts a name string in fe80::%scope on POSIX,
+            and on Windows this code path only runs when the richer
+            shim couldn't load anything anyway.
+            """
+            return self.name
+
     nic.netifaces = NetifaceShim(if_addrs)
     nic.is_default = nic.is_default_patch

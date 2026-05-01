@@ -180,6 +180,10 @@ class FakeNetifaces:
     def ifaddresses(self, if_name: str) -> Any:
         return self.addr_info
 
+    def get_nic_id(self, af: Optional[int], if_name: str) -> Any:
+        """Parity with Netifaces.get_nic_id; tests echo if_name back."""
+        return if_name
+
 
 def get_cached_if() -> Optional[Any]:
     """Load and return a previously cached interface dict from disk, or None if absent."""

@@ -96,9 +96,13 @@ def bind_closure(self: Any, binder: Any) -> Any:
                 # Being inherited from route.
                 ips = self.nic()
 
-        # Number or name - platform specific.
+        # Number or name - platform specific. Use get_nic_id(af) so
+        # binds on a Windows XP host with split TCPIP / TCPIP6 index
+        # spaces pick the right v6 ifindex; on Vista+ / POSIX where
+        # the indices are unified this returns the same value as
+        # nic.id did.
         if self.interface is not None:
-            nic_id = self.interface.id
+            nic_id = self.interface.get_nic_id(self.af)
         else:
             nic_id = None
 

@@ -223,14 +223,13 @@ class Address:
                 if route is None:
                     route = self.nic.route(ipr.af)
 
-            # Used to patch IPv6 private IPs.
-            # scope_id_for(af) returns route.interface.id on platforms
-            # with a unified v4/v6 interface index (Vista+, Linux);
-            # on XP with split TCPIP/TCPIP6 services it returns the
-            # v6-side index that load_interface captured from the
-            # fe80::%scope entry.
+            # Used to patch IPv6 private IPs. Interface.get_nic_id(af)
+            # dispatches to the right per-AF ifindex via the
+            # netifaces backend (Windows shim, fallback shim, test
+            # shim) and falls back to ifaddresses %scope parsing on
+            # POSIX, so callers don't have to care about the backend.
             if route is not None:
-                nic_id = route.interface.scope_id_for(ipr.af)
+                nic_id = route.interface.get_nic_id(ipr.af)
             else:
                 nic_id = None
 

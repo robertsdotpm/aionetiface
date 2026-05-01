@@ -67,6 +67,7 @@ def load_if_info(nic: Any) -> Any:
 
     # Check ID exists.
     if nic.netifaces is not None:
+        
         if_names = nic.netifaces.interfaces()
         if nic.name not in if_names:
             log(
@@ -80,13 +81,15 @@ def load_if_info(nic: Any) -> Any:
             )
             raise InterfaceNotFound
         nic.type = get_interface_type(nic.name)
-        nic.nic_no = 0
-        if hasattr(nic.netifaces, "nic_no"):
-            nic.nic_no = nic.netifaces.nic_no(nic.name)
-            nic.id = nic.nic_no
-        else:
-            nic.id = nic.name
-
+        
+        # nic.get_nic_id() dispatches to the netifaces backend's
+        # get_nic_id(af, name) when present (Windows shim, fallback
+        # shim, test shim) and otherwise falls back to nic.name --
+        # the same end state the previous nic_no hasattr branch
+        # produced, but with the per-backend dispatch handled in
+        # one place inside Interface.
+        nic.id = nic.get_nic_id()
+        nic.nic_no = nic.id if isinstance(nic.id, int) else 0
         nic.netiface_index = if_names.index(nic.name)
 
     return nic
@@ -210,28 +213,6 @@ async def load_interface(
             (nic.name, nic.stack, VALID_STACKS),
         ))
         raise InterfaceNotFound
-
-    # XP-specific: TCPIP and TCPIP6 services maintain SEPARATE
-    # interface index spaces, so the v4 ifindex (= nic.id) silently
-    # points at the wrong interface for v6 link-local binds and every
-    # such bind hits WSAEADDRNOTAVAIL. Vista+ unified the stacks so
-    # this is a no-op there. The Windows netifaces shim's iphlpapi
-    # backend exposes v6_nic_no() which surfaces ipv6_ifindex from
-    # GetAdaptersAddresses; non-iphlpapi loaders (netsh / wmic /
-    # ps / win_net) and non-Windows OSes don't have a v6_nic_no
-    # attribute so v6_scope_id stays None and scope_id_for(IP6)
-    # falls back to nic.id -- correct in every case where the
-    # split-stack issue doesn't apply.
-    if hasattr(nic.netifaces, "v6_nic_no"):
-        try:
-            nic.v6_scope_id = nic.netifaces.v6_nic_no(nic.name)
-        except (KeyError, AttributeError):
-            nic.v6_scope_id = None
-        if nic.v6_scope_id is not None:
-            log(fstr(
-                "load_interface: nic={0} v6_scope_id={1}",
-                (nic.name, nic.v6_scope_id),
-            ))
 
     nic.resolved = True
 
