@@ -6,10 +6,13 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 from ...utility.utils import async_wrap_errors, fstr, log, log_exception
 from ...utility.pattern_factory import concurrent_first_agree_or_best
-from ...net.net_defs import IP4, IP6
+from ...net.net_defs import IP4, IP6, TCP
 from ...net.ip_range import IPRange
 from ...net.net_utils import determine_if_path, ip_norm
 from ...net.bind.bind import Bind
+from ...protocol.stun.stun_client import get_stun_clients
+from ...protocol.stun.stun_defs import RFC5389
+from ...servers import get_infra
 from .route import Route
 from .route_utils import (
     get_nic_iprs,
@@ -108,7 +111,72 @@ async def lookup_wan_ip_for_nic_ip(
             log(fstr("WAN IP lookup for {0} failed, retrying.", (src_ip,)))
             await asyncio.sleep(0.5)
 
-    log("[STUN-LOOKUP] FAIL src_ip={0} dur={1:.2f}s (both attempts)".format(
+    # Last-ditch: TCP STUN. Only reached when both UDP attempts gave us
+    # nothing -- typical on networks that drop UDP outbound (corporate
+    # firewalls, captive portals, hotel wifi with DPI). The actual
+    # punch traffic is TCP, so even when UDP STUN is blocked there's
+    # value in still computing the WAN IP. Bounded to 2 servers and a
+    # single attempt so the wall-time cost on networks where UDP DOES
+    # work is zero (this code path doesn't run) and on networks where
+    # it doesn't, the worst case is timeout + a few RTTs.
+    log("[STUN-LOOKUP]   UDP failed; attempting TCP STUN fallback src_ip={0}".format(src_ip))
+    try:
+        tcp_servers = get_infra(af, TCP, "STUN(see_ip)", no=2)
+        tcp_clients = get_stun_clients(af, 2, interface, RFC5389,
+                                       proto=TCP, servs=tcp_servers)
+    except Exception as e:  # pylint: disable=broad-except
+        log("[STUN-LOOKUP]   TCP fallback setup failed: {0}".format(repr(e)))
+        tcp_clients = []
+
+    if tcp_clients:
+        log("[STUN-LOOKUP]   TCP fallback n_clients={0} src_ip={1}".format(
+            len(tcp_clients), src_ip,
+        ))
+        try:
+            tcp_tasks = []
+            for stun_client in tcp_clients:
+                try:
+                    local_addr = await asyncio.wait_for(
+                        Bind(
+                            stun_client.interface, af=stun_client.af, port=0, ips=src_ip
+                        ).res(),
+                        timeout=2.0,
+                    )
+                except asyncio.TimeoutError:
+                    log("[STUN-LOOKUP]   TCP bind TIMEOUT src_ip={0} server={1}".format(
+                        src_ip, getattr(stun_client, "dest", None),
+                    ))
+                    continue
+                if local_addr is None:
+                    continue
+                tcp_tasks.append(async_wrap_errors(
+                    stun_client.get_wan_ip(pipe=local_addr), logging=False,
+                ))
+
+            if tcp_tasks:
+                wan_ip = await concurrent_first_agree_or_best(
+                    min_agree, tcp_tasks, timeout, wait_all=False,
+                )
+                log("[STUN-LOOKUP]   TCP fallback returned wan_ip={0}".format(wan_ip))
+                if wan_ip is not None:
+                    host_limit = 0
+                    ext_ipr = IPRange(wan_ip, bitlen=host_limit)
+                    nic_ipr = IPRange(src_ip, bitlen=host_limit)
+                    if nic_ipr.is_private or src_ip != wan_ip:
+                        nic_ipr.is_private = True
+                        nic_ipr.is_public = False
+                    else:
+                        nic_ipr.is_private = False
+                        nic_ipr.is_public = True
+                    log("[STUN-LOOKUP] OK   src_ip={0} wan_ip={1} dur={2:.2f}s "
+                        "(via TCP fallback)".format(src_ip, wan_ip, time.time() - t0))
+                    return (src_ip, Route(af, [nic_ipr], [ext_ipr], interface))
+        except (OSError, ConnectionError, asyncio.TimeoutError) as e:
+            log("[STUN-LOOKUP]   TCP fallback caught {0}: {1}".format(
+                type(e).__name__, repr(e),
+            ))
+
+    log("[STUN-LOOKUP] FAIL src_ip={0} dur={1:.2f}s (UDP+TCP both failed)".format(
         src_ip, time.time() - t0,
     ))
     return None
