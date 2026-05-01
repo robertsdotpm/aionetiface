@@ -112,9 +112,15 @@ def _write_chunk(
     datagram = queue.pop(0)
     try:
         sock.send(datagram)
+        print("[SP-WRITE-UDP] sent {0} bytes".format(len(datagram)))
     except BlockingIOError:
         # Kernel buffer full; put it back at the head and let the
         # selector re-fire EVENT_WRITE.
+        queue.insert(0, datagram)
+    except (ConnectionResetError, OSError) as exc:
+        # Windows WSAECONNRESET from a connected UDP socket when ICMP
+        # unreachable comes back.  Put the datagram back and retry.
+        print("[SP-WRITE-UDP] OSError on send ({0}), re-queuing".format(repr(exc)))
         queue.insert(0, datagram)
     buffers[sock] = queue
 
@@ -230,7 +236,8 @@ def selector_proxy(
                                 sock,
                                 selector.get_key(sock).events & ~selectors.EVENT_WRITE,
                             )
-                    except (BrokenPipeError, OSError):
+                    except (BrokenPipeError, OSError) as exc:
+                        print("[SP-WRITE] close_pair from write OSError: {0}".format(repr(exc)))
                         close_pair(sock, peers, selector, buffers)
                         if socket_p not in peers:
                             break
