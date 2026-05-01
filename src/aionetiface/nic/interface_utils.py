@@ -2,6 +2,7 @@
 import asyncio
 import re
 import socket
+import time
 from functools import lru_cache
 from typing import Any, Dict, List, Optional
 from ..utility.utils import async_wrap_errors, fstr, log, log_exception, to_s
@@ -342,33 +343,72 @@ async def load_interfaces(
 
     async def load_one(if_name: Any) -> Optional[Any]:
         async with sem:
+            t0 = time.time()
+            log("[IFLOAD] enter nic={0} per_nic_cap={1}s timeout={2}s skip_nat={3}".format(
+                to_s(if_name), per_nic_cap, timeout, skip_nat,
+            ))
             try:
                 nic = Interface(if_name)
 
                 async def setup() -> None:
+                    log("[IFLOAD]   nic={0} calling nic.start".format(to_s(if_name)))
+                    t1 = time.time()
                     await nic.start(
                         min_agree=min_agree,
                         max_agree=max_agree,
                         timeout=timeout,
                     )
+                    log("[IFLOAD]   nic={0} nic.start OK ({1:.2f}s)".format(
+                        to_s(if_name), time.time() - t1,
+                    ))
                     if not skip_nat:
+                        log("[IFLOAD]   nic={0} calling load_nat".format(to_s(if_name)))
+                        t2 = time.time()
                         nat = await async_wrap_errors(nic.load_nat(timeout=timeout))
+                        log("[IFLOAD]   nic={0} load_nat done ({1:.2f}s) result={2}".format(
+                            to_s(if_name), time.time() - t2, "ok" if nat is not None else "None",
+                        ))
                         if nat is None:
                             log("Could not load NAT for " + to_s(if_name))
 
                 await asyncio.wait_for(setup(), timeout=per_nic_cap)
+                log("[IFLOAD] OK    nic={0} dur={1:.2f}s".format(
+                    to_s(if_name), time.time() - t0,
+                ))
                 return nic
             except asyncio.CancelledError:  # pylint: disable=try-except-raise
+                log("[IFLOAD] CANC  nic={0} dur={1:.2f}s".format(
+                    to_s(if_name), time.time() - t0,
+                ))
                 raise
-            except (OSError, asyncio.TimeoutError, InterfaceNotFound, InterfaceInvalidAF):
+            except asyncio.TimeoutError:
+                log("[IFLOAD] FAIL  nic={0} dur={1:.2f}s reason=per_nic_cap_timeout({2}s)".format(
+                    to_s(if_name), time.time() - t0, per_nic_cap,
+                ))
+                return None
+            except (OSError, InterfaceNotFound, InterfaceInvalidAF) as e:
+                log("[IFLOAD] FAIL  nic={0} dur={1:.2f}s reason={2}: {3}".format(
+                    to_s(if_name), time.time() - t0, type(e).__name__, repr(e),
+                ))
                 log_exception()
                 return None
-            except Exception:  # pylint: disable=broad-except
+            except Exception as e:  # pylint: disable=broad-except
+                log("[IFLOAD] FAIL  nic={0} dur={1:.2f}s reason={2}: {3}".format(
+                    to_s(if_name), time.time() - t0, type(e).__name__, repr(e),
+                ))
                 log_exception()
                 return None
 
+    sweep_t0 = time.time()
+    log("[IFLOAD-SWEEP] start n_names={0} concurrency={1}".format(
+        len(if_names), LOAD_CONCURRENCY,
+    ))
     results = await asyncio.gather(*[load_one(n) for n in if_names])
-    return [nic for nic in results if nic is not None]
+    loaded = [nic for nic in results if nic is not None]
+    log("[IFLOAD-SWEEP] done dur={0:.2f}s loaded={1}/{2}".format(
+        time.time() - sweep_t0, len(loaded), len(if_names),
+    ))
+    return loaded
 
 
 def get_nic_for_af(nic_list: List[Any]) -> Dict[int, Optional[Any]]:

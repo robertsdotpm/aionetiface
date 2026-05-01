@@ -2,6 +2,7 @@
 import asyncio
 import copy
 import random
+import time
 from typing import Any, Dict, List, Optional, Tuple
 from ...utility.utils import async_wrap_errors, fstr, log, log_exception
 from ...utility.pattern_factory import concurrent_first_agree_or_best
@@ -37,10 +38,15 @@ async def lookup_wan_ip_for_nic_ip(
 
     interface = stun_clients[0].interface
     af = stun_clients[0].af
+    log("[STUN-LOOKUP] enter src_ip={0} af={1} n_clients={2} min_agree={3} timeout={4}s".format(
+        src_ip, af, len(stun_clients), min_agree, timeout,
+    ))
+    t0 = time.time()
     # send_recv_loop already retries 3x internally per server; one outer
     # retry covers genuine transient packet loss without tripling latency
     # when STUN servers are systemically unreachable.
     for attempt in range(2):
+        log("[STUN-LOOKUP]   attempt={0} src_ip={1}".format(attempt, src_ip))
         try:
             tasks = []
             for stun_client in stun_clients:
@@ -52,9 +58,14 @@ async def lookup_wan_ip_for_nic_ip(
                         timeout=2.0,
                     )
                 except asyncio.TimeoutError:
-                    log(fstr("Bind timed out for {0}, skipping client.", (src_ip,)))
+                    log("[STUN-LOOKUP]   bind TIMEOUT src_ip={0} server={1}".format(
+                        src_ip, getattr(stun_client, "dest", None),
+                    ))
                     continue
                 if local_addr is None:
+                    log("[STUN-LOOKUP]   bind None src_ip={0} server={1}".format(
+                        src_ip, getattr(stun_client, "dest", None),
+                    ))
                     continue
 
                 task = async_wrap_errors(
@@ -63,11 +74,14 @@ async def lookup_wan_ip_for_nic_ip(
                 tasks.append(task)
 
             if not tasks:
+                log("[STUN-LOOKUP]   no tasks queued src_ip={0} (all binds failed)".format(src_ip))
                 return None
 
+            log("[STUN-LOOKUP]   awaiting concurrent_first_agree n_tasks={0}".format(len(tasks)))
             wan_ip = await concurrent_first_agree_or_best(
                 min_agree, tasks, timeout, wait_all=False
             )
+            log("[STUN-LOOKUP]   concurrent_first_agree returned wan_ip={0}".format(wan_ip))
 
             if wan_ip is not None:
                 host_limit = 0
@@ -79,15 +93,24 @@ async def lookup_wan_ip_for_nic_ip(
                 else:
                     nic_ipr.is_private = False
                     nic_ipr.is_public = True
+                log("[STUN-LOOKUP] OK   src_ip={0} wan_ip={1} dur={2:.2f}s attempt={3}".format(
+                    src_ip, wan_ip, time.time() - t0, attempt,
+                ))
                 return (src_ip, Route(af, [nic_ipr], [ext_ipr], interface))
 
-        except (OSError, ConnectionError, asyncio.TimeoutError):
+        except (OSError, ConnectionError, asyncio.TimeoutError) as e:
+            log("[STUN-LOOKUP]   attempt={0} src_ip={1} caught {2}: {3}".format(
+                attempt, src_ip, type(e).__name__, repr(e),
+            ))
             log_exception()
 
         if attempt == 0:
             log(fstr("WAN IP lookup for {0} failed, retrying.", (src_ip,)))
             await asyncio.sleep(0.5)
 
+    log("[STUN-LOOKUP] FAIL src_ip={0} dur={1:.2f}s (both attempts)".format(
+        src_ip, time.time() - t0,
+    ))
     return None
 
 
