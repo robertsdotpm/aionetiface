@@ -149,10 +149,16 @@ class Interface:
         otherwise return the interface name (POSIX uses names as
         scope ids and the kernel accepts them in fe80::%scope
         directly).
+
+        The "default" pseudo-interface (use_default_interface) leaves
+        self.netifaces as None and has no kernel ifindex of its own;
+        return self.id (None) to match the pre-refactor behaviour
+        instead of crashing.
         """
+        if self.netifaces is None:
+            return self.id
         if hasattr(self.netifaces, "get_nic_id"):
             return self.netifaces.get_nic_id(af, self.name)
-        
         if af == IP6:
             try:
                 addrs = self.netifaces.ifaddresses(self.name).get(IP6, [])
@@ -162,7 +168,6 @@ class Interface:
                 addr = entry.get("addr", "")
                 if "%" in addr:
                     return addr.rsplit("%", 1)[1]
-                
         return self.name
 
     def nic(self, af: int) -> Optional[str]:
