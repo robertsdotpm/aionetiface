@@ -175,11 +175,20 @@ def selector_proxy(
         for s in peers:
             selector.register(s, selectors.EVENT_READ)
 
+        select_idle = 0
         while socket_p in peers:
             if sock_has_data(stop_reader):
                 break
 
             events = selector.select(timeout=0.5)
+
+            if not events:
+                select_idle += 1
+                if select_idle % 6 == 0:
+                    print("[SP-IDLE] idle_ticks={0} sp={1}".format(
+                        select_idle, socket_p.getsockname(),
+                    ))
+                continue
 
             for key, mask in events:
                 sock = key.fileobj
@@ -190,6 +199,8 @@ def selector_proxy(
 
                 # ---- READ LOGIC ----
                 if mask & selectors.EVENT_READ:
+                    sock_label = "P" if sock is socket_p else "R"
+                    print("[SP-EV] EVENT_READ sock={0}".format(sock_label))
                     try:
                         data = _read_chunk(sock, sock_proto)
                         if sock_proto == socket.SOCK_STREAM and not data:
@@ -200,6 +211,9 @@ def selector_proxy(
                             if socket_p not in peers:
                                 break
                             continue
+                        print("[SP-EV] read {0} bytes from {1}".format(
+                            len(data), sock_label,
+                        ))
                         _enqueue(buffers, peer, data, sock_proto)
                         # Tell selector we want EVENT_WRITE for the peer.
                         selector.modify(
@@ -209,10 +223,13 @@ def selector_proxy(
                     except BlockingIOError:
                         # Spurious selector wake; nothing to read.
                         pass
-                    except (ConnectionResetError, OSError):
+                    except (ConnectionResetError, OSError) as exc:
                         # UDP "connection reset" surfaces on Windows
                         # when an ICMP unreachable comes back from a
                         # previous send(). For TCP it's a real close.
+                        print("[SP-EV] ConnRst/OSErr on {0}: {1}".format(
+                            sock_label, repr(exc)[:60],
+                        ))
                         if sock_proto == socket.SOCK_DGRAM:
                             continue
                         close_pair(sock, peers, selector, buffers)
