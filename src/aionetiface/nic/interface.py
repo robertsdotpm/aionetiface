@@ -150,18 +150,21 @@ class Interface:
         scope ids and the kernel accepts them in fe80::%scope
         directly).
 
-        The "default" pseudo-interface (use_default_interface) leaves
-        self.netifaces as None and has no kernel ifindex of its own;
-        return self.id (None) to match the pre-refactor behaviour
-        instead of crashing.
+        The "default" pseudo-interface (use_default_interface) skips
+        Interface.__init__'s normal body via early-return, so
+        self.netifaces is *unset* (not just None) -- guard with
+        getattr so the lookup doesn't AttributeError. Default has no
+        kernel ifindex of its own; return self.id (None for the
+        default) to match the pre-refactor behaviour.
         """
-        if self.netifaces is None:
-            return self.id
-        if hasattr(self.netifaces, "get_nic_id"):
-            return self.netifaces.get_nic_id(af, self.name)
+        nf = getattr(self, "netifaces", None)
+        if nf is None:
+            return getattr(self, "id", None)
+        if hasattr(nf, "get_nic_id"):
+            return nf.get_nic_id(af, self.name)
         if af == IP6:
             try:
-                addrs = self.netifaces.ifaddresses(self.name).get(IP6, [])
+                addrs = nf.ifaddresses(self.name).get(IP6, [])
             except (KeyError, OSError, ValueError):
                 addrs = []
             for entry in addrs:
