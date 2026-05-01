@@ -30,6 +30,8 @@ __all__ = [
     "is_root",
     "win_uac",
     "ensure_root",
+    "allow_windows_firewall",
+    "remove_windows_firewall",
 ]
 
 """
@@ -413,3 +415,63 @@ def ensure_root() -> None:
     """Raise an exception if the current process is not running as root."""
     if not is_root():
         raise PermissionError("root required for this code.")
+
+
+def allow_windows_firewall(rule_name):
+    """Add an inbound allow rule for the current Python exe. Silent on any error."""
+    if sys.platform != "win32":
+        return
+    try:
+        exe = sys.executable
+        if sys.getwindowsversion().major >= 6:
+            subprocess.call(
+                [
+                    "netsh", "advfirewall", "firewall", "add", "rule",
+                    "name=" + rule_name,
+                    "dir=in", "action=allow",
+                    "program=" + exe,
+                    "protocol=any",
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        else:
+            subprocess.call(
+                [
+                    "netsh", "firewall", "add", "allowedprogram",
+                    "program=" + exe,
+                    "name=" + rule_name,
+                    "mode=ENABLE",
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+    except Exception:
+        pass
+
+
+def remove_windows_firewall(rule_name):
+    """Remove the inbound allow rule added by allow_windows_firewall. Silent on any error."""
+    if sys.platform != "win32":
+        return
+    try:
+        if sys.getwindowsversion().major >= 6:
+            subprocess.call(
+                [
+                    "netsh", "advfirewall", "firewall", "delete", "rule",
+                    "name=" + rule_name,
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        else:
+            subprocess.call(
+                [
+                    "netsh", "firewall", "delete", "allowedprogram",
+                    "program=" + sys.executable,
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+    except Exception:
+        pass
