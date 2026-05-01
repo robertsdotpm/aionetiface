@@ -129,7 +129,15 @@ class DestTup:
     them from the IPRange directly via Address.v4_ipr / v6_ipr.
     """
 
-    def __init__(self, af: int, ip: str, port: int, flow_id: int, scope_id: int) -> None:
+    def __init__(
+        self,
+        af: int,
+        ip: str,
+        port: int,
+        flow_id: int,
+        scope_id: int,
+        ipr: Optional[Any] = None,
+    ) -> None:
         self.af = af
         self.ip = ip
         self.port = port
@@ -143,14 +151,24 @@ class DestTup:
             self.tup = (ip_bare, port, flow_id, scope_id)
         else:
             self.tup = (ip, port)
-        # is_loopback is consumed by socket_factory to skip the L2
-        # device-pin sockopts on loopback destinations (the kernel
-        # returns EINVAL when connect()ing to 127.x with
-        # SO_BINDTODEVICE set). Recomputing here from the ip string
-        # keeps behaviour identical to the previous ipr-derived
-        # field without forcing every caller to thread an IPRange
-        # through this constructor.
-        self.is_loopback = ip in VALID_LOOPBACKS
+        # ipr / is_private / is_public restored to the pre-Apr-22
+        # shape: callers (notably traversal_utils, route_pool) read
+        # dest.is_private to skip private-only paths. ipr stays None
+        # for callers that pre-date the field-on-DestTup convention.
+        # is_loopback prefers the ipr flag when available, falls back
+        # to the VALID_LOOPBACKS membership test for the constructor
+        # paths that don't have an IPRange handy.
+        self.ipr = ipr
+        if ipr is not None:
+            self.is_private = bool(getattr(ipr, "is_private", False))
+            self.is_public = bool(getattr(ipr, "is_public", False))
+            self.is_loopback = bool(
+                getattr(ipr, "is_loopback", False)
+            ) or ip in VALID_LOOPBACKS
+        else:
+            self.is_private = False
+            self.is_public = False
+            self.is_loopback = ip in VALID_LOOPBACKS
         self.resolved = True
 
     def supported(self) -> List[int]:
@@ -300,14 +318,17 @@ class Address:
         if af == IP4:
             if self.IP4 is None:
                 raise KeyError("AF not found for address")
-            return DestTup(af, self.IP4, self.port, 0, 0)
+            return DestTup(af, self.IP4, self.port, 0, 0, self.v4_ipr)
         if af == IP6:
             if self.IP6 is None:
                 raise KeyError("AF not found for address")
             # Scope was captured in res(): from getaddrinfo's
             # sockaddr[3] for the domain path, or from nic_id for the
             # IP-literal path. No re-resolve needed here.
-            return DestTup(af, self.IP6, self.port, self.v6_flow_id, self.v6_scope_id)
+            return DestTup(
+                af, self.IP6, self.port,
+                self.v6_flow_id, self.v6_scope_id, self.v6_ipr,
+            )
         raise KeyError("AF not found for address")
 
 
