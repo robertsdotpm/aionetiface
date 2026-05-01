@@ -70,8 +70,18 @@ def apply_nic_pin_sockopts(sock: Any, route: Any) -> None:
                 else:
                     # IPV6_UNICAST_IF (level=IPPROTO_IPV6, optname=31) takes
                     # the index in HOST byte order, unlike its v4 sibling.
+                    # Python 3.5 on Vista/XP doesn't expose
+                    # socket.IPPROTO_IPV6 as an attribute even though the
+                    # OS supports the sockopt; fall back to the IANA
+                    # constant 41 (== IPPROTO_IPV6 on every platform we
+                    # care about) so v6 sockets still get NIC-pinned on
+                    # those hosts. Without this, the AttributeError
+                    # propagated and broke every v6 socket creation,
+                    # which is why v6 STUN was failing 100% on Vista
+                    # despite raw-socket STUN reaching 31/40 servers.
+                    ipproto_ipv6 = getattr(socket, "IPPROTO_IPV6", 41)
                     sock.setsockopt(
-                        socket.IPPROTO_IPV6, 31,
+                        ipproto_ipv6, 31,
                         struct.pack("=I", if_index),
                     )
                 log(
@@ -80,7 +90,7 @@ def apply_nic_pin_sockopts(sock: Any, route: Any) -> None:
                         if_index, route.af, is_default,
                     )
                 )
-            except (OSError, ValueError, TypeError) as exc:
+            except (OSError, ValueError, TypeError, AttributeError) as exc:
                 log(
                     "apply_nic_pin_sockopts: pin FAILED if_index={0} "
                     "af={1}: {2} ({3})".format(
