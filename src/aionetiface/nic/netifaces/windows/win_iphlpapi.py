@@ -522,10 +522,20 @@ async def if_infos_from_iphlpapi() -> List[Dict[str, Any]]:
         if not addr_info[IP4] and not addr_info[IP6]:
             continue
 
+        # XP runs TCPIP and TCPIP6 as separate services with distinct
+        # interface index spaces, so the v4 ifindex is the WRONG scope
+        # for v6 link-local binds. Vista+ unified the stacks and the
+        # two indices coincide. Surface them separately so downstream
+        # callers (apply_nic_pin_sockopts, link-local connect/bind)
+        # can pick the right one. Existing "no" stays as the v4 index
+        # for backwards compat with the rest of the netifaces shim.
+        v4_ifindex = info["ifindex"] or info["ipv6_ifindex"]
+        v6_ifindex = info["ipv6_ifindex"] or info["ifindex"]
         if_infos.append({
             "guid": info.get("guid") or friendly,
             "name": friendly,
-            "no": info["ifindex"] or info["ipv6_ifindex"],
+            "no": v4_ifindex,
+            "v6_no": v6_ifindex,
             "mac": info["mac"],
             "addr": addr_info,
             "gws": {IP4: None, IP6: None},

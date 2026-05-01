@@ -212,38 +212,26 @@ async def load_interface(
         raise InterfaceNotFound
 
     # XP-specific: TCPIP and TCPIP6 services maintain SEPARATE
-    # interface index spaces, so nic_no (= the v4 index) silently
-    # points at the wrong interface for v6 link-local binds. Walk
-    # netifaces' fe80::%scope entries for this NIC and capture the
-    # scope_id baked into the address itself; that's the
-    # authoritative v6 interface index. Vista+ unified the stacks
-    # so the v6 scope matches nic.id and this is a no-op there.
-    # Without this, every v6 link-local bind on XP fails with
-    # WSAEADDRNOTAVAIL (10049) and tcp_punch silently runs with
-    # zero bound sockets -- which is exactly what the matrix saw
-    # on every XP-involved v6 pair.
-    try:
-        v6_addrs = nic.netifaces.ifaddresses(nic.name).get(IP6, [])
-    except (KeyError, OSError, AttributeError):
-        v6_addrs = []
-    for entry in v6_addrs:
-        addr = entry.get("addr", "")
-        if "%" not in addr or not addr.lower().startswith("fe"):
-            continue
+    # interface index spaces, so the v4 ifindex (= nic.id) silently
+    # points at the wrong interface for v6 link-local binds and every
+    # such bind hits WSAEADDRNOTAVAIL. Vista+ unified the stacks so
+    # this is a no-op there. The Windows netifaces shim's iphlpapi
+    # backend exposes v6_nic_no() which surfaces ipv6_ifindex from
+    # GetAdaptersAddresses; non-iphlpapi loaders (netsh / wmic /
+    # ps / win_net) and non-Windows OSes don't have a v6_nic_no
+    # attribute so v6_scope_id stays None and scope_id_for(IP6)
+    # falls back to nic.id -- correct in every case where the
+    # split-stack issue doesn't apply.
+    if hasattr(nic.netifaces, "v6_nic_no"):
         try:
-            scope = addr.rsplit("%", 1)[1]
-            nic.v6_scope_id = int(scope)
-        except (ValueError, IndexError):
-            try:
-                import socket as _s
-                nic.v6_scope_id = _s.if_nametoindex(scope)
-            except (OSError, AttributeError):
-                continue
-        log(fstr(
-            "load_interface: nic={0} v6_scope_id={1} (from fe80 entry)",
-            (nic.name, nic.v6_scope_id),
-        ))
-        break
+            nic.v6_scope_id = nic.netifaces.v6_nic_no(nic.name)
+        except (KeyError, AttributeError):
+            nic.v6_scope_id = None
+        if nic.v6_scope_id is not None:
+            log(fstr(
+                "load_interface: nic={0} v6_scope_id={1}",
+                (nic.name, nic.v6_scope_id),
+            ))
 
     nic.resolved = True
 

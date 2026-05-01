@@ -638,6 +638,19 @@ class Netifaces:
         if_info = self.if_info(if_name)
         return if_info["no"]
 
+    def v6_nic_no(self, if_name: str) -> int:
+        """Return the IPv6 interface index for the given interface name.
+
+        On XP the TCPIP and TCPIP6 services maintain separate index
+        spaces, so the v6 ifindex differs from the v4 ifindex; returns
+        the v6 one. On Vista+ the stacks are unified and this is
+        identical to nic_no(). Loaders that didn't capture the v6
+        index separately (netsh, wmic, ps1, win_net) fall back to the
+        single "no" value.
+        """
+        if_info = self.if_info(if_name)
+        return if_info.get("v6_no") or if_info["no"]
+
     def ifaddresses(self, if_name: str) -> Dict[int, Any]:
         """Returns a netifaces-style address dict keyed by address family for the given interface."""
         if_info = self.by_name_index[if_name]
