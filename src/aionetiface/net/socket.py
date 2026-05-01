@@ -25,7 +25,9 @@ def apply_nic_pin_sockopts(sock: Any, route: Any) -> None:
     if route is None or route.interface is None:
         return
 
-    iface_id = route.interface.id
+    # XP: v4 and v6 interface index spaces differ, so use scope_id_for
+    # which falls back to .id on stacks where they're unified.
+    iface_id = route.interface.scope_id_for(route.af)
     if iface_id is None:
         # Default route on Windows occasionally yields a route whose
         # interface object exists but whose .id is None (probe at

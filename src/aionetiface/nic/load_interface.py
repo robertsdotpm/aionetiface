@@ -210,6 +210,41 @@ async def load_interface(
             (nic.name, nic.stack, VALID_STACKS),
         ))
         raise InterfaceNotFound
+
+    # XP-specific: TCPIP and TCPIP6 services maintain SEPARATE
+    # interface index spaces, so nic_no (= the v4 index) silently
+    # points at the wrong interface for v6 link-local binds. Walk
+    # netifaces' fe80::%scope entries for this NIC and capture the
+    # scope_id baked into the address itself; that's the
+    # authoritative v6 interface index. Vista+ unified the stacks
+    # so the v6 scope matches nic.id and this is a no-op there.
+    # Without this, every v6 link-local bind on XP fails with
+    # WSAEADDRNOTAVAIL (10049) and tcp_punch silently runs with
+    # zero bound sockets -- which is exactly what the matrix saw
+    # on every XP-involved v6 pair.
+    try:
+        v6_addrs = nic.netifaces.ifaddresses(nic.name).get(IP6, [])
+    except (KeyError, OSError, AttributeError):
+        v6_addrs = []
+    for entry in v6_addrs:
+        addr = entry.get("addr", "")
+        if "%" not in addr or not addr.lower().startswith("fe"):
+            continue
+        try:
+            scope = addr.rsplit("%", 1)[1]
+            nic.v6_scope_id = int(scope)
+        except (ValueError, IndexError):
+            try:
+                import socket as _s
+                nic.v6_scope_id = _s.if_nametoindex(scope)
+            except (OSError, AttributeError):
+                continue
+        log(fstr(
+            "load_interface: nic={0} v6_scope_id={1} (from fe80 entry)",
+            (nic.name, nic.v6_scope_id),
+        ))
+        break
+
     nic.resolved = True
 
     # Set MAC address of Interface.
