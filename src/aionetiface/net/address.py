@@ -228,7 +228,22 @@ class Address:
                 # interface index that patch_connect_ip just appended
                 # as %). int() handles Windows' numeric ids; the
                 # if_nametoindex fallback handles Unix names.
-                if nic_id is not None and self.v6_scope_id == 0:
+                #
+                # Gate on ipr.is_private (link-local / ULA) -- those
+                # are the only addresses that NEED a scope_id. Global
+                # unicast destinations (2400::/12, 2606::/16 etc.)
+                # MUST have scope_id=0 in the kernel sockaddr; setting
+                # it to the local NIC index makes Windows treat the
+                # connect as link-scoped and either route it out the
+                # wrong interface or refuse outright. Symptom we
+                # debugged: raw socket STUN reached 31/40 v6 servers
+                # but every aionetiface-built STUN dest failed because
+                # DestTup carried scope_id=10 to global servers.
+                if (
+                    nic_id is not None
+                    and self.v6_scope_id == 0
+                    and ipr.is_private
+                ):
                     try:
                         self.v6_scope_id = int(nic_id)
                     except (TypeError, ValueError):
