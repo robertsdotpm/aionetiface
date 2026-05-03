@@ -5,7 +5,7 @@ import socket
 import hashlib
 from typing import Any, Optional, Tuple
 from ...utility.utils import b_and, b_or, b_to_i, rand_b, xor_bufs
-from ...net.net_defs import IP4
+from ...net.net_defs import IP4, IP6
 
 __all__ = [
     "STUN_CHANGE_NONE",
@@ -152,7 +152,16 @@ class STUNAddrTup:
 
     @staticmethod
     def get_addr_bufs(af: int, attr_data: Any) -> Tuple[Any, Any]:
-        """Return (ip_buf, port_buf) slices extracted from the raw attr_data bytes for the given address family."""
+        """Return (ip_buf, port_buf) slices extracted from the raw attr_data bytes for the given address family.
+
+        Note: `af` is a hint from the caller (typically the AF of the
+        socket the message arrived on). It is NOT authoritative -- per
+        RFC 5389 §15.1 every (XOR-)MAPPED-ADDRESS-style attribute carries
+        its own one-byte family field at offset [1:2]. A TURN server
+        connected to over IPv6 may legitimately return a v4 RELAYED-ADDRESS
+        (or vice versa) so callers MUST honour the in-attribute family.
+        See get_attr_family() / decode().
+        """
         port_buf = attr_data[2:4]
         if af == IP4:
             ip_buf = attr_data[4:8]
@@ -162,6 +171,22 @@ class STUNAddrTup:
         return (ip_buf, port_buf)
 
     @staticmethod
+    def get_attr_family(attr_data: Any) -> int:
+        """Return the address family encoded inside the attribute itself
+        (RFC 5389 §15.1: byte[1] is 0x01 for IPv4, 0x02 for IPv6).
+        Falls back to IP4 on a malformed attribute. Use this in preference
+        to the socket-level AF when decoding a (XOR-)MAPPED / PEER /
+        RELAYED address, because TURN servers can hand back a relay in
+        the OTHER family from the one used to reach them."""
+        try:
+            family_byte = bytes(attr_data[1:2])
+        except Exception:
+            return IP4
+        if family_byte == b"\x02":
+            return IP6
+        return IP4
+
+    @staticmethod
     def addr_bufs_to_tup(af: int, ip_buf: Any, port_buf: Any) -> Tuple[str, int]:
         """Convert raw IP and port byte buffers to a (ip_str, port_int) tuple."""
         port = b_to_i(port_buf, "big")
@@ -169,19 +194,34 @@ class STUNAddrTup:
         return (ip, port)
 
     def decode(self, code: Any, data: Any) -> Tuple[Any, Any, Any]:
-        """Decode a STUN address attribute, un-XORing if required, and return (ip_buf, port_buf, processed_data)."""
-        # Get field bufs.
-        ip_buf, port_buf = STUNAddrTup.get_addr_bufs(self.af, data)
+        """Decode a STUN address attribute, un-XORing if required, and return (ip_buf, port_buf, processed_data).
+
+        The address family used for slicing and inet_ntop is read from
+        the attribute itself (data[1] = 0x01 for IPv4, 0x02 for IPv6)
+        rather than from self.af. self.af is the AF of the socket the
+        message arrived on -- TURN servers are free to hand back a v4
+        relay over a v6 control connection (or vice versa) and the old
+        code crashed with `ValueError: invalid length of packed IP
+        address string` because get_addr_bufs(self.af=v6, 8-byte v4
+        attr) tried to slice 16 IP bytes out of an 8-byte attr. Honour
+        the wire family instead.
+        """
+        # Determine the in-attribute family BEFORE any XOR (the family
+        # byte is at offset 1 of the unmasked attribute -- the leading
+        # mask bytes are zeros so XORing it would be a no-op anyway,
+        # but reading from the original is unambiguous).
+        attr_af = STUNAddrTup.get_attr_family(data)
 
         # XORed per individual fields.
         if code == STUNAttrs.XorMappedAddressX:
-            # Get field bufs.
-            ip_buf, port_buf = STUNAddrTup.get_addr_bufs(self.af, data)
+            ip_buf, port_buf = STUNAddrTup.get_addr_bufs(attr_af, data)
 
             # UnXOR.
             mask = self.magic_cookie + self.txid
             port_buf = xor_bufs(port_buf, mask)
             ip_buf = xor_bufs(ip_buf, mask)
+        else:
+            ip_buf, port_buf = STUNAddrTup.get_addr_bufs(attr_af, data)
 
         # XORed starting from the port to the IP.
         codes = [
@@ -194,11 +234,11 @@ class STUNAddrTup:
             if len(self.txid):
                 data = xor_bufs(data, mask)
 
-            # Get field bufs.
-            ip_buf, port_buf = STUNAddrTup.get_addr_bufs(self.af, data)
+            # Re-extract from the un-XORed buffer using the wire family.
+            ip_buf, port_buf = STUNAddrTup.get_addr_bufs(attr_af, data)
 
-        # Convert to correct format.
-        self.tup = STUNAddrTup.addr_bufs_to_tup(self.af, ip_buf, port_buf)
+        # Convert to correct format using the wire family (NOT self.af).
+        self.tup = STUNAddrTup.addr_bufs_to_tup(attr_af, ip_buf, port_buf)
         return ip_buf, port_buf, data
 
     def encode(self, code: Any) -> bytes:
