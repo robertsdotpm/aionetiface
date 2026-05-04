@@ -110,17 +110,41 @@ def is_af_routable(af: int, netifaces: Any) -> bool:
 
 
 async def get_mac_address(name: str, netifaces: Any) -> Optional[str]:
-    """Return the normalised MAC address for network interface name, using netifaces or OS commands."""
-    if not hasattr(netifaces.ifaddresses(name), "AF_LINK"):
-        try:
-            mac = await get_mac_mixed(name)
-        except asyncio.CancelledError:  # pylint: disable=try-except-raise
-            raise
-        except (OSError, asyncio.TimeoutError):
-            log_exception()
-            return None
+    """Return the normalised MAC address for network interface name, using netifaces or OS commands.
 
-    mac = netifaces.ifaddresses(name)[netifaces.AF_LINK][0]["addr"]
+    Two layers of fallback. netifaces is tried first because it's the
+    cheapest path on a normal Linux/BSD/Win/macOS box. Termux-on-Android
+    is the canary case: its restricted netifaces returns an addresses
+    dict that simply does not contain AF_LINK (the kernel won't expose
+    the link-layer fd to a non-root app), so the lookup raises KeyError.
+    Previously this function:
+      * checked `hasattr(addrs, "AF_LINK")` which is always False on a
+        dict and so always took the fallback branch,
+      * but THEN overwrote the fallback's return with the same crashing
+        netifaces lookup -- so the get_mac_mixed result was discarded
+        and we still raised KeyError.
+    Now the dict-membership check is correct (`AF_LINK in addrs`) and
+    the fallback path actually returns its result.
+    """
+    addrs = netifaces.ifaddresses(name)
+    if netifaces.AF_LINK in addrs and addrs[netifaces.AF_LINK]:
+        try:
+            mac = addrs[netifaces.AF_LINK][0]["addr"]
+            return mac_norm(mac)
+        except (KeyError, IndexError):
+            pass
+
+    # netifaces couldn't tell us -- fall back to ip/ifconfig parsing.
+    try:
+        mac = await get_mac_mixed(name)
+    except asyncio.CancelledError:  # pylint: disable=try-except-raise
+        raise
+    except (OSError, asyncio.TimeoutError):
+        log_exception()
+        return None
+
+    if mac is None:
+        return None
     return mac_norm(mac)
 
 
