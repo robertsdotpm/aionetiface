@@ -332,13 +332,11 @@ def make_node_addr(
                 if af == IP4:
                     int_ip = ip or to_b(r.nic())
                 if af == IP6:
-                    # v6 has no NAT; r.ext() already holds the routable
-                    # global. The dedicated link-local fallback below
-                    # (rp[af].link_locals branch) handles the no-global
-                    # case. Overwriting a perfectly good global with a
-                    # fe80:: here was a leftover that broke the NIC_BIND
-                    # pathway across the cross-LAN v6 matrix.
-                    int_ip = to_b(ip) if ip is not None else to_b(r.ext())
+                    int_ip = to_b(r.ext())
+                    if len(r.link_locals):
+                        int_ip = to_b(str(r.link_locals[0]))
+                    if ip is not None:
+                        int_ip = to_b(ip)
 
                 af_bufs.append(
                     b"[%d,%d,%b,%b,%d,%d,%d,%d]"
