@@ -324,11 +324,12 @@ def win_con_name_lookup() -> Dict[str, Any]:
 
 
 def get_host_limit_from_route_infos(
-    needle_ip: str, route_infos: List[Dict[str, Any]]
+    needle_ip: str, route_infos: List[Dict[str, Any]], af: Any = None
 ) -> List[Any]:
     """Returns the most specific CIDR prefix length and netmask matching the given IP from a list of route infos."""
+    from ....net.net_utils import af_bitlen
     netmask = None
-    host_limit = 0
+    host_limit = None
     for route_info in route_infos:
         prefix_ip, prefix_cidr = route_info["prefix"].split("/")
         prefix_cidr = int(prefix_cidr)
@@ -344,10 +345,12 @@ def get_host_limit_from_route_infos(
         masked_needle_ipr = IPRange(masked_needle_net, bitlen=_host_bits)
 
         if prefix_ipr == masked_needle_ipr:
-            if prefix_cidr >= host_limit:
+            if host_limit is None or prefix_cidr >= host_limit:
                 host_limit = prefix_cidr
                 netmask = prefix_ipr.netmask
 
+    if host_limit is None:
+        host_limit = af_bitlen(af) if af is not None else 0
     return [host_limit, netmask]
 
 
@@ -366,8 +369,9 @@ async def if_infos_from_netsh() -> List[Dict[str, Any]]:
                 continue
 
             for found_addr in out["addrs"][af][if_index]:
+                route_infos = out["routes"][af].get(if_index, [])
                 host_limit, netmask = get_host_limit_from_route_infos(
-                    found_addr["addr"], out["routes"][af][if_index]
+                    found_addr["addr"], route_infos, af
                 )
 
                 addr = {

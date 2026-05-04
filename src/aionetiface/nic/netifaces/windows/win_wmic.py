@@ -31,19 +31,59 @@ def parse_wmic_list(entry: str) -> List[Any]:
     return ast.literal_eval(entry)
 
 
-def parse_wmic_addrs(addrs: List[str]) -> Dict[Any, List[Dict[str, Any]]]:
-    """Returns address info records grouped by address family for the given list of IP strings."""
+def parse_wmic_subnet(mask_str: str) -> Any:
+    """Convert a WMIC IPSubnet entry to a prefix length, or None on failure.
+
+    WMIC returns IPv4 subnet masks as dotted-quad strings ('255.255.255.0')
+    and IPv6 prefix lengths as plain decimal strings ('64').
+    """
+    if not mask_str:
+        return None
+    try:
+        if "." in mask_str:
+            parts = mask_str.split(".")
+            if len(parts) != 4:
+                return None
+            n = 0
+            for p in parts:
+                n = (n << 8) | int(p)
+            inv = (~n) & 0xFFFFFFFF
+            if (inv & (inv + 1)) != 0:
+                return None
+            return bin(n).count("1")
+        else:
+            return int(mask_str)
+    except (ValueError, AttributeError):
+        return None
+
+
+def parse_wmic_addrs(addrs: List[str], subnets: List[str] = None) -> Dict[Any, List[Dict[str, Any]]]:
+    """Returns address info records grouped by address family for the given list of IP strings.
+
+    subnets is an optional parallel list from the WMIC IPSubnet field: dotted-quad
+    masks for IPv4 ('255.255.255.0') and prefix lengths for IPv6 ('64').
+    """
     addr_info = {IP4: [], IP6: []}
-    for addr in addrs:
+    if subnets is None:
+        subnets = []
+    for i, addr in enumerate(addrs):
         ipr = IPRange(addr)
+        mask_str = subnets[i] if i < len(subnets) else None
+        prefix = parse_wmic_subnet(mask_str)
+        if prefix is not None:
+            from ....net.net_utils import af_bitlen
+            host_limit = prefix
+            host_bits = af_bitlen(ipr.af) - prefix
+            netmask = ipr.netmask if host_bits == ipr.host_limit else IPRange(str(ipr), bitlen=host_bits).netmask
+        else:
+            host_limit = ipr.host_limit
+            netmask = ipr.netmask
         addr_info[ipr.af].append(
             {
                 "addr": addr,
                 "af": ipr.af,
-                # Both just placeholders / incorrect.
-                # TODO: get real values in the future.
-                "host_limit": ipr.host_limit,
-                "netmask": ipr.netmask,
+                "host_limit": host_limit,
+                "netmask": netmask,
             }
         )
 
@@ -56,15 +96,18 @@ class WMICParse:
     @staticmethod
     def show_main(af: Any, msg: str) -> List[Any]:
         """Returns a list of fully parsed interface records including addresses, gateways, and GUIDs."""
+        # WMIC output columns are alphabetically ordered:
+        # DefaultIPGateway, Description, Index, IPAddress, IPSubnet, MACAddress, SettingID
         p = r"({[^{}]+})?\s{2,}([^{}\r\n]+?) {2,}([0-9]+)\s+"
-        p += r"({[^{}]+})\s+([^\s]+)\s+({[^{}]+})"
+        p += r"({[^{}]+})\s+({[^{}]+})\s+([^\s]+)\s+({[^{}]+})"
         out = re.findall(p, msg)
         results = []
         for match_group in out:
             # Name the match group fields.
-            gw_ips, if_name, if_index, if_ips, mac, guid = match_group
+            gw_ips, if_name, if_index, if_ips, if_subnets, mac, guid = match_group
             gw_ips = parse_wmic_list(gw_ips)
             if_ips = parse_wmic_list(if_ips)
+            if_subnets = parse_wmic_list(if_subnets)
 
             # Put GWs into right format for netifaces.
             gws = {IP4: None, IP6: None}
@@ -81,9 +124,8 @@ class WMICParse:
                     "name": if_name,
                     "no": int(if_index),
                     "mac": mac,
-                    "addr": parse_wmic_addrs(if_ips),
+                    "addr": parse_wmic_addrs(if_ips, if_subnets),
                     "gws": gws,
-                    # Todo:
                     "defaults": None,
                     "con_name": None,
                 }
@@ -142,7 +184,7 @@ async def do_wmic_cmds() -> List[Any]:
         [
             parser.show_main,
             {
-                IP4: "wmic nicconfig where IPEnabled=true get Description, IPAddress, DefaultIPGateway, Index, MACAddress, SettingID",
+                IP4: "wmic nicconfig where IPEnabled=true get Description, IPAddress, DefaultIPGateway, Index, IPSubnet, MACAddress, SettingID",
             },
             False,
         ],
