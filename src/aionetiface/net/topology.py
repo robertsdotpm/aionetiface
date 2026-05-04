@@ -324,7 +324,7 @@ def make_node_addr(
                 delta_value = interface.nat["delta"]["value"]
 
             # Normal path: global routes exist for this AF.
-            if len(interface.rp[af].routes):
+            if len(interface.rp[af].routes) and af in interface.supported():
                 r = interface.route(af)
                 if r is None:
                     continue
