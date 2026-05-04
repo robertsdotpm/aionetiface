@@ -204,14 +204,29 @@ class Address:
     ) -> "Address":
         """Resolve the host to IP addresses, trying aiodns first then falling back to getaddrinfo."""
         host = host or self.host
-        try:
-            # Ensure human-readable IPs aren't passed as binary.
-            if isinstance(host, bytes):
-                host = to_s(host)
+        # Ensure human-readable IPs aren't passed as binary.
+        if isinstance(host, bytes):
+            host = to_s(host)
 
-            # If it can be parsed as an IP.
-            # Then it's an IP.
+        # PARSE AS IP -- the only step whose failure means "treat as a
+        # hostname and DNS-resolve". Wrapping the rest of the body in
+        # the same try/except misclassified ValueErrors raised
+        # downstream (e.g. nic.route(af) for an AF the local nic
+        # doesn't support) as parse failures, which then re-DNS-looked
+        # the IP literal we'd just received and recursed forever
+        # (matrix-sweep symptom: Interface(em0) on freebsd hit
+        # RecursionError because the default-Interface had no v6 route
+        # for an IPv6 sockaddr returned by getaddrinfo on an HTTP
+        # server hostname).
+        ipr = None
+        try:
             ipr = IPRange(host)
+        except asyncio.CancelledError:  # pylint: disable=try-except-raise
+            raise
+        except (ValueError, OSError):
+            ipr = None
+
+        if ipr is not None:
             ipr.is_loopback = False
 
             # Set route from NIC. Pass the IPRange's af so AFGroup
@@ -221,7 +236,21 @@ class Address:
             # zero-arg primary when af is the only AF supported).
             if self.nic is not None:
                 if route is None:
-                    route = self.nic.route(ipr.af)
+                    try:
+                        route = self.nic.route(ipr.af)
+                    except (KeyError, ValueError):
+                        # The local nic has no route for this AF.
+                        # That's a structural mismatch, not a DNS
+                        # failure -- record what we can (the parsed
+                        # IPRange) and bail without recursing.
+                        if ipr.af == IP4:
+                            self.IP4 = ipr_norm(ipr)
+                            self.v4_ipr = ipr
+                        elif ipr.af == IP6:
+                            self.IP6 = ipr_norm(ipr)
+                            self.v6_ipr = ipr
+                        self.resolved = True
+                        return self
 
             # Used to patch IPv6 private IPs. Interface.get_nic_id(af)
             # dispatches to the right per-AF ifindex via the
@@ -273,9 +302,7 @@ class Address:
                             self.v6_scope_id = _socket.if_nametoindex(str(nic_id))
                         except (OSError, AttributeError):
                             pass
-        except asyncio.CancelledError:  # pylint: disable=try-except-raise
-            raise
-        except (ValueError, OSError):
+        else:
             # Resolve domain to IP.
             try:
                 # If that fails -- fallback to getaddrinfo.
