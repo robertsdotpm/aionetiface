@@ -31,8 +31,22 @@ that particular address for a bind() call.
 
 
 async def lookup_wan_ip_for_nic_ip(
-    src_ip: str, min_agree: int, stun_clients: List[Any], timeout: float
+    src_ip: str, min_agree: int, stun_clients: List[Any], timeout: float,
+    input_ipr: Optional[Any] = None,
 ) -> Optional[Tuple[str, Any]]:
+    """STUN-discover the WAN IP that egresses for a given NIC source address.
+
+    input_ipr (optional) is the original IPRange for src_ip as returned
+    by get_nic_iprs / netiface_addr_to_ipr. When supplied, its `.subnet`
+    field is copied onto the post-STUN IPRange so the route preserves
+    the OS-assigned network prefix. When omitted, callers get the
+    legacy behaviour where the constructed IPRange has subnet=None
+    -- which downstream code reads as "subnet unknown" and forces
+    same_lan to be assumed True (the bug we hit when reverse_connect
+    over IPv6 picked the link-local NIC IP for cross-internet pairings,
+    because select_dest_ipr couldn't tell the two hosts weren't on
+    the same link). New callers should always pass it.
+    """
     if not stun_clients:
         log(
             "lookup_wan_ip_for_nic_ip: no STUN clients available, cannot resolve WAN IP."
@@ -96,6 +110,12 @@ async def lookup_wan_ip_for_nic_ip(
                 else:
                     nic_ipr.is_private = False
                     nic_ipr.is_public = True
+                # Preserve OS-assigned subnet prefix from the original
+                # netiface-loaded IPRange. Without this, downstream
+                # same-LAN gating (select_dest_ipr) has no way to tell
+                # whether two peers actually share a link.
+                if input_ipr is not None and input_ipr.subnet is not None:
+                    nic_ipr.subnet = input_ipr.subnet
                 log("[STUN-LOOKUP] OK   src_ip={0} wan_ip={1} dur={2:.2f}s attempt={3}".format(
                     src_ip, wan_ip, time.time() - t0, attempt,
                 ))
@@ -202,13 +222,19 @@ async def run_stun_tasks_batched(tasks: List[Any]) -> List[Any]:
 
 def group_pub_iprs_by_subnet(
     pub_iprs: List[Any], max_bits: int
-) -> Tuple[Dict[str, List[Any]], List[Any]]:
+) -> Tuple[Dict[str, List[Any]], List[Any], Dict[str, Any]]:
     """
     Group public IPRange objects by their OS network prefix (subnet).
-    Returns (group_heads, individual_iprs):
+    Returns (group_heads, individual_iprs, head_iprs):
       - group_heads: {head_src_ip: [rest_iprs]} for IPs sharing a subnet
       - individual_iprs: list of IPRanges that must be queried individually
                          (IPv6 /128, or any IP whose subnet is unknown)
+      - head_iprs: {head_src_ip: head_IPRange} -- the original IPRange for
+                   each group's head, kept so callers can pass it into
+                   lookup_wan_ip_for_nic_ip and preserve subnet info on
+                   the post-STUN route. Without this hook the constructed
+                   route's nic_ipr would have subnet=None (the IP is
+                   reconstructed from a string at STUN-success time).
     """
     net_groups = {}
     individual_iprs = []
@@ -232,12 +258,14 @@ def group_pub_iprs_by_subnet(
         net_groups[key].append(ipr)
 
     group_heads = {}
+    head_iprs = {}
     for group in net_groups.values():
         head_ipr = group[0]
         src_ip = ip_norm(str(head_ipr[0]))
         group_heads[src_ip] = group[1:]
+        head_iprs[src_ip] = head_ipr
 
-    return group_heads, individual_iprs
+    return group_heads, individual_iprs, head_iprs
 
 
 """
@@ -321,12 +349,17 @@ async def discover_nic_wan_ips(
     # prefix) each get their own query. Rest of a group derive their route
     # from the head's result after resolution.
     max_bits = 128 if af == IP6 else 32
-    pub_group_heads, individual_iprs = group_pub_iprs_by_subnet(pub_iprs, max_bits)
+    pub_group_heads, individual_iprs, pub_head_iprs = group_pub_iprs_by_subnet(
+        pub_iprs, max_bits,
+    )
 
     for src_ip in pub_group_heads:
         tasks.append(
             async_wrap_errors(
-                lookup_wan_ip_for_nic_ip(src_ip, min_agree, stun_clients, timeout)
+                lookup_wan_ip_for_nic_ip(
+                    src_ip, min_agree, stun_clients, timeout,
+                    input_ipr=pub_head_iprs.get(src_ip),
+                )
             )
         )
 
@@ -335,18 +368,29 @@ async def discover_nic_wan_ips(
         pub_group_heads[src_ip] = []
         tasks.append(
             async_wrap_errors(
-                lookup_wan_ip_for_nic_ip(src_ip, min_agree, stun_clients, timeout)
+                lookup_wan_ip_for_nic_ip(
+                    src_ip, min_agree, stun_clients, timeout,
+                    input_ipr=ipr,
+                )
             )
         )
 
     # Add a default-route task only when af_default_nic_ip is not already
     # being queried as a pub group head (avoids a duplicate STUN request).
+    # When the default-route IP is also one of our nic_iprs we want to
+    # carry that IPRange into the STUN call so subnet info survives.
     af_default_is_pub_head = af_default_nic_ip in pub_group_heads
     if enable_default and not af_default_is_pub_head:
+        default_input_ipr = None
+        for cand in nic_iprs:
+            if ip_norm(str(cand[0])) == af_default_nic_ip:
+                default_input_ipr = cand
+                break
         tasks.append(
             async_wrap_errors(
                 lookup_wan_ip_for_nic_ip(
-                    af_default_nic_ip, min_agree, stun_clients, timeout
+                    af_default_nic_ip, min_agree, stun_clients, timeout,
+                    input_ipr=default_input_ipr,
                 )
             )
         )
@@ -366,7 +410,10 @@ async def discover_nic_wan_ips(
         priv_src = ip_norm(str(priv_iprs[0]))
         tasks.append(
             async_wrap_errors(
-                lookup_wan_ip_for_nic_ip(priv_src, min_agree, stun_clients, timeout)
+                lookup_wan_ip_for_nic_ip(
+                    priv_src, min_agree, stun_clients, timeout,
+                    input_ipr=priv_iprs[0],
+                )
             )
         )
 
