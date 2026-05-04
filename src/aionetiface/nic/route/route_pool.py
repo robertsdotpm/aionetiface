@@ -180,6 +180,7 @@ class RoutePool:
             nic_ips=copy.deepcopy(route.nic_ips),
             ext_ips=[wan_ip],
             interface=route.interface,
+            ext_check=0,
         )
         new_route.set_link_locals(copy.deepcopy(route.link_locals))
         new_route.set_offsets(route_offset, abs_host_offset)
