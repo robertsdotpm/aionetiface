@@ -188,6 +188,54 @@ if sys.platform == "win32":
         proto.restype = wintypes.ULONG
         return proto
 
+    # ---------------------------------------------------------------------------
+    # GetAdaptersInfo structs (Win98+ / iphlpapi.dll).
+    # Older API than GetAdaptersAddresses; returns subnet masks as dotted-quad
+    # strings.  Used as a fallback for XP where GetAdaptersAddresses leaves
+    # OnLinkPrefixLength uninitialised.
+    # ---------------------------------------------------------------------------
+
+    ADAPTER_NAME_LEN = 260   # MAX_ADAPTER_NAME_LENGTH (256) + 4
+    ADAPTER_DESC_LEN = 132   # MAX_ADAPTER_DESCRIPTION_LENGTH (128) + 4
+    ADAPTER_ADDR_LEN = 8     # MAX_ADAPTER_ADDRESS_LENGTH
+
+    class IP_ADDRESS_STRING(ctypes.Structure):
+        _fields_ = [("String", ctypes.c_char * 16)]
+
+    class IP_ADDR_STRING(ctypes.Structure):
+        pass
+
+    IP_ADDR_STRING._fields_ = [
+        ("Next", ctypes.POINTER(IP_ADDR_STRING)),
+        ("IpAddress", IP_ADDRESS_STRING),
+        ("IpMask", IP_ADDRESS_STRING),
+        ("Context", wintypes.DWORD),
+    ]
+
+    class IP_ADAPTER_INFO(ctypes.Structure):
+        pass
+
+    IP_ADAPTER_INFO._fields_ = [
+        ("Next", ctypes.POINTER(IP_ADAPTER_INFO)),
+        ("ComboIndex", wintypes.DWORD),
+        ("AdapterName", ctypes.c_char * ADAPTER_NAME_LEN),
+        ("Description", ctypes.c_char * ADAPTER_DESC_LEN),
+        ("AddressLength", wintypes.UINT),
+        ("Address", ctypes.c_ubyte * ADAPTER_ADDR_LEN),
+        ("Index", wintypes.DWORD),
+        ("Type", wintypes.UINT),
+        ("DhcpEnabled", wintypes.UINT),
+        ("CurrentIpAddress", ctypes.c_void_p),
+        ("IpAddressList", IP_ADDR_STRING),
+        ("GatewayList", IP_ADDR_STRING),
+        ("DhcpServer", IP_ADDR_STRING),
+        ("HaveWins", wintypes.BOOL),
+        ("PrimaryWinsServer", IP_ADDR_STRING),
+        ("SecondaryWinsServer", IP_ADDR_STRING),
+        ("LeaseObtained", ctypes.c_long),
+        ("LeaseExpires", ctypes.c_long),
+    ]
+
 
 def sockaddr_to_ip(sock_addr: Any) -> Optional[str]:
     """Convert a SOCKET_ADDRESS containing a v4 or v6 sockaddr into a string IP.
@@ -410,6 +458,63 @@ def cidr_to_netmask_v4(prefix: int) -> str:
     )
 
 
+def get_v4_masks_from_adapters_info() -> Dict[str, str]:
+    """Return {ip_str: netmask_str} from GetAdaptersInfo.
+
+    GetAdaptersInfo (Win98+) stores subnet masks as dotted-quad strings and
+    populates them correctly on all supported Windows versions, including XP
+    where GetAdaptersAddresses leaves OnLinkPrefixLength uninitialised.
+
+    Returns an empty dict on non-Windows or if the API call fails.
+    """
+    if sys.platform != "win32":
+        return {}
+    try:
+        proto = ctypes.windll.iphlpapi.GetAdaptersInfo
+        proto.argtypes = [
+            ctypes.POINTER(IP_ADAPTER_INFO),
+            ctypes.POINTER(wintypes.ULONG),
+        ]
+        proto.restype = wintypes.ULONG
+
+        size = wintypes.ULONG(0)
+        rc = proto(None, ctypes.byref(size))
+        if rc not in (0, ERROR_BUFFER_OVERFLOW):
+            return {}
+        if size.value == 0:
+            return {}
+
+        buf = (ctypes.c_ubyte * size.value)()
+        head = ctypes.cast(buf, ctypes.POINTER(IP_ADAPTER_INFO))
+        rc = proto(head, ctypes.byref(size))
+        if rc == ERROR_NO_DATA:
+            return {}
+        if rc != 0:
+            return {}
+
+        masks = {}
+        cur = head
+        while cur:
+            adapter = cur.contents
+            addr_cur = ctypes.pointer(adapter.IpAddressList)
+            while addr_cur:
+                entry = addr_cur.contents
+                try:
+                    ip_str = entry.IpAddress.String.decode("ascii").rstrip("\x00")
+                    mask_str = entry.IpMask.String.decode("ascii").rstrip("\x00")
+                    if ip_str and ip_str != "0.0.0.0":
+                        masks[ip_str] = mask_str
+                except (UnicodeDecodeError, AttributeError):
+                    pass
+                addr_cur = entry.Next
+            if not adapter.Next:
+                break
+            cur = adapter.Next
+        return masks
+    except (AttributeError, OSError):
+        return {}
+
+
 async def if_infos_from_iphlpapi() -> List[Dict[str, Any]]:
     """Translate get_interfaces() into the netifaces-vector if_info shape.
 
@@ -449,6 +554,29 @@ async def if_infos_from_iphlpapi() -> List[Dict[str, Any]]:
     from ....utility.utils import fstr, log, log_exception
 
     interfaces = get_interfaces()
+
+    # On XP, GetAdaptersAddresses leaves OnLinkPrefixLength uninitialised so
+    # sanitize_prefix falls back to /32.  GetAdaptersInfo (older API, Win98+)
+    # stores subnet masks as dotted-quad strings and works correctly on XP.
+    v4_masks = get_v4_masks_from_adapters_info()
+
+    def netmask_to_prefix(netmask_str: str) -> Optional[int]:
+        """Convert '255.255.255.0' -> 24. Returns None on parse failure."""
+        if not netmask_str:
+            return None
+        try:
+            parts = netmask_str.split(".")
+            if len(parts) != 4:
+                return None
+            n = 0
+            for p in parts:
+                n = (n << 8) | int(p)
+            inv = (~n) & 0xFFFFFFFF
+            if (inv & (inv + 1)) != 0:
+                return None
+            return bin(n).count("1")
+        except (ValueError, AttributeError):
+            return None
 
     def sanitize_prefix(raw_prefix: Any, af: int) -> int:
         """Return raw_prefix iff it's a sensible CIDR for af, else af_bitlen(af).
@@ -491,6 +619,15 @@ async def if_infos_from_iphlpapi() -> List[Dict[str, Any]]:
             except (ValueError, TypeError):
                 continue
             host_limit = sanitize_prefix(v4.get("prefix"), IP4) or af_bitlen(IP4)
+            if host_limit == af_bitlen(IP4):
+                fallback_prefix = netmask_to_prefix(v4_masks.get(v4["addr"]))
+                if fallback_prefix is not None and fallback_prefix < af_bitlen(IP4):
+                    log(fstr(
+                        "win_iphlpapi: GetAdaptersInfo fallback prefix /{0} "
+                        "for v4 {1} (GetAdaptersAddresses returned /{2})",
+                        (fallback_prefix, v4["addr"], host_limit),
+                    ))
+                    host_limit = fallback_prefix
             try:
                 netmask = cidr_to_netmask_v4(host_limit)
             except (ValueError, TypeError):
