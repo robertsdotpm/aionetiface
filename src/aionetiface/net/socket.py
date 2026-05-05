@@ -76,10 +76,30 @@ def apply_nic_pin_sockopts(sock: Any, route: Any) -> None:
                         )
                     )
             elif IS_BSD:
-                # FreeBSD/OpenBSD/NetBSD: no SO_BINDTODEVICE, no IP_BOUND_IF.
-                # Binding to the specific source IP (handled by binder_sync)
-                # is sufficient for interface selection on BSD.
-                pass
+                # FreeBSD/OpenBSD/NetBSD: use IP_BOUND_IF (IPPROTO_IP/25) and
+                # IPV6_BOUND_IF (IPPROTO_IPV6/125) -- same option numbers and
+                # semantics as Darwin.  Falls back silently on BSD variants
+                # that don't expose the option (ENOPROTOOPT).
+                try:
+                    if_index = route.interface.get_nic_id(route.af)
+                    if not if_index:
+                        return
+                    if route.af == IP4:
+                        sock.setsockopt(socket.IPPROTO_IP, 25, struct.pack("=I", if_index))
+                    else:
+                        ipproto_ipv6 = getattr(socket, "IPPROTO_IPV6", 41)
+                        sock.setsockopt(ipproto_ipv6, 125, struct.pack("=I", if_index))
+                    log(
+                        "apply_nic_pin_sockopts: bsd pinned socket to "
+                        "if_index={0} af={1}".format(if_index, route.af)
+                    )
+                except (OSError, ValueError, TypeError) as exc:
+                    log(
+                        "apply_nic_pin_sockopts: bsd pin FAILED iface_id={0} "
+                        "af={1}: {2} ({3})".format(
+                            iface_id, route.af, type(exc).__name__, repr(exc),
+                        )
+                    )
             elif not is_default:
                 # Linux: SO_BINDTODEVICE (SOL_SOCKET option 25) for non-default
                 # interfaces pins egress at the kernel routing level.
