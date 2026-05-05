@@ -31,14 +31,20 @@ def apply_nic_pin_sockopts(sock: Any, route: Any) -> None:
     # data) and falls back cleanly on POSIX where v4/v6 are
     # unified.
     iface_id = route.interface.get_nic_id(route.af)
-    if iface_id is None:
+    iface_name = getattr(route.interface, "name", None)
+    if iface_id is None and not iface_name:
         # Default route on Windows occasionally yields a route whose
         # interface object exists but whose .id is None (probe at
-        # interface-load time hadn't returned a nic_no yet). Skip the
-        # NIC-pin sockopt cleanly rather than letting int(None) raise
-        # a TypeError that's caught + logged as a stacktrace -- the
-        # fallback is "let the kernel pick", which is the right
-        # behaviour for a default route anyway.
+        # interface-load time hadn't returned a nic_no yet).  We also
+        # hit this from inside load_interface itself: STUN probes fire
+        # before nic.start() finishes populating .id, so iface_id is
+        # None during the very init path that needs the pin most
+        # (multi-default-route hosts whose secondary NIC can only be
+        # reached by SO_BINDTODEVICE).  When iface_id is None but the
+        # interface still has a .name, we keep going so the Linux
+        # branch below can pin via name -- SO_BINDTODEVICE takes the
+        # NIC name string, not the integer index.  Only bail when we
+        # have neither.
         return
 
     try:
@@ -113,26 +119,37 @@ def apply_nic_pin_sockopts(sock: Any, route: Any) -> None:
                 # via the primary, get RPF/NAT-dropped, and load_interface
                 # bails with InterfaceNotFound for the secondary NIC.
                 # macOS/BSD branches above don't have this gate; aligning
-                # Linux with them.  SO_BINDTODEVICE may raise EPERM for
-                # unprivileged callers on older kernels -- the outer
-                # try/except below catches it so the socket still works (just
-                # unpinned, matching the old behaviour for default NICs).
-                try:
-                    sock.setsockopt(socket.SOL_SOCKET, 25, to_b(iface_id))
-                    log(
-                        "apply_nic_pin_sockopts: linux pinned socket to "
-                        "iface_id={0} af={1} is_default={2}".format(
-                            iface_id, route.af, is_default,
+                # Linux with them.  SO_BINDTODEVICE takes the NIC NAME (a
+                # bytes string like b"ens224"), not the integer index --
+                # passing to_b(iface_id) when iface_id is the index fails
+                # silently because the kernel can't resolve "1\0" as a NIC
+                # name.  Always use the interface .name string.
+                # SO_BINDTODEVICE may raise EPERM for unprivileged callers
+                # on locked-down kernels (CAP_NET_RAW required pre-5.7); the
+                # outer try/except below catches it so the socket still
+                # works (just unpinned, matching the old behaviour).
+                pin_name = iface_name or (
+                    iface_id if isinstance(iface_id, str) else None
+                )
+                if pin_name:
+                    try:
+                        sock.setsockopt(
+                            socket.SOL_SOCKET, 25, to_b(pin_name) + b"\x00",
                         )
-                    )
-                except OSError as exc:
-                    log(
-                        "apply_nic_pin_sockopts: linux SO_BINDTODEVICE "
-                        "failed iface_id={0} af={1}: {2} ({3}) -- continuing "
-                        "with unpinned socket".format(
-                            iface_id, route.af, type(exc).__name__, repr(exc),
+                        log(
+                            "apply_nic_pin_sockopts: linux pinned socket to "
+                            "name={0} af={1} is_default={2}".format(
+                                pin_name, route.af, is_default,
+                            )
                         )
-                    )
+                    except OSError as exc:
+                        log(
+                            "apply_nic_pin_sockopts: linux SO_BINDTODEVICE "
+                            "failed name={0} af={1}: {2} ({3}) -- continuing "
+                            "with unpinned socket".format(
+                                pin_name, route.af, type(exc).__name__, repr(exc),
+                            )
+                        )
         else:
             try:
                 if_index = int(iface_id)
