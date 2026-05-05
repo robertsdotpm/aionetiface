@@ -65,6 +65,13 @@ def validate_node_addr(addr: Any) -> Optional[Any]:
                     log("p2p addr: nic subnet out of range")
                     return None
 
+            # Optional nic_port (10-field format). Must be a valid port when present.
+            nic_port = if_info.get("nic_port")
+            if nic_port is not None and nic_port != if_info["port"]:
+                if not in_range(nic_port, [1, MAX_PORT]):
+                    log("p2p addr: nic_port out of range")
+                    return None
+
     return addr
 
 
@@ -165,7 +172,7 @@ def parse_node_addr(addr: Any) -> Optional[Any]:
 
             # Split into components.
             parts = inner.split(b",")
-            if len(parts) not in (8, 9):
+            if len(parts) not in (8, 9, 10):
                 log("p2p addr: invalid parts no.")
                 continue
 
@@ -187,7 +194,7 @@ def parse_node_addr(addr: Any) -> Optional[Any]:
             # Drop the entry if present-but-malformed; pass-through
             # absent.
             nic_subnet = None
-            if len(parts) == 9:
+            if len(parts) >= 9:
                 if not is_number(parts[8]):
                     continue
                 try:
@@ -195,6 +202,17 @@ def parse_node_addr(addr: Any) -> Optional[Any]:
                 except (ValueError, TypeError):
                     continue
                 parts[8] = nic_subnet
+
+            # Optional 10th field: nic_port (port for NIC_BIND / link-local connects).
+            # When absent, defaults to ext_port (the 5th field) for backward compat.
+            nic_port = None
+            if len(parts) == 10:
+                if not is_number(parts[9]):
+                    continue
+                try:
+                    nic_port = to_n(parts[9])
+                except (ValueError, TypeError):
+                    continue
 
             # Is it a valid IP?
             try:
@@ -225,6 +243,8 @@ def parse_node_addr(addr: Any) -> Optional[Any]:
                 "nic": nic_ipr,
                 "nat": nat,
                 "port": parts[4],
+                "ext_port": parts[4],
+                "nic_port": nic_port if nic_port is not None else parts[4],
             }
 
             # Save results.
@@ -306,6 +326,7 @@ def make_node_addr(
     if_index: Any = None,
     mqtt_brokers: Optional[List[Any]] = None,
     turn_servers: Optional[List[Any]] = None,
+    if_ports: Any = None,
 ) -> bytes:
     """
     Encode node address information into a compact byte string.
@@ -322,7 +343,16 @@ def make_node_addr(
     accept unchanged.
 
     Each interface entry has the shape:
-        [netiface_index, if_index, ext_ip, nic_ip, port, nat_type, delta_type, delta_val]
+        [netiface_index, if_index, ext_ip, nic_ip, port, nat_type, delta_type, delta_val, nic_subnet, nic_port]
+
+    nic_subnet is the CIDR prefix length of the directly-connected network.
+    nic_port is the port for NIC_BIND / link-local connects; when absent on
+    receive it defaults to the ext_port (5th field) for backward compat.
+
+    if_ports is an optional dict mapping (af, if_index_int) to
+    {"ext": ext_port, "nic": nic_port}. When provided, per-NIC per-AF
+    ports override the global port argument (useful when --port 0 causes
+    v4 and v6 listeners to land on different OS-assigned ports).
 
     Multiple interface entries within an AF are joined by '|'.
     An AF with no routes is encoded as the single byte b'0'.
@@ -346,8 +376,8 @@ def make_node_addr(
         )
     if not len(interface_list):
         raise ValueError("interface_list must contain at least one interface")
-    if not port:
-        raise ValueError("port must be a non-zero integer")
+    if not port and if_ports is None:
+        raise ValueError("port must be a non-zero integer when if_ports is not provided")
 
     bufs = []
     for af in [IP4, IP6]:
@@ -394,18 +424,23 @@ def make_node_addr(
                 if int_ipr is not None and int_ipr.subnet is not None:
                     nic_subnet = int_ipr.subnet
 
+                eff_if_index = if_index or i
+                ports = (if_ports or {}).get((af, eff_if_index), {})
+                eff_ext_port = ports.get("ext", port)
+                eff_nic_port = ports.get("nic", port)
                 af_bufs.append(
-                    b"[%d,%d,%b,%b,%d,%d,%d,%d,%d]"
+                    b"[%d,%d,%b,%b,%d,%d,%d,%d,%d,%d]"
                     % (
                         interface.netiface_index,
-                        if_index or i,
+                        eff_if_index,
                         ip or to_b(r.ext()),
                         int_ip,
-                        port,
+                        eff_ext_port,
                         nat_type,
                         delta_type,
                         delta_value,
                         nic_subnet,
+                        eff_nic_port,
                     )
                 )
                 continue
@@ -419,18 +454,23 @@ def make_node_addr(
                 ll_ipr = interface.rp[af].link_locals[0]
                 local_b = to_b(str(ll_ipr))
                 nic_subnet = ll_ipr.subnet if ll_ipr.subnet is not None else 0
+                eff_if_index = if_index or i
+                ports = (if_ports or {}).get((af, eff_if_index), {})
+                eff_ext_port = ports.get("ext", port)
+                eff_nic_port = ports.get("nic", port)
                 af_bufs.append(
-                    b"[%d,%d,%b,%b,%d,%d,%d,%d,%d]"
+                    b"[%d,%d,%b,%b,%d,%d,%d,%d,%d,%d]"
                     % (
                         interface.netiface_index,
-                        if_index or i,
+                        eff_if_index,
                         local_b,
                         local_b,
-                        port,
+                        eff_ext_port,
                         nat_type,
                         delta_type,
                         delta_value,
                         nic_subnet,
+                        eff_nic_port,
                     )
                 )
 
