@@ -22,7 +22,7 @@ import asyncio
 import time
 from typing import Any, Optional, Tuple
 from ..vendor.ntp_client import NTPClient
-from ..net.net_defs import UDP
+from ..net.net_defs import UDP, IP4, IP6
 from .utils import log, log_exception, async_test, fstr
 from ..servers import get_infra
 
@@ -96,13 +96,24 @@ async def get_ntp_from_dest(
 
 class SysClock:
     """NTP-backed clock that tracks skew between the system clock and true network time."""
-    def __init__(self, interface: Any, ntp: float = 0) -> None:
+    def __init__(
+        self,
+        interface: Any,
+        ntp: float = 0,
+        ntp_addr: Optional[str] = None,
+    ) -> None:
         self.start_time = time.monotonic()
         self.interface = interface
         self.ntp = ntp
         self.offset = 0
         # Whether time() is backed by real NTP or fell back to system clock.
         self._ntp_loaded = bool(ntp)
+        # When set ("host" or "host:port"), start() probes only this address
+        # instead of the get_infra() pool.  Used to point peers at a LAN NTP
+        # source for tight cross-machine sync (internet pool RTT 50-100 ms
+        # gives +/- 50 ms accuracy which is too loose for tcp_punch
+        # simultaneous-open on the LAN test bench).
+        self.ntp_addr = ntp_addr
 
     def advance(self, n: float) -> None:
         """Shift the clock forward (or backward) by n seconds."""
@@ -113,12 +124,19 @@ class SysClock:
             return self
 
         # Build a flat list of (af, dest) probe pairs from infra, up to 6 per AF.
+        # When ntp_addr is set, probe only that single address (LAN-NTP override).
         probes = []
-        for af in self.interface.supported():
-            groups = get_infra(af, UDP, "NTP", no=6)
-            for group in groups:
-                s = group[0]
-                probes.append((af, (s["ip"], s["port"])))
+        if self.ntp_addr:
+            host, _, port_s = self.ntp_addr.partition(":")
+            port = int(port_s) if port_s else 123
+            af = IP6 if ":" in host else IP4
+            probes.append((af, (host, port)))
+        else:
+            for af in self.interface.supported():
+                groups = get_infra(af, UDP, "NTP", no=6)
+                for group in groups:
+                    s = group[0]
+                    probes.append((af, (s["ip"], s["port"])))
 
         if not probes:
             raise RuntimeError(
