@@ -36,6 +36,7 @@ failures under repeated launches to 100% success after the fixed-gateway
 
 import copy
 import pprint
+import socket
 from typing import Any, Dict, Iterator, List, Optional
 from ..utility.utils import async_test, fstr
 from ..net.net_defs import DUEL_STACK, IP4, IP6, UNKNOWN_STACK, VALID_STACKS
@@ -162,6 +163,10 @@ class Interface:
             return getattr(self, "id", None)
         if hasattr(nf, "get_nic_id"):
             return nf.get_nic_id(af, self.name)
+        try:
+            return socket.if_nametoindex(self.name)
+        except (OSError, AttributeError):
+            pass
         if af == IP6:
             try:
                 addrs = nf.ifaddresses(self.name).get(IP6, [])
