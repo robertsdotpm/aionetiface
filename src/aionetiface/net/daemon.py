@@ -308,6 +308,10 @@ class Daemon:
         a future enhancement could add basic firewall rules.
         """
         outs = []
+        # When port=0 the OS assigns a free port.  Track the first assigned
+        # port so all subsequent AF binds within this call land on the same
+        # port number (consistent with what make_node_addr will advertise).
+        effective_port = port
         for af in nic.supported():
             total = 0
 
@@ -334,12 +338,15 @@ class Daemon:
                         # An IPR could represent a range.
                         local = copy.deepcopy(route)
                         ips = ipr_norm(nic_ipr)
-                        await local.bind(ips=ips, port=port)
+                        await local.bind(ips=ips, port=effective_port)
 
                         # Save add output.
-                        outs.append(
-                            await async_wrap_errors(self.add_listener(proto, local))
-                        )
+                        result = await async_wrap_errors(self.add_listener(proto, local))
+                        outs.append(result)
+                        # Port-0 readback: latch the OS-assigned port so all
+                        # subsequent binds in this call use the same number.
+                        if not effective_port and result:
+                            effective_port = result[0]
 
             # Supports link-locals and unique local addresses.
             if af == IP6:
@@ -355,12 +362,13 @@ class Daemon:
                     # Bind to link local.
                     local = nic.route(af)
                     ips = ipr_norm(link_local)
-                    await async_wrap_errors(local.bind(ips=ips, port=port))
+                    await async_wrap_errors(local.bind(ips=ips, port=effective_port))
 
                     # Save listener output.
-                    outs.append(
-                        await async_wrap_errors(self.add_listener(proto, local))
-                    )
+                    result = await async_wrap_errors(self.add_listener(proto, local))
+                    outs.append(result)
+                    if not effective_port and result:
+                        effective_port = result[0]
 
         return strip_none(outs)
 
