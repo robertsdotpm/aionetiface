@@ -54,6 +54,17 @@ def validate_node_addr(addr: Any) -> Optional[Any]:
                 log("p2p addr: Delta value invalid")
                 return None
 
+            # Optional nic_subnet (CIDR prefix length), present when
+            # the wire format carried the 9th field. 0 means "absent /
+            # unknown" -- treat that as missing rather than enforcing
+            # a specific bound. When set, it must fit the AF's bitlen.
+            nic_subnet = getattr(if_info["nic"], "subnet", None)
+            if nic_subnet is not None:
+                max_bits = 32 if af == IP4 else 128
+                if not in_range(nic_subnet, [0, max_bits]):
+                    log("p2p addr: nic subnet out of range")
+                    return None
+
     return addr
 
 
@@ -112,8 +123,16 @@ def parse_node_addr(addr: Any) -> Optional[Any]:
         return None
 
     # Parsed dict.
-    # Validators and converters for each of the 8 fields per interface entry.
-    # Fields: netiface_index, if_index, ext_ip, nic_ip, port, nat_type, delta_type, delta_val
+    # Validators and converters per interface entry. The wire shape is
+    # 8 fields (legacy) or 9 fields (with nic_subnet). The optional
+    # 9th field is the CIDR prefix length of the directly-connected
+    # network the nic_ip sits in (e.g. 64 for v6 SLAAC, 24 for /24
+    # LANs). Receivers use it to gate same-LAN heuristics like
+    # "should I attempt the link-local connect path" without having to
+    # guess /64. Old 8-field addrs round-trip cleanly: nic IPRange's
+    # .subnet stays None and downstream callers fall back to whatever
+    # heuristic they used pre-subnet-on-the-wire.
+    # Fields: netiface_index, if_index, ext_ip, nic_ip, port, nat_type, delta_type, delta_val [, nic_subnet]
     schema = [
         is_number,
         is_number,
@@ -146,20 +165,36 @@ def parse_node_addr(addr: Any) -> Optional[Any]:
 
             # Split into components.
             parts = inner.split(b",")
-            if len(parts) != 8:
+            if len(parts) not in (8, 9):
                 log("p2p addr: invalid parts no.")
                 continue
 
             # Test type of field.
-            # Convert to its end value if it passes.
+            # Convert to its end value if it passes. Schema/translate
+            # cover the first 8 mandatory fields; the optional 9th
+            # (nic_subnet) is validated separately below since it's
+            # absent on legacy addrs.
             try:
-                for j, part in enumerate(parts):
+                for j, part in enumerate(parts[:8]):
                     if not schema[j](part):
                         raise TypeError("Invalid type.")
                     else:
                         parts[j] = translate[j](part)
             except (ValueError, TypeError, IndexError):
                 continue
+
+            # Optional 9th field: nic_subnet (CIDR prefix length).
+            # Drop the entry if present-but-malformed; pass-through
+            # absent.
+            nic_subnet = None
+            if len(parts) == 9:
+                if not is_number(parts[8]):
+                    continue
+                try:
+                    nic_subnet = to_n(parts[8])
+                except (ValueError, TypeError):
+                    continue
+                parts[8] = nic_subnet
 
             # Is it a valid IP?
             try:
@@ -175,14 +210,19 @@ def parse_node_addr(addr: Any) -> Optional[Any]:
                 log("p2p addr: ip invalid.")
                 continue
 
-            # Build dictionary of results.
+            # Build dictionary of results. nic.subnet is set when the
+            # wire format carried it (9-field shape); otherwise stays
+            # None and downstream code falls back to legacy heuristics.
             delta = delta_info(parts[6], parts[7])
             nat = nat_info(parts[5], delta)
+            nic_ipr = IPRange(to_s(parts[3]))
+            if nic_subnet is not None:
+                nic_ipr.subnet = nic_subnet
             as_dict = {
                 "netiface_index": parts[0],
                 "if_index": parts[1],
                 "ext": IPRange(to_s(parts[2])),
-                "nic": IPRange(to_s(parts[3])),
+                "nic": nic_ipr,
                 "nat": nat,
                 "port": parts[4],
             }
@@ -329,17 +369,33 @@ def make_node_addr(
                 if r is None:
                     continue
 
+                # Track the source IPRange for the nic slot so we can
+                # ship its .subnet (CIDR prefix length) over the wire.
+                # Receivers gate same-LAN heuristics on it -- having it
+                # explicit avoids assuming /64 (v6 SLAAC) or /24 (v4)
+                # when the actual network is wider/narrower.
+                int_ipr = None
                 if af == IP4:
+                    int_ipr = r.nic_ips[0] if r.nic_ips else None
                     int_ip = ip or to_b(r.nic())
                 if af == IP6:
+                    int_ipr = r.ext_ips[0] if r.ext_ips else None
                     int_ip = to_b(r.ext())
                     if len(r.link_locals):
+                        int_ipr = r.link_locals[0]
                         int_ip = to_b(str(r.link_locals[0]))
                     if ip is not None:
+                        # User-supplied override; we don't know its
+                        # subnet without another lookup, leave as 0.
+                        int_ipr = None
                         int_ip = to_b(ip)
 
+                nic_subnet = 0
+                if int_ipr is not None and int_ipr.subnet is not None:
+                    nic_subnet = int_ipr.subnet
+
                 af_bufs.append(
-                    b"[%d,%d,%b,%b,%d,%d,%d,%d]"
+                    b"[%d,%d,%b,%b,%d,%d,%d,%d,%d]"
                     % (
                         interface.netiface_index,
                         if_index or i,
@@ -349,6 +405,7 @@ def make_node_addr(
                         nat_type,
                         delta_type,
                         delta_value,
+                        nic_subnet,
                     )
                 )
                 continue
@@ -359,9 +416,11 @@ def make_node_addr(
             # Encode the local address as both ext and nic so peers on the
             # same link/LAN can still reach this node.
             if interface.rp[af].link_locals:
-                local_b = to_b(str(interface.rp[af].link_locals[0]))
+                ll_ipr = interface.rp[af].link_locals[0]
+                local_b = to_b(str(ll_ipr))
+                nic_subnet = ll_ipr.subnet if ll_ipr.subnet is not None else 0
                 af_bufs.append(
-                    b"[%d,%d,%b,%b,%d,%d,%d,%d]"
+                    b"[%d,%d,%b,%b,%d,%d,%d,%d,%d]"
                     % (
                         interface.netiface_index,
                         if_index or i,
@@ -371,6 +430,7 @@ def make_node_addr(
                         nat_type,
                         delta_type,
                         delta_value,
+                        nic_subnet,
                     )
                 )
 
