@@ -56,8 +56,26 @@ async def get_ntp(
 
 async def get_ntp_from_dest(
     af: int, nic: Any, dest: Tuple[str, int], retry: int = NTP_RETRY
-) -> Optional[float]:
-    # The NTP client uses UDP so retry on failure.
+) -> Optional[Tuple[float, float, float]]:
+    """Probe an NTP server and return (corrected_ntp, rtt, monotonic_at_sample).
+
+    Standard NTP four-timestamp formula (RFC 5905 6) gives offset = the gap
+    between server clock and client clock, with the network round-trip
+    cancelled out by the (T2-T1)+(T3-T4) symmetry trick.  Returning the raw
+    `tx_time` (T3) was wrong: it's the server's clock at moment-of-send,
+    already RTT/2 stale by the time the response lands here, and that stale
+    value is different per probe path (different one-way latencies).  Two
+    machines that each picked the *first-arriving* of N concurrent probes
+    therefore ended up with NTP seeds that disagreed by 30-100 ms even
+    though both polled the same servers -- which is what was breaking the
+    BSD<->BSD tcp_punch simultaneous open.
+
+    Returning rtt lets SysClock prefer the lowest-RTT (most accurate)
+    sample.  Returning monotonic_at_sample lets SysClock pair the NTP
+    value with the moment it was current, so `time()` later == the NTP
+    sample plus monotonic elapsed since the sample (no probe duration
+    over-count).
+    """
     try:
         for _ in range(retry):
             client = NTPClient(af, nic)
@@ -65,8 +83,10 @@ async def get_ntp_from_dest(
             if response is None:
                 continue
 
-            ntp = response.tx_time
-            return ntp
+            monotonic_at_sample = time.monotonic()
+            corrected_ntp = response.dest_time + response.offset
+            rtt = response.delay
+            return (corrected_ntp, rtt, monotonic_at_sample)
     except asyncio.CancelledError:  # pylint: disable=try-except-raise
         raise
     except (OSError, ConnectionError, asyncio.TimeoutError):
@@ -124,23 +144,32 @@ class SysClock:
             "SysClock.start: probes={0} successes={1} wall_at_call={2}",
             (len(probes), len(successes), int(wall_at_call)),
         ))
-        for result in results:
-            if isinstance(result, Exception):
-                continue
-            if result:
-                self.ntp = result
-                self._ntp_loaded = True
-                # Surface the NTP <-> wall-clock skew so when peers
-                # later end up in adjacent rendezvous buckets the log
-                # tells you which side's clock was off and by how much.
-                log(fstr(
-                    "SysClock.start: ntp={0} wall={1} delta={2}s ({3} samples agreed)",
-                    (
-                        int(self.ntp), int(wall_at_call),
-                        int(wall_at_call - self.ntp), len(successes),
-                    ),
-                ))
-                return self
+        if successes:
+            # Pick the lowest-RTT probe -- that's the sample with the
+            # smallest one-way uncertainty, so its corrected NTP is the
+            # most accurate.  Taking the first-arriving sample (old
+            # behaviour) was racy: two peers each grabbed whichever NTP
+            # server happened to answer fastest from their network path,
+            # ending up with seeds that disagreed by 30-100 ms.
+            corrected_ntp, best_rtt, monotonic_at_sample = min(
+                successes, key=lambda r: r[1],
+            )
+            self.ntp = corrected_ntp
+            # Re-pair start_time with the moment the sample was taken.
+            # __init__ set start_time before the probes ran, so leaving
+            # it would over-count elapsed by the probe duration.
+            self.start_time = monotonic_at_sample
+            self._ntp_loaded = True
+            log(fstr(
+                "SysClock.start: ntp={0} wall={1} delta={2}s rtt={3}ms "
+                "({4} samples agreed)",
+                (
+                    int(self.ntp), int(wall_at_call),
+                    int(wall_at_call - self.ntp), int(best_rtt * 1000),
+                    len(successes),
+                ),
+            ))
+            return self
 
         # Every NTP probe failed (network down, UDP/123 firewall,
         # all NTP servers unreachable). We can't silently fall back to
