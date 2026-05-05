@@ -1,5 +1,6 @@
 """Loads and normalises NIC information from the OS."""
 import asyncio
+import socket
 from typing import Any, Optional
 from ..errors import InterfaceNotFound, InterfaceInvalidAF
 from ..net.net_defs import AF_ANY, DUEL_STACK, VALID_AFS, VALID_STACKS, IP4, IP6, UDP
@@ -89,7 +90,13 @@ def load_if_info(nic: Any) -> Any:
         # produced, but with the per-backend dispatch handled in
         # one place inside Interface.
         nic.id = nic.get_nic_id()
-        nic.nic_no = nic.id if isinstance(nic.id, int) else 0
+        if isinstance(nic.id, int):
+            nic.nic_no = nic.id
+        else:
+            try:
+                nic.nic_no = socket.if_nametoindex(nic.name)
+            except (OSError, AttributeError):
+                nic.nic_no = 0
         nic.netiface_index = if_names.index(nic.name)
 
     return nic

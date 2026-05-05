@@ -56,7 +56,9 @@ def apply_nic_pin_sockopts(sock: Any, route: Any) -> None:
                 # iface_id is the interface name string on POSIX; convert to
                 # numeric index via if_nametoindex before packing into the sockopt.
                 try:
-                    if_index = socket.if_nametoindex(str(iface_id))
+                    if_index = route.interface.nic_no
+                    if not if_index:
+                        return
                     if route.af == IP4:
                         sock.setsockopt(socket.IPPROTO_IP, 25, struct.pack("=I", if_index))
                     else:
