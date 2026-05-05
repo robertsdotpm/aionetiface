@@ -3,7 +3,7 @@ import socket
 import struct
 from typing import Any, Optional
 from ..utility.utils import fstr, log, log_exception, to_b
-from .net_defs import IP4, IP6, TCP, NET_CONF, NOT_WINDOWS, NIC_BIND, LOOPBACK_BIND
+from .net_defs import IP4, IP6, TCP, NET_CONF, NOT_WINDOWS, IS_DARWIN, IS_BSD, NIC_BIND, LOOPBACK_BIND
 
 
 def apply_nic_pin_sockopts(sock: Any, route: Any) -> None:
@@ -49,10 +49,29 @@ def apply_nic_pin_sockopts(sock: Any, route: Any) -> None:
             is_default = True
 
         if NOT_WINDOWS:
-            if not is_default:
-                sock.setsockopt(
-                    socket.SOL_SOCKET, 25, to_b(iface_id),
+            if IS_DARWIN:
+                # macOS/iOS: SO_BINDTODEVICE not available; use IP_BOUND_IF
+                # (IPv4, IPPROTO_IP/25) or IPV6_BOUND_IF (IPv6, IPPROTO_IPV6/125)
+                # to pin egress to the chosen interface by index.
+                if_index = int(iface_id)
+                if route.af == IP4:
+                    sock.setsockopt(socket.IPPROTO_IP, 25, struct.pack("=I", if_index))
+                else:
+                    ipproto_ipv6 = getattr(socket, "IPPROTO_IPV6", 41)
+                    sock.setsockopt(ipproto_ipv6, 125, struct.pack("=I", if_index))
+                log(
+                    "apply_nic_pin_sockopts: darwin pinned socket to "
+                    "if_index={0} af={1}".format(if_index, route.af)
                 )
+            elif IS_BSD:
+                # FreeBSD/OpenBSD/NetBSD: no SO_BINDTODEVICE, no IP_BOUND_IF.
+                # Binding to the specific source IP (handled by binder_sync)
+                # is sufficient for interface selection on BSD.
+                pass
+            elif not is_default:
+                # Linux: SO_BINDTODEVICE (SOL_SOCKET option 25) for non-default
+                # interfaces pins egress at the kernel routing level.
+                sock.setsockopt(socket.SOL_SOCKET, 25, to_b(iface_id))
         else:
             try:
                 if_index = int(iface_id)

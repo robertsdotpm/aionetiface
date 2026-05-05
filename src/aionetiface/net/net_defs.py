@@ -66,6 +66,8 @@ __all__ = [
     "IP_APPEND",
     "IP_BIND_TUP",
     "NOT_WINDOWS",
+    "IS_DARWIN",
+    "IS_BSD",
     "SUB_ALL",
     "NET_CONF",
     "FakeSocket",
@@ -198,6 +200,8 @@ IP_PUBLIC = 4
 IP_APPEND = 5
 IP_BIND_TUP = 6
 NOT_WINDOWS = platform.system() != "Windows"
+IS_DARWIN = sys.platform == "darwin"
+IS_BSD = sys.platform.startswith("freebsd") or sys.platform.startswith("openbsd") or sys.platform.startswith("netbsd")
 SUB_ALL = [None, None]
 
 # Fine tune various network settings.
