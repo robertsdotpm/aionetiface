@@ -53,16 +53,26 @@ def apply_nic_pin_sockopts(sock: Any, route: Any) -> None:
                 # macOS/iOS: SO_BINDTODEVICE not available; use IP_BOUND_IF
                 # (IPv4, IPPROTO_IP/25) or IPV6_BOUND_IF (IPv6, IPPROTO_IPV6/125)
                 # to pin egress to the chosen interface by index.
-                if_index = int(iface_id)
-                if route.af == IP4:
-                    sock.setsockopt(socket.IPPROTO_IP, 25, struct.pack("=I", if_index))
-                else:
-                    ipproto_ipv6 = getattr(socket, "IPPROTO_IPV6", 41)
-                    sock.setsockopt(ipproto_ipv6, 125, struct.pack("=I", if_index))
-                log(
-                    "apply_nic_pin_sockopts: darwin pinned socket to "
-                    "if_index={0} af={1}".format(if_index, route.af)
-                )
+                # iface_id is the interface name string on POSIX; convert to
+                # numeric index via if_nametoindex before packing into the sockopt.
+                try:
+                    if_index = socket.if_nametoindex(str(iface_id))
+                    if route.af == IP4:
+                        sock.setsockopt(socket.IPPROTO_IP, 25, struct.pack("=I", if_index))
+                    else:
+                        ipproto_ipv6 = getattr(socket, "IPPROTO_IPV6", 41)
+                        sock.setsockopt(ipproto_ipv6, 125, struct.pack("=I", if_index))
+                    log(
+                        "apply_nic_pin_sockopts: darwin pinned socket to "
+                        "if_index={0} af={1}".format(if_index, route.af)
+                    )
+                except (OSError, ValueError, TypeError) as exc:
+                    log(
+                        "apply_nic_pin_sockopts: darwin pin FAILED iface_id={0} "
+                        "af={1}: {2} ({3})".format(
+                            iface_id, route.af, type(exc).__name__, repr(exc),
+                        )
+                    )
             elif IS_BSD:
                 # FreeBSD/OpenBSD/NetBSD: no SO_BINDTODEVICE, no IP_BOUND_IF.
                 # Binding to the specific source IP (handled by binder_sync)
