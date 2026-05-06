@@ -176,6 +176,17 @@ def selector_proxy(
             selector.register(s, selectors.EVENT_READ)
 
         select_idle = 0
+        # Per-socket consecutive-ECONNREFUSED counter for UDP.  Linux's
+        # connected-UDP socket re-surfaces ICMP-unreachable on every recv
+        # until the peer becomes reachable again -- if the peer's port is
+        # truly gone, we'd spin reading errors forever while no real data
+        # flows.  Reset to 0 on any successful recv; treat the pair as
+        # dead once it crosses UDP_ECONNREFUSED_LIMIT in a row.  BSD
+        # surfaces the error once and clears, so this counter never gets
+        # near the limit there -- the threshold only fires on persistent
+        # peer-unreachable patterns, not transient ICMP blips.
+        UDP_ECONNREFUSED_LIMIT = 8
+        udp_econnrefused_streak = {socket_p: 0, socket_r: 0}
         while socket_p in peers:
             if sock_has_data(stop_reader):
                 break
@@ -214,6 +225,10 @@ def selector_proxy(
                         print("[SP-EV] read {0} bytes from {1}".format(
                             len(data), sock_label,
                         ))
+                        # Real data arrived -- the peer is reachable, so any
+                        # prior ICMP-unreachable streak is irrelevant now.
+                        if sock_proto == socket.SOCK_DGRAM:
+                            udp_econnrefused_streak[sock] = 0
                         _enqueue(buffers, peer, data, sock_proto)
                         # Tell selector we want EVENT_WRITE for the peer.
                         selector.modify(
@@ -224,13 +239,33 @@ def selector_proxy(
                         # Spurious selector wake; nothing to read.
                         pass
                     except (ConnectionResetError, OSError) as exc:
-                        # UDP "connection reset" surfaces on Windows
+                        # UDP "connection reset" surfaces on Windows/Linux
                         # when an ICMP unreachable comes back from a
-                        # previous send(). For TCP it's a real close.
+                        # previous send().  For TCP it's a real close.
                         print("[SP-EV] ConnRst/OSErr on {0}: {1}".format(
                             sock_label, repr(exc)[:60],
                         ))
                         if sock_proto == socket.SOCK_DGRAM:
+                            # Linux re-surfaces ICMP-unreachable on every
+                            # recv until the peer becomes reachable again
+                            # -- continuing forever would spin reading
+                            # errors while no real data flows.  BSD/macOS
+                            # surface the error once then clear, so this
+                            # streak counter only fires on persistent
+                            # peer-gone patterns, not transient blips.
+                            udp_econnrefused_streak[sock] += 1
+                            if udp_econnrefused_streak[sock] >= UDP_ECONNREFUSED_LIMIT:
+                                print(
+                                    "[SP-EV] UDP peer unreachable: "
+                                    "{0} ECONNREFUSED in a row on {1}, "
+                                    "closing pair".format(
+                                        udp_econnrefused_streak[sock],
+                                        sock_label,
+                                    )
+                                )
+                                close_pair(sock, peers, selector, buffers)
+                                if socket_p not in peers:
+                                    break
                             continue
                         close_pair(sock, peers, selector, buffers)
                         if socket_p not in peers:
