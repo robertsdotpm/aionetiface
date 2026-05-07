@@ -112,12 +112,17 @@ def parse_server_hints(buf: Any) -> List[Any]:
 def parse_node_addr(addr: Any) -> Optional[Any]:
     """Decode a serialised node address byte string into a structured dict keyed by address family.
 
-    The wire format has two valid shapes:
-      4 parts (legacy): af0^af1^pub_key_hex^machine_id
-      6 parts (with hints): af0^af1^pub_key_hex^machine_id^mqtt_brokers^turn_servers
+    The wire format has these valid shapes:
+      4 parts (legacy):       af0^af1^pub_key_hex^machine_id
+      6 parts (with hints):   af0^af1^pub_key_hex^machine_id^mqtt_brokers^turn_servers
+      7 parts (with peer-OS): af0^af1^pub_key_hex^machine_id^mqtt_brokers^turn_servers^os
 
-    Older addrs without hint sections are accepted and produce
-    empty mqtt_brokers / turn_servers lists in the parsed dict.
+    Older addrs without hint or OS sections are accepted and produce
+    empty mqtt_brokers / turn_servers lists and os=None in the parsed
+    dict. The OS token (when present) lets peers specialise behaviour
+    -- tcp_punch uses it to pick a port range that matches the peer's
+    NAT-classifier-validated ephemeral pool (Windows XP's narrow
+    1025-5000 range is the canonical case).
     """
     # Already passed.
     if isinstance(addr, dict):
@@ -125,7 +130,7 @@ def parse_node_addr(addr: Any) -> Optional[Any]:
 
     addr = to_b(addr)
     af_parts = addr.split(b"^")
-    if len(af_parts) not in (4, 6):
+    if len(af_parts) not in (4, 6, 7):
         log("p2p addr invalid parts")
         return None
 
@@ -158,8 +163,13 @@ def parse_node_addr(addr: Any) -> Optional[Any]:
         "machine_id": to_s(af_parts[3]),
         "vk": None,
         "bytes": addr,
-        "mqtt_brokers": parse_server_hints(af_parts[4]) if len(af_parts) == 6 else [],
-        "turn_servers": parse_server_hints(af_parts[5]) if len(af_parts) == 6 else [],
+        "mqtt_brokers": parse_server_hints(af_parts[4]) if len(af_parts) >= 6 else [],
+        "turn_servers": parse_server_hints(af_parts[5]) if len(af_parts) >= 6 else [],
+        # 7th part is the peer's OS token (e.g. "winxp", "linux") --
+        # absent on legacy 4-part / 6-part addrs, which leaves os=None.
+        # Downstream callers (notably tcp_punch's port allocator) treat
+        # None as "use default behaviour".
+        "os": to_s(af_parts[6]) if len(af_parts) >= 7 and af_parts[6] else None,
     }
 
     for af_index, af_part in enumerate(af_parts[:2]):
@@ -327,6 +337,7 @@ def make_node_addr(
     mqtt_brokers: Optional[List[Any]] = None,
     turn_servers: Optional[List[Any]] = None,
     if_ports: Any = None,
+    os: Optional[str] = None,
 ) -> bytes:
     """
     Encode node address information into a compact byte string.
@@ -492,10 +503,15 @@ def make_node_addr(
 
     # Optional hint sections. Append both only when at least one is
     # non-empty so 4-part legacy addrs round-trip identically when
-    # callers don't pass the new args.
-    if mqtt_brokers or turn_servers:
+    # callers don't pass the new args. The OS token (slot 7) is only
+    # appended when explicitly requested AND the hint sections are
+    # already present, to preserve positional decoding -- old peers
+    # see 4 or 6 parts as before; new peers see 7 when OS is shipped.
+    if mqtt_brokers or turn_servers or os:
         bufs.append(encode_server_hints(mqtt_brokers or []))
         bufs.append(encode_server_hints(turn_servers or []))
+    if os:
+        bufs.append(to_b(os))
 
     return b"^".join(bufs)
 

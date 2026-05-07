@@ -836,9 +836,112 @@ def ensure_resolved(targets: Union[Any, List[Any]]) -> None:
 # Self-test (run directly with: python utils.py)
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# OS identification for the wire-format peer-OS field
+# ---------------------------------------------------------------------------
+
+# Compact tokens we put on the wire so peers can specialise behaviour
+# (port-allocation ranges for tcp_punch, sockopt support, future tuning).
+# Keep these short and stable -- additions OK, renames are wire breakers.
+OS_WIN_2K = "win2k"
+OS_WIN_XP = "winxp"
+OS_WIN_VISTA = "winvista"
+OS_WIN_7 = "win7"
+OS_WIN_8 = "win8"
+OS_WIN_81 = "win81"
+OS_WIN_10 = "win10"
+OS_WIN_11 = "win11"
+OS_WIN_OTHER = "windows"
+OS_LINUX = "linux"
+OS_DARWIN = "darwin"
+OS_FREEBSD = "freebsd"
+OS_OPENBSD = "openbsd"
+OS_NETBSD = "netbsd"
+OS_ANDROID = "android"
+OS_UNKNOWN = "unknown"
+
+
+def os_id():
+    """Return a compact OS token identifying the local platform.
+
+    Used in the wire-format addr so peers can choose OS-aware code
+    paths -- the canonical motivating case is Windows XP's narrow
+    1025-5000 ephemeral range, which makes tcp_punch's bucket-derived
+    high-numbered ports unreachable through the router NAT (the NAT
+    classifier only saw XP's normal ephemerals during its probes,
+    so its FULL_CONE+EQUAL_DELTA reading doesn't generalise to the
+    ports tcp_punch wants to use). OS info also future-proofs other
+    per-host quirks (sockopt support, SYN caps, tuning thresholds).
+
+    Tokens are short ASCII strings safe for the wire format (no '^',
+    '|', ',', or '{}'). Unknown platforms collapse to OS_UNKNOWN,
+    which downstream callers treat as "use default behaviour".
+    """
+    plat = platform.system()
+    if plat == "Windows":
+        rel = ""
+        try:
+            rel = (platform.win32_ver()[0] or "").lower().strip()
+        except (AttributeError, OSError):
+            pass
+        if rel == "xp" or rel == "post2003":
+            return OS_WIN_XP
+        if rel == "2000":
+            return OS_WIN_2K
+        if rel == "vista":
+            return OS_WIN_VISTA
+        if rel == "7":
+            return OS_WIN_7
+        if rel == "8":
+            return OS_WIN_8
+        if rel == "8.1":
+            return OS_WIN_81
+        if rel == "10":
+            # Win 10 and Win 11 both report "10" via win32_ver; the
+            # build number distinguishes them (>= 22000 = Win 11).
+            try:
+                build = int(platform.version().split(".")[2])
+                if build >= 22000:
+                    return OS_WIN_11
+            except (IndexError, ValueError):
+                pass
+            return OS_WIN_10
+        if rel == "11":
+            return OS_WIN_11
+        try:
+            vmaj = int(platform.version().split(".")[0])
+            if vmaj == 5:
+                # NT 5.x without a recognisable release tag is almost
+                # certainly XP; default to that side because XP's
+                # quirks are the case that actually bites tcp_punch.
+                return OS_WIN_XP
+        except (IndexError, ValueError):
+            pass
+        return OS_WIN_OTHER
+    if plat == "Linux":
+        if "android" in (platform.release() or "").lower():
+            return OS_ANDROID
+        try:
+            with open("/system/build.prop"):
+                return OS_ANDROID
+        except (OSError, IOError):
+            pass
+        return OS_LINUX
+    if plat == "Darwin":
+        return OS_DARWIN
+    if plat == "FreeBSD":
+        return OS_FREEBSD
+    if plat == "OpenBSD":
+        return OS_OPENBSD
+    if plat == "NetBSD":
+        return OS_NETBSD
+    return OS_UNKNOWN
+
+
 if __name__ == "__main__":  # pragma: no cover
     assert not range_intersects([1, 1], [2, 2])
     assert range_intersects([1, 2], [2, 2])
     assert range_intersects([1, 2], [1, 2])
     assert range_intersects([1, 10], [5, 20])
+    print("os_id() ->", os_id())
     print("Self-tests passed.")
