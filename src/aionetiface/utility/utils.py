@@ -184,6 +184,23 @@ __all__ = [
     "rm_done_tasks",
     "gather_or_cancel",
     "handle_exceptions",
+    "os_id",
+    "OS_WIN_2K",
+    "OS_WIN_XP",
+    "OS_WIN_VISTA",
+    "OS_WIN_7",
+    "OS_WIN_8",
+    "OS_WIN_81",
+    "OS_WIN_10",
+    "OS_WIN_11",
+    "OS_WIN_OTHER",
+    "OS_LINUX",
+    "OS_DARWIN",
+    "OS_FREEBSD",
+    "OS_OPENBSD",
+    "OS_NETBSD",
+    "OS_ANDROID",
+    "OS_UNKNOWN",
 ]
 
 
