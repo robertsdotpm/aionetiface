@@ -79,7 +79,13 @@ class Interface:
         self.resolved = False
         self.netiface_index = None
         self.id = self.mac = self.nic_no = None
-        self.nat = nat or nat_info()
+        # nat starts as None to make "never tested" distinguishable from
+        # any real classification result. Callers that need a value before
+        # load_nat completes must apply their own default explicitly --
+        # auto-defaulting to nat_info() (symmetric+random) hid load_nat
+        # failures because the un-tested state collided with the worst
+        # real result. set_nat() writes here once classification finishes.
+        self.nat = nat
         self.name = name
         self.rp = {IP4: RoutePool(), IP6: RoutePool()}
         self.v4_lan_ips = []

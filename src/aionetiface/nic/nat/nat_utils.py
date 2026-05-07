@@ -270,6 +270,10 @@ async def delta_test(
     # [ [ dist, start_port ], ... ]
     range_info = []
 
+    print("[NAT-LOAD] delta_test: enter test_no={0} threshold={1} concurrency={2}".format(
+        test_no, threshold, concurrency,
+    ), flush=True)
+
     # Do first port tests with random local ports.
     tasks = get_port_tests(0)
     if concurrency:
@@ -280,6 +284,10 @@ async def delta_test(
             result = await task
             if result is not None:
                 results.append(result)
+    valid_round1 = sum(1 for r in results if r is not None)
+    print("[NAT-LOAD] delta_test: round1 (random src ports) results valid={0}/{1}".format(
+        valid_round1, len(results),
+    ), flush=True)
 
     # Check for:
     #   equal delta:       src_port == mapped_port
@@ -300,6 +308,10 @@ async def delta_test(
 
     socks = []
 
+    print("[NAT-LOAD] delta_test: round1 counters delta_no={0} dist_no={1} preserv_dist={2} local_dist={3}".format(
+        delta_no, dist_no, preserv_dist, local_dist,
+    ), flush=True)
+
     # See if any of the above tests succeeded.
     test_names = [EQUAL_DELTA, PRESERV_DELTA]
     if len(preserv_dist) <= 1:
@@ -311,10 +323,16 @@ async def delta_test(
 
         no = delta_no[test_name]
         if no >= threshold:
+            print("[NAT-LOAD] delta_test: -> {0} (count={1} >= threshold={2})".format(
+                test_name, no, threshold,
+            ), flush=True)
             return delta_info(test_name, 0)
     for port_dist in list(dist_no.keys()):
         no = dist_no[port_dist]
         if no >= threshold:
+            print("[NAT-LOAD] delta_test: -> INDEPENDENT_DELTA dist={0} (count={1} >= threshold={2})".format(
+                port_dist, no, threshold,
+            ), flush=True)
             return delta_info(INDEPENDENT_DELTA, port_dist)
 
     # Check for dependent delta: requires that the local source port also
@@ -326,6 +344,9 @@ async def delta_test(
 
     # Get mapping results for fixed delta.
     start_port = get_start_port(1, range_info)
+    print("[NAT-LOAD] delta_test: round2 start_port={0} (testing DEPENDENT_DELTA)".format(
+        start_port,
+    ), flush=True)
     tasks = get_port_tests(start_port)
     if concurrency:
         results = await asyncio.gather(*tasks)
@@ -334,16 +355,29 @@ async def delta_test(
         for task in tasks:
             result = await task
             results.append(result)
+    valid_round2 = sum(1 for r in results if r is not None)
+    print("[NAT-LOAD] delta_test: round2 results valid={0}/{1}".format(
+        valid_round2, len(results),
+    ), flush=True)
 
     get_delta_value(delta_no, dist_no, local_dist, preserv_dist, results)
+    print("[NAT-LOAD] delta_test: round2 counters delta_no={0} dist_no={1} preserv_dist={2} local_dist={3}".format(
+        delta_no, dist_no, preserv_dist, local_dist,
+    ), flush=True)
 
     # Check for deltas that satisfy success threshold.
     for port_dist in list(local_dist.keys()):
         no = local_dist[port_dist]
         if no >= threshold:
+            print("[NAT-LOAD] delta_test: -> DEPENDENT_DELTA dist={0} (count={1} >= threshold={2})".format(
+                port_dist, no, threshold,
+            ), flush=True)
             return delta_info(DEPENDENT_DELTA, port_dist)
 
     # Return delta value.
+    print("[NAT-LOAD] delta_test: -> RANDOM_DELTA (no test reached threshold={0})".format(
+        threshold,
+    ), flush=True)
     return delta_info(RANDOM_DELTA, 0)
 
 

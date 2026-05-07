@@ -384,14 +384,18 @@ def make_node_addr(
         af_bufs = []
         for i, interface in enumerate(interface_list):
             # Resolve NAT fields (needed for both the normal and link-local path).
+            # interface.nat is None until load_nat writes a result; treat that
+            # the same as the worst-case unknown shape so peers can still
+            # parse the announcement. Callers that care will validate later.
             if nat:
-                nat_type = nat["type"]
-                delta_type = nat["delta"]["type"]
-                delta_value = nat["delta"]["value"]
+                source = nat
+            elif interface.nat is not None:
+                source = interface.nat
             else:
-                nat_type = interface.nat["type"]
-                delta_type = interface.nat["delta"]["type"]
-                delta_value = interface.nat["delta"]["value"]
+                source = nat_info()
+            nat_type = source["type"]
+            delta_type = source["delta"]["type"]
+            delta_value = source["delta"]["value"]
 
             # Normal path: global routes exist for this AF.
             if len(interface.rp[af].routes) and af in interface.supported():

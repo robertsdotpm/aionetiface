@@ -5,8 +5,8 @@ import socket
 import time
 from functools import lru_cache
 from typing import Any, Dict, List, Optional
-from ..utility.utils import async_wrap_errors, fstr, log, log_exception, to_s
-from ..errors import InterfaceInvalidAF, InterfaceNotFound
+from ..utility.utils import fstr, log, log_exception, to_s
+from ..errors import ErrorCantLoadNATInfo, InterfaceInvalidAF, InterfaceNotFound
 from ..net.net_defs import (
     BLACK_HOLE_IPS,
     DUEL_STACK,
@@ -241,8 +241,13 @@ def nic_from_dict(d: Dict[str, Any], Interface: Any) -> Any:
         for route in i.rp[af].routes:
             route.interface = i
 
-    # Set NAT details.
-    i.nat = nat_info(d["nat"]["type"], d["nat"]["delta"])
+    # Set NAT details. Older or partial dicts may have nat=None when the
+    # source interface never completed classification; preserve that.
+    nat_d = d.get("nat")
+    if nat_d is None:
+        i.nat = None
+    else:
+        i.nat = nat_info(nat_d["type"], nat_d["delta"])
 
     # Set stack type of the interface based on the route pool.
     i.stack = get_interface_stack(i.rp)
@@ -256,6 +261,15 @@ def nic_from_dict(d: Dict[str, Any], Interface: Any) -> Any:
 
 def nic_to_dict(nic: Any) -> Dict[str, Any]:
     """Serialise a NIC interface object to a plain dict, including route pools, NAT info, and default flags."""
+    if nic.nat is not None:
+        nat_dict = {
+            "type": nic.nat["type"],
+            "nat_info": TXT["nat"][nic.nat["type"]],
+            "delta": nic.nat["delta"],
+            "delta_info": TXT["delta"][nic.nat["delta"]["type"]],
+        }
+    else:
+        nat_dict = None
     return {
         "netiface_index": nic.netiface_index,
         "name": nic.name,
@@ -266,12 +280,7 @@ def nic_to_dict(nic: Any) -> Dict[str, Any]:
             int(IP4): nic.is_default(IP4, None),
             int(IP6): nic.is_default(IP6, None),
         },
-        "nat": {
-            "type": nic.nat["type"],
-            "nat_info": TXT["nat"][nic.nat["type"]],
-            "delta": nic.nat["delta"],
-            "delta_info": TXT["delta"][nic.nat["delta"]["type"]],
-        },
+        "nat": nat_dict,
         "rp": {int(IP4): nic.rp[IP4].to_dict(), int(IP6): nic.rp[IP6].to_dict()},
     }
 
@@ -320,16 +329,24 @@ async def load_interfaces(
     over the test runner's 300s SIGKILL budget.
 
     Now each NIC's (start + load_nat) runs as an independent task
-    via ``asyncio.gather``, and each task is wrapped in
-    ``asyncio.wait_for`` capped at roughly twice the per-call
-    ``timeout`` so a single hung adapter bounces out without
-    holding up the rest. Total wall time is bounded by the slowest
-    successful NIC, not the sum of all NICs.
+    via ``asyncio.gather`` with bounded concurrency, and each phase
+    has its own ``asyncio.wait_for`` budget so a slow ``nic.start``
+    can't eat the budget that ``nic.load_nat`` was supposed to use.
+    A failed load_nat is logged loudly and ``nic.nat`` stays at
+    ``None`` (the constructor default) so callers can tell the
+    difference between a real classification and an un-tested NIC.
     """
-    # Cap each NIC's total time. timeout is the per-call STUN budget;
-    # there are two waits (start + load_nat) plus a small slack so the
-    # inner deadlines fire before the outer one.
-    per_nic_cap = (2 * timeout) + 1
+    # Two separate phases, each with its own deadline. Older code shared
+    # one (2*timeout)+1 budget across both phases, which on slow hosts
+    # (Windows XP especially) let nic.start eat enough of the budget
+    # that nic.load_nat got cancelled mid-probe -- silently leaving the
+    # NIC's nat at the un-tested default. Splitting eliminates the
+    # starvation; each phase gets a small slack over its own inner
+    # timeout. nic_load_nat already wraps fast_nat_test and delta_test
+    # in async_wrap_errors(timeout=timeout) running in parallel, so the
+    # legitimate ceiling is ~timeout + setup overhead.
+    start_cap = max(timeout, 4) + 2
+    nat_cap = max(timeout, 4) + 2
 
     # Bounded concurrency. Pure unlimited gather() turned out to be
     # unreliable on Windows: nic.start / nic.load_nat shell out to
@@ -344,36 +361,71 @@ async def load_interfaces(
     async def load_one(if_name: Any) -> Optional[Any]:
         async with sem:
             t0 = time.time()
-            log("[IFLOAD] enter nic={0} per_nic_cap={1}s timeout={2}s skip_nat={3}".format(
-                to_s(if_name), per_nic_cap, timeout, skip_nat,
+            log("[IFLOAD] enter nic={0} start_cap={1}s nat_cap={2}s timeout={3}s skip_nat={4}".format(
+                to_s(if_name), start_cap, nat_cap, timeout, skip_nat,
             ))
             try:
                 nic = Interface(if_name)
 
-                async def setup() -> None:
-                    log("[IFLOAD]   nic={0} calling nic.start".format(to_s(if_name)))
-                    t1 = time.time()
-                    await nic.start(
-                        min_agree=min_agree,
-                        max_agree=max_agree,
-                        timeout=timeout,
+                # Phase 1: nic.start. Has its own budget so a slow
+                # external-IP probe cannot starve the NAT classifier.
+                log("[IFLOAD]   nic={0} calling nic.start (cap={1}s)".format(
+                    to_s(if_name), start_cap,
+                ))
+                t1 = time.time()
+                try:
+                    await asyncio.wait_for(
+                        nic.start(
+                            min_agree=min_agree,
+                            max_agree=max_agree,
+                            timeout=timeout,
+                        ),
+                        timeout=start_cap,
                     )
-                    log("[IFLOAD]   nic={0} nic.start OK ({1:.2f}s)".format(
-                        to_s(if_name), time.time() - t1,
+                except asyncio.TimeoutError:
+                    log("[IFLOAD] FAIL  nic={0} nic.start TIMED OUT after {1:.2f}s (cap={2}s)".format(
+                        to_s(if_name), time.time() - t1, start_cap,
                     ))
-                    if not skip_nat:
-                        log("[IFLOAD]   nic={0} calling load_nat".format(to_s(if_name)))
-                        t2 = time.time()
-                        nat = await async_wrap_errors(nic.load_nat(timeout=timeout))
-                        log("[IFLOAD]   nic={0} load_nat done ({1:.2f}s) result={2}".format(
-                            to_s(if_name), time.time() - t2, "ok" if nat is not None else "None",
-                        ))
-                        if nat is None:
-                            log("Could not load NAT for " + to_s(if_name))
+                    raise
+                log("[IFLOAD]   nic={0} nic.start OK ({1:.2f}s)".format(
+                    to_s(if_name), time.time() - t1,
+                ))
 
-                await asyncio.wait_for(setup(), timeout=per_nic_cap)
-                log("[IFLOAD] OK    nic={0} dur={1:.2f}s".format(
-                    to_s(if_name), time.time() - t0,
+                # Phase 2: nic.load_nat. Independent budget. We DO NOT
+                # use async_wrap_errors here because that swallowed the
+                # cancellation/exception silently and left nic.nat at
+                # the constructor default -- producing a classification
+                # that looked real but wasn't. Catch the specific
+                # exceptions we know about and log loudly instead, so
+                # an un-tested NIC is unmistakable in the log.
+                if not skip_nat:
+                    log("[IFLOAD]   nic={0} calling load_nat (cap={1}s)".format(
+                        to_s(if_name), nat_cap,
+                    ))
+                    t2 = time.time()
+                    try:
+                        await asyncio.wait_for(
+                            nic.load_nat(timeout=timeout),
+                            timeout=nat_cap,
+                        )
+                        log("[IFLOAD]   nic={0} load_nat OK ({1:.2f}s) nat={2}".format(
+                            to_s(if_name), time.time() - t2, nic.nat,
+                        ))
+                    except asyncio.TimeoutError:
+                        log("[IFLOAD] WARN  nic={0} load_nat TIMED OUT after {1:.2f}s (cap={2}s); nic.nat stays None".format(
+                            to_s(if_name), time.time() - t2, nat_cap,
+                        ))
+                    except ErrorCantLoadNATInfo as e:
+                        log("[IFLOAD] WARN  nic={0} load_nat raised ErrorCantLoadNATInfo: {1}; nic.nat stays None".format(
+                            to_s(if_name), e,
+                        ))
+                    except (OSError, ConnectionError) as e:
+                        log("[IFLOAD] WARN  nic={0} load_nat raised {1}: {2}; nic.nat stays None".format(
+                            to_s(if_name), type(e).__name__, e,
+                        ))
+
+                log("[IFLOAD] OK    nic={0} dur={1:.2f}s nat_loaded={2}".format(
+                    to_s(if_name), time.time() - t0, nic.nat is not None,
                 ))
                 return nic
             except asyncio.CancelledError:  # pylint: disable=try-except-raise
@@ -382,8 +434,8 @@ async def load_interfaces(
                 ))
                 raise
             except asyncio.TimeoutError:
-                log("[IFLOAD] FAIL  nic={0} dur={1:.2f}s reason=per_nic_cap_timeout({2}s)".format(
-                    to_s(if_name), time.time() - t0, per_nic_cap,
+                log("[IFLOAD] FAIL  nic={0} dur={1:.2f}s reason=phase_timeout(start_cap={2}s)".format(
+                    to_s(if_name), time.time() - t0, start_cap,
                 ))
                 return None
             except (OSError, InterfaceNotFound, InterfaceInvalidAF) as e:
