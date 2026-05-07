@@ -526,12 +526,16 @@ class Netifaces:
         pass
 
     async def start(self) -> "Netifaces":
-        # Different approaches for getting NIC info on Windows.
-        # iphlpapi.GetAdaptersAddresses (XP SP1+) is the primary path
-        # because it's a single ctypes call -- no shell subprocess, no
-        # WMIC lock contention on XP, no PowerShell version checks.
-        # The shell-based fallbacks stay in the list so a quirky
-        # locked-down install can still produce interface info.
+        # Order: iphlpapi (when supported) before any shell loader.
+        # iphlpapi.GetAdaptersAddresses (XP SP1+) is a single ctypes call
+        # with no subprocess at all -- WMIC and netsh take ~1-30 s each
+        # under any contention, and on XP the slow shell calls would
+        # often hang past CMD_TIMEOUT just to lose to a result iphlpapi
+        # would have produced in milliseconds. Putting iphlpapi first
+        # also gives us the per-AF v6_no field (XP's TCPIP6 service has
+        # its own ifindex space), which the shell loaders don't capture.
+        # The shell loaders stay as fallbacks for the rare locked-down
+        # install where iphlpapi.GetAdaptersAddresses isn't accessible.
         vectors = [
             # WMIC is well supported on all Windows versions but
             # needs 3 commands to get all information.
@@ -546,16 +550,16 @@ class Netifaces:
         # Get platform version.
         vmaj, vmin, vpatch = [int(x) for x in platform.version().split(".")]
 
-        # Add powershell first if its a recent OS.
+        # Powershell is a useful one-shot loader on Win 8.1+ but is still
+        # a shell-out and is slower + more failure-prone than iphlpapi.
+        # Keep iphlpapi first; insert PS1 just after it so we still have
+        # PS1 ahead of WMIC/netsh on hosts where iphlpapi unexpectedly
+        # returns no usable interfaces.
         # platform.version() returns the NT kernel version, not the marketing version.
         # Win8.1/Server2012R2 = 6.3.x, Win10/11/Server2016+ = 10.0.x
         if (vmaj == 6 and vmin >= 3) or vmaj >= 10:
-            vectors = [
-                # Powershell can do everything in one command but
-                # the 'cmdlets' are only on Windows >= 8.1.
-                # Needs permissions to run PS1 scripts.
-                load_ifs_from_ps1,
-            ] + vectors
+            ps1_pos = 1 if iphlpapi_is_supported() else 0
+            vectors.insert(ps1_pos, load_ifs_from_ps1)
 
         # Try different funcs to load IF info.
         # Retry up to 3 times with backoff: Windows drops shell calls when
