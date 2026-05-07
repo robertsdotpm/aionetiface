@@ -668,9 +668,18 @@ async def if_infos_from_iphlpapi() -> List[Dict[str, Any]]:
         # for backwards compat with the rest of the netifaces shim.
         v4_ifindex = info["ifindex"] or info["ipv6_ifindex"]
         v6_ifindex = info["ipv6_ifindex"] or info["ifindex"]
+        # Surface adapter description alongside friendly name so the
+        # netifaces shim can register the interface under both. WMIC
+        # historically returned the description string ("Intel(R)
+        # 82574L Gigabit Network Connection"), while iphlpapi returns
+        # FriendlyName ("Local Area Connection" / "Ethernet0"). Code
+        # that filters by --nic shouldn't break depending on which
+        # loader resolved the interface; keeping both names lets
+        # either match.
         if_infos.append({
             "guid": info.get("guid") or friendly,
             "name": friendly,
+            "description": info.get("description") or "",
             "no": v4_ifindex,
             "v6_no": v6_ifindex,
             "mac": info["mac"],

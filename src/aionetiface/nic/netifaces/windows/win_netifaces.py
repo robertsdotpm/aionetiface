@@ -526,40 +526,99 @@ class Netifaces:
         pass
 
     async def start(self) -> "Netifaces":
-        # Order: iphlpapi (when supported) before any shell loader.
-        # iphlpapi.GetAdaptersAddresses (XP SP1+) is a single ctypes call
-        # with no subprocess at all -- WMIC and netsh take ~1-30 s each
-        # under any contention, and on XP the slow shell calls would
-        # often hang past CMD_TIMEOUT just to lose to a result iphlpapi
-        # would have produced in milliseconds. Putting iphlpapi first
-        # also gives us the per-AF v6_no field (XP's TCPIP6 service has
-        # its own ifindex space), which the shell loaders don't capture.
-        # The shell loaders stay as fallbacks for the rare locked-down
-        # install where iphlpapi.GetAdaptersAddresses isn't accessible.
-        vectors = [
-            # WMIC is well supported on all Windows versions but
-            # needs 3 commands to get all information.
-            if_infos_from_wmic,
-            # Netsh works well in some cases but older OSes
-            # need a special routing service manually enabled.
-            if_infos_from_netsh,
-        ]
-        if iphlpapi_is_supported():
-            vectors.insert(0, if_infos_from_iphlpapi)
-
-        # Get platform version.
+        # Per-version loader capability matrix. Don't invoke backends on
+        # Windows versions where they can't work or are known to hang;
+        # each fallback carries a real wall-clock cost (CMD_TIMEOUT per
+        # subprocess loader = 30 s). Mapping below -- platform.version()
+        # returns the NT kernel version, not the marketing version:
+        #
+        #   NT ver   Marketing               iphlpapi  PS1   WMIC   netsh
+        #   5.0      Win 2000 / Server 2000     no      no    no    weak
+        #   5.1+     Win XP SP1+                yes     no    yes   yes
+        #   5.2      Server 2003                yes     no    yes   yes
+        #   6.0      Vista / Server 2008        yes     no    yes   yes
+        #   6.1      Win 7 / Server 2008 R2     yes     no    yes   yes
+        #   6.2      Win 8 / Server 2012        yes     yes   yes   yes
+        #   6.3      Win 8.1 / Server 2012 R2   yes     yes   yes   yes
+        #  10.0      Win 10 / 11 / Server 2016+ yes     yes   yes*  yes
+        #
+        #   iphlpapi.GetAdaptersAddresses     -- XP SP1+. Single ctypes
+        #     call, no subprocess. The only loader that surfaces XP's
+        #     per-AF v6_no (TCPIP6 has its own ifindex space). We still
+        #     guard with iphlpapi_is_supported() in case some locked-
+        #     down build can't load the DLL.
+        #
+        #   PowerShell Get-NetAdapter (NetAdapter module) -- Win 8 / NT
+        #     6.2 and later. Doesn't exist on Win 7 / Vista / XP, so the
+        #     PS1 loader is gated on NT >= 6.2.
+        #
+        #   WMIC -- present XP+ but problematic on XP (single-threaded
+        #     repository, hangs on contention) and deprecated in Win 11
+        #     22H2+ where Microsoft started removing the binary by
+        #     default. Skip on XP entirely (iphlpapi covers it); on
+        #     newer Windows we keep WMIC as a fallback even though it
+        #     may eventually be absent on a stripped-down 11/Server.
+        #
+        #   netsh -- weak on Win 2000 (some interface verbs missing) and
+        #     on XP its IPv4 subcommands depend on a routing service that
+        #     ships disabled in some installs. Reliable Vista+. Same
+        #     reasoning as WMIC: skip on XP since iphlpapi suffices.
+        #
+        # Net effect on the matrix:
+        #   XP         -> iphlpapi only (one ctypes call, ms-scale)
+        #   Vista / 7  -> iphlpapi -> WMIC -> netsh
+        #   Win 8 / 8.1 / 10 / 11 / Server 2012+ -> iphlpapi -> PS1 -> WMIC -> netsh
+        # Win 2000 sits in the gap (no iphlpapi guarantee, no PS1, weak
+        # netsh, no WMIC); we rely on iphlpapi_is_supported() returning
+        # False on that ancient OS so we surface a clean failure rather
+        # than running shell loaders that won't produce useful output.
         vmaj, vmin, vpatch = [int(x) for x in platform.version().split(".")]
 
-        # Powershell is a useful one-shot loader on Win 8.1+ but is still
-        # a shell-out and is slower + more failure-prone than iphlpapi.
-        # Keep iphlpapi first; insert PS1 just after it so we still have
-        # PS1 ahead of WMIC/netsh on hosts where iphlpapi unexpectedly
-        # returns no usable interfaces.
-        # platform.version() returns the NT kernel version, not the marketing version.
-        # Win8.1/Server2012R2 = 6.3.x, Win10/11/Server2016+ = 10.0.x
-        if (vmaj == 6 and vmin >= 3) or vmaj >= 10:
-            ps1_pos = 1 if iphlpapi_is_supported() else 0
-            vectors.insert(ps1_pos, load_ifs_from_ps1)
+        # Per-loader availability, computed independently from the NT
+        # version so each can be reasoned about (and fixed) in
+        # isolation. Names map to the kernel version, not marketing.
+        nt = (vmaj, vmin)
+
+        # iphlpapi.GetAdaptersAddresses: XP SP1 (NT 5.1+) onwards.
+        # We still call iphlpapi_is_supported() because some locked-
+        # down installs strip the function; the dynamic check is
+        # the source of truth.
+        iphlpapi_ok = nt >= (5, 1) and iphlpapi_is_supported()
+
+        # PowerShell NetAdapter cmdlets (Get-NetAdapter): introduced
+        # in Win 8 / Server 2012 (NT 6.2). Win 7 / Vista / XP do not
+        # ship this module.
+        ps1_ok = nt >= (6, 2)
+
+        # WMIC: present XP+ but the XP repository hangs under
+        # contention long enough to chew the CMD_TIMEOUT budget;
+        # iphlpapi already covers XP, so don't fall back here.
+        # Vista / 7 / 8 / 8.1 / 10 / 11 / Server 2012-2022 are fine.
+        # Win 11 22H2+ (build >= 22621) ship without WMIC by
+        # default; we still try because WMIC may have been re-
+        # added by an admin, and the loader fails fast when the
+        # binary is absent.
+        wmic_ok = nt >= (6, 0)
+
+        # netsh: works since NT 5.1 in principle but the XP "interface
+        # ipv4" verbs depend on the Routing and Remote Access service
+        # which is disabled by default on workstation SKUs. Skipping on
+        # XP avoids the timeout cost. Vista+ runs reliably.
+        netsh_ok = nt >= (6, 0)
+
+        vectors = []
+        if iphlpapi_ok:
+            vectors.append(if_infos_from_iphlpapi)
+        if ps1_ok:
+            vectors.append(load_ifs_from_ps1)
+        if wmic_ok:
+            vectors.append(if_infos_from_wmic)
+        if netsh_ok:
+            vectors.append(if_infos_from_netsh)
+
+        log("[NETIFACES-LOAD] nt={0}.{1} iphlpapi={2} ps1={3} wmic={4} netsh={5}".format(
+            vmaj, vmin, iphlpapi_ok, ps1_ok, wmic_ok, netsh_ok,
+        ))
 
         # Try different funcs to load IF info.
         # Retry up to 3 times with backoff: Windows drops shell calls when
@@ -619,6 +678,18 @@ class Netifaces:
             # Every if_info has a unique name.
             # Because if descriptions aren't unique for the same HW.
             self.by_name_index[name] = if_info
+
+            # Also accept lookups by adapter description (the long
+            # driver string like "Intel(R) 82574L Gigabit Network
+            # Connection") when the iphlpapi loader surfaces it.
+            # WMIC used to return the description string as the
+            # "name", so callers passing --nic with the description
+            # form continue to match after the switch to iphlpapi-as-
+            # primary loader. Skip when description is empty, equals
+            # the friendly name, or is already a registered key.
+            description = if_info.get("description")
+            if description and description != name and description not in self.by_name_index:
+                self.by_name_index[description] = if_info
 
         # Save main gateways used.
         self.gws = win_set_gateways(self.by_guid_index)
@@ -680,10 +751,20 @@ class Netifaces:
         return addr_format
 
     def interfaces(self) -> List[str]:
-        """Returns a sorted list of all detected interface names."""
+        """Returns a sorted list of all detected interface names.
+
+        Each interface contributes its friendly name and, when
+        available, its adapter description -- both are valid lookup
+        keys so callers filtering by --nic can use either form.
+        """
         ifs = []
+        seen = set()
         for _, if_info in self.by_guid_index.items():
-            ifs.append(if_info["name"])
+            for key in ("name", "description"):
+                v = if_info.get(key)
+                if v and v not in seen:
+                    ifs.append(v)
+                    seen.add(v)
 
         ifs = sorted(ifs)
         return ifs
