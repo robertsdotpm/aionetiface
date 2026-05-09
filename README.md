@@ -2,6 +2,8 @@
 
 Python: >= 3.5 asyncio Windows, Linux, Mac, BSD, Android
 
+Part of the Warpgate project: <https://www.warpgate.io/>
+
 Event loops: Selector, Proactor (Windows), "CustomEventLoop" (aionetifaces
 slightly better version of selector), uvloop
 
