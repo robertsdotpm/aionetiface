@@ -56,11 +56,21 @@ def nat_info(
     delta=None,
     map_range=None,
 ):
-    """Build and return a NAT descriptor dict with type, delta, port range, and derived capability flags."""
+    """Build and return a NAT descriptor dict with type, delta, port range, and derived capability flags.
+
+    The default (RESTRICT_PORT + EQUAL_DELTA) is intentionally a sane
+    middle ground rather than the worst case: it lets the punch / probe
+    plugins fall through to a predictable-port path when classification
+    hasn't run, instead of triggering the SYMMETRIC role assignments
+    that strand random_probe / udp_punch on hosts where load_nat was
+    skipped (e.g. Gate(ifs=[pre_built_nic])).  Real classification via
+    nic.load_nat() always overwrites this default with the measured
+    result.
+    """
     # Defaults.
-    delta = delta or delta_info(RANDOM_DELTA, 0)
+    delta = delta or delta_info(EQUAL_DELTA, 0)
     map_range = map_range or [1, MAX_PORT]
-    nat_type = nat_type or SYMMETRIC_NAT
+    nat_type = nat_type or RESTRICT_PORT_NAT
 
     # Main NAT dic with simple lookup types.
     nat = {
