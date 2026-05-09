@@ -15,7 +15,6 @@ import time
 
 
 from selectors import SelectSelector  # noqa: F401
-from typing import Any, List, Optional, Tuple
 from ...utility.utils import *
 
 
@@ -23,8 +22,8 @@ from ...utility.utils import *
 # Patched select for modern Python
 # -----------------------------
 def patched_select_modern(
-    self: Any, r: Any, w: Any, x: Any, timeout: Optional[float] = None
-) -> Tuple[List[Any], List[Any], List[Any]]:
+    self, r, w, x, timeout=None
+):
     """
     Patched SelectSelector._select for modern Python (>=3.7).
 
@@ -80,8 +79,8 @@ def patched_select_modern(
 # Patched select for old Python
 # -----------------------------
 def patched_select_old(
-    self: Any, r: Any, w: Any, _: Any, timeout: Optional[float] = None
-) -> Tuple[List[Any], List[Any], List[Any]]:
+    self, r, w, _, timeout=None
+):
     """
     Patched SelectSelector._select for older Python versions (<=3.5).
 
@@ -106,18 +105,18 @@ def patched_select_old(
 
 
 async def create_datagram_endpoint(
-    loop: Any,
-    protocol_factory: Any,
-    local_addr: Optional[Any] = None,
-    remote_addr: Optional[Any] = None,
+    loop,
+    protocol_factory,
+    local_addr=None,
+    remote_addr=None,
     *,
-    family: int = 0,
-    proto: int = 0,
-    flags: int = 0,
-    reuse_port: Optional[bool] = None,
-    allow_broadcast: Optional[bool] = None,
-    sock: Optional[Any] = None
-) -> Tuple[Any, Any]:
+    family=0,
+    proto=0,
+    flags=0,
+    reuse_port=None,
+    allow_broadcast=None,
+    sock=None
+):
     """Create datagram connection."""
     if sock is not None:
         if sock.type == socket.SOCK_STREAM:
@@ -296,13 +295,13 @@ async def create_datagram_endpoint(
     return transport, protocol
 
 
-def _check_ssl_socket(sock: Any) -> None:
+def _check_ssl_socket(sock):
     """Raise TypeError if sock is an SSLSocket, which is not allowed for datagram transports."""
     if ssl is not None and isinstance(sock, ssl.SSLSocket):
         raise TypeError("Socket cannot be of type SSLSocket")
 
 
-def _ensure_fd_no_transport(loop: Any, fd: Any) -> None:
+def _ensure_fd_no_transport(loop, fd):
     """Raise RuntimeError if the file descriptor is already owned by a non-closing transport."""
     fileno = fd
     if not isinstance(fileno, int):
@@ -319,7 +318,7 @@ def _ensure_fd_no_transport(loop: Any, fd: Any) -> None:
         )
 
 
-def remove_writer(loop: Any, fd: Any) -> None:
+def remove_writer(loop, fd):
     """Remove a writer callback."""
     _ensure_fd_no_transport(loop, fd)
     return loop._remove_writer(fd)

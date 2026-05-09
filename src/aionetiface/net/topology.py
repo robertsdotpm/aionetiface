@@ -1,5 +1,4 @@
 """Network topology helpers (public vs private, loopback detection)."""
-from typing import Any, List, Optional
 from .net_defs import VALID_AFS, IP4, IP6
 from .ip_range import IPRange
 from ..nic.nat.nat_defs import (
@@ -26,7 +25,7 @@ from ..utility.utils import (
 )
 
 
-def validate_node_addr(addr: Any) -> Optional[Any]:
+def validate_node_addr(addr):
     """Validate all per-AF interface fields in a parsed node address dict and return it, or None on failure."""
     for af in VALID_AFS:
         for if_offset in addr[af]:
@@ -75,7 +74,7 @@ def validate_node_addr(addr: Any) -> Optional[Any]:
     return addr
 
 
-def parse_server_hints(buf: Any) -> List[Any]:
+def parse_server_hints(buf):
     """Decode a server-hint section into a list of {af, host, port} dicts.
 
     Wire shape: [af,host,port]|[af,host,port]|... or empty/b'0'.
@@ -109,7 +108,7 @@ def parse_server_hints(buf: Any) -> List[Any]:
     return out
 
 
-def parse_node_addr(addr: Any) -> Optional[Any]:
+def parse_node_addr(addr):
     """Decode a serialised node address byte string into a structured dict keyed by address family.
 
     The wire format has these valid shapes:
@@ -267,7 +266,7 @@ def parse_node_addr(addr: Any) -> Optional[Any]:
     return out
 
 
-def node_addr_extract_exts(p2p_addr: Any) -> List[Any]:
+def node_addr_extract_exts(p2p_addr):
     """Return a flat list of all external and NIC IPRange objects in a p2p address."""
     exts = []
     for af in VALID_AFS:
@@ -277,7 +276,7 @@ def node_addr_extract_exts(p2p_addr: Any) -> List[Any]:
     return exts
 
 
-def is_node_addr_us(addr_bytes: Any, if_list: List[Any]) -> bool:
+def is_node_addr_us(addr_bytes, if_list):
     """Return True if any external IP in addr_bytes matches a route in the local interface list."""
     # Parse address bytes to address.
     addr = parse_node_addr(addr_bytes)
@@ -307,7 +306,7 @@ def is_node_addr_us(addr_bytes: Any, if_list: List[Any]) -> bool:
     return False
 
 
-def encode_server_hints(hints: List[Any]) -> bytes:
+def encode_server_hints(hints):
     """Encode a list of {af, host, port} hint dicts into wire bytes.
 
     Output shape matches parse_server_hints: [af,host,port]|...
@@ -327,18 +326,18 @@ def encode_server_hints(hints: List[Any]) -> bytes:
 
 
 def make_node_addr(
-    pub_key_hex: Any,
-    machine_id: Any,
-    interface_list: List[Any],
-    port: int,
-    ip: Any = None,
-    nat: Any = None,
-    if_index: Any = None,
-    mqtt_brokers: Optional[List[Any]] = None,
-    turn_servers: Optional[List[Any]] = None,
-    if_ports: Any = None,
-    os: Optional[str] = None,
-) -> bytes:
+    pub_key_hex,
+    machine_id,
+    interface_list,
+    port,
+    ip=None,
+    nat=None,
+    if_index=None,
+    mqtt_brokers=None,
+    turn_servers=None,
+    if_ports=None,
+    os=None,
+):
     """
     Encode node address information into a compact byte string.
 
@@ -518,7 +517,7 @@ def make_node_addr(
 
 if __name__ == "__main__":  # pragma: no cover
 
-    async def test_p2p_addr() -> None:
+    async def test_p2p_addr():
         """
         x = Interface("default")
         if_list = [x, x]

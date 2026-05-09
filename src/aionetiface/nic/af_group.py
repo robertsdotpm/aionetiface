@@ -24,7 +24,6 @@ AFGroup is a thin wrapper around {af: Interface} that
   * exposes for_af / supports / iteration so consuming code never
     reaches into a raw dict.
 """
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 from ..utility.utils import fstr
 from .interface import Interface
@@ -35,8 +34,8 @@ class AFGroup:
 
     def __init__(
         self,
-        interfaces: Union["AFGroup", Dict[int, Interface], Interface],
-    ) -> None:
+        interfaces,
+    ):
         """Build the group from another AFGroup, a {af: Interface} dict, or a single Interface."""
         by_af = {}
         if isinstance(interfaces, AFGroup):
@@ -64,7 +63,7 @@ class AFGroup:
 
         self.by_af = by_af
 
-    def for_af(self, af: int) -> Interface:
+    def for_af(self, af):
         """Return the Interface assigned to *af*; raise KeyError if none."""
         if af not in self.by_af:
             raise KeyError(
@@ -72,15 +71,15 @@ class AFGroup:
             )
         return self.by_af[af]
 
-    def get(self, af: int, default: Optional[Interface] = None) -> Optional[Interface]:
+    def get(self, af, default=None):
         """Return the Interface for *af*, or *default* when none is configured."""
         return self.by_af.get(af, default)
 
-    def supports(self, af: int) -> bool:
+    def supports(self, af):
         """True iff this group has an Interface configured for *af*."""
         return af in self.by_af
 
-    def afs(self) -> List[int]:
+    def afs(self):
         """Return the address families this group covers, in insertion order."""
         return list(self.by_af.keys())
 
@@ -96,28 +95,28 @@ class AFGroup:
     # the missing-arg call sites cleanly.
     # ------------------------------------------------------------------
 
-    def route(self, af: int, bind_port: int = 0) -> Any:
+    def route(self, af, bind_port=0):
         """Return the primary Route on the Interface chosen for *af*."""
         return self.for_af(af).route(af, bind_port)
 
-    def nic(self, af: int) -> Optional[str]:
+    def nic(self, af):
         """Return the NIC IP string for the Interface chosen for *af*."""
         return self.for_af(af).nic(af)
 
-    def supported(self, skip_resolve: int = 0) -> List[int]:
+    def supported(self, skip_resolve=0):
         """Return the AFs this group covers (matches Interface.supported's signature)."""
         return self.afs()
 
-    def what_afs(self) -> List[int]:
+    def what_afs(self):
         """Alias for supported(); matches Interface.what_afs."""
         return self.afs()
 
-    def is_default(self, af: int, gws: Optional[Any] = None) -> bool:
+    def is_default(self, af, gws=None):
         """Return whether the Interface chosen for *af* is the host's default route."""
         return self.for_af(af).is_default(af, gws)
 
     @classmethod
-    def from_interfaces(cls, interfaces: List[Interface]) -> "AFGroup":
+    def from_interfaces(cls, interfaces):
         """Build an AFGroup from a list of Interfaces, picking first-match per AF.
 
         Walks *interfaces* in order; for each AF, the first interface that
@@ -138,7 +137,7 @@ class AFGroup:
             raise ValueError("AFGroup.from_interfaces: no AF coverage across given interfaces")
         return cls(by_af)
 
-    def interfaces(self) -> List[Interface]:
+    def interfaces(self):
         """Return the unique Interfaces in this group (deduped, insertion order)."""
         seen = []
         for iface in self.by_af.values():
@@ -146,16 +145,16 @@ class AFGroup:
                 seen.append(iface)
         return seen
 
-    def __iter__(self) -> Iterator[Tuple[int, Interface]]:
+    def __iter__(self):
         return iter(self.by_af.items())
 
-    def __len__(self) -> int:
+    def __len__(self):
         return len(self.by_af)
 
-    def __contains__(self, af: Any) -> bool:
+    def __contains__(self, af):
         return af in self.by_af
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         body = ", ".join(
             "{0}: {1!r}".format(af, iface.name)
             for af, iface in self.by_af.items()

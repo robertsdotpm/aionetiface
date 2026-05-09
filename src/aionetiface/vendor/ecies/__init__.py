@@ -1,4 +1,3 @@
-from typing import Any
 from ecdsa import SECP256k1, ECDH
 
 from .config import ECIES_CONFIG
@@ -11,7 +10,7 @@ __all__ = ["encrypt", "decrypt", "ECIES_CONFIG"]
 
 
 # Bytes: receiver_pk, Bytes: msg
-def encrypt(receiver_pk: bytes, msg: bytes) -> bytes:
+def encrypt(receiver_pk, msg):
     # Generate unique per message key.
     ephemeral_keys = ECDH(curve=SECP256k1)
     ephemeral_keys.generate_private_key()
@@ -34,7 +33,7 @@ def encrypt(receiver_pk: bytes, msg: bytes) -> bytes:
 
 
 # SigningKey: receiver_sk, bytes: msg
-def decrypt(receiver_sk: Any, msg: bytes) -> bytes:
+def decrypt(receiver_sk, msg):
     # Defensive: callers occasionally pass None when an upstream
     # proto_recv timed out / closed the pipe -- without this guard
     # the slice below blows up as TypeError("'NoneType' is not

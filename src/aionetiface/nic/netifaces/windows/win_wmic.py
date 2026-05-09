@@ -7,8 +7,6 @@ import sys
 
 if sys.platform == "win32":
     pass
-
-from typing import Any, Dict, List, Tuple
 from ....net.net_utils import IP4, IP6, VALID_AFS
 from ....utility.cmd_tools import cmd
 from ....utility.utils import async_wrap_errors, safe_gather
@@ -16,7 +14,7 @@ from ....net.ip_range import IPRange
 from ....net.net_utils import ip_norm
 
 
-def parse_wmic_list(entry: str) -> List[Any]:
+def parse_wmic_list(entry):
     """Returns a Python list parsed from a WMIC-formatted brace-delimited string."""
     if not len(entry):
         return []
@@ -31,7 +29,7 @@ def parse_wmic_list(entry: str) -> List[Any]:
     return ast.literal_eval(entry)
 
 
-def parse_wmic_subnet(mask_str: str) -> Any:
+def parse_wmic_subnet(mask_str):
     """Convert a WMIC IPSubnet entry to a prefix length, or None on failure.
 
     WMIC returns IPv4 subnet masks as dotted-quad strings ('255.255.255.0')
@@ -57,7 +55,7 @@ def parse_wmic_subnet(mask_str: str) -> Any:
         return None
 
 
-def parse_wmic_addrs(addrs: List[str], subnets: List[str] = None) -> Dict[Any, List[Dict[str, Any]]]:
+def parse_wmic_addrs(addrs, subnets=None):
     """Returns address info records grouped by address family for the given list of IP strings.
 
     subnets is an optional parallel list from the WMIC IPSubnet field: dotted-quad
@@ -94,7 +92,7 @@ class WMICParse:
     """Parses WMIC command output into structured network interface data."""
 
     @staticmethod
-    def show_main(af: Any, msg: str) -> List[Any]:
+    def show_main(af, msg):
         """Returns a list of fully parsed interface records including addresses, gateways, and GUIDs."""
         # WMIC output columns are alphabetically ordered:
         # DefaultIPGateway, Description, Index, IPAddress, IPSubnet, MACAddress, SettingID
@@ -134,7 +132,7 @@ class WMICParse:
         return [af, "main", results]
 
     @staticmethod
-    def show_con_names(af: Any, msg: str) -> List[Any]:
+    def show_con_names(af, msg):
         """Returns a list of connection name records indexed by interface index."""
         p = r"([0-9]+)[ \t]+([^\r\n]+?) {2,}[ \t]*"
         out = re.findall(p, msg)
@@ -150,7 +148,7 @@ class WMICParse:
     # Also has ipv6 results.
     # if_index: ... if_name, mac
     @staticmethod
-    def show_routes(af: Any, msg: str) -> List[Any]:
+    def show_routes(af, msg):
         """Returns a list of parsed route and MAC records including default gateway entries."""
         p = r"([0-9]+)\s*[.]{2,}([0-9a-fA-F ]+)[ .]+([^\r\n]+)[\r\n]"
         out = re.findall(p, msg)
@@ -178,7 +176,7 @@ class WMICParse:
         return [af, "routes", results]
 
 
-async def do_wmic_cmds() -> List[Any]:
+async def do_wmic_cmds():
     parser = WMICParse()
     cmd_vectors = [
         [
@@ -240,7 +238,7 @@ async def do_wmic_cmds() -> List[Any]:
     return results
 
 
-async def get_ipv6_from_netsh() -> Dict[str, Tuple[int, List[Dict[str, Any]]]]:
+async def get_ipv6_from_netsh():
     """
     Parse 'netsh interface ipv6 show address' to get IPv6 addresses per interface.
 
@@ -290,7 +288,7 @@ async def get_ipv6_from_netsh() -> Dict[str, Tuple[int, List[Dict[str, Any]]]]:
     return result
 
 
-async def if_infos_from_wmic() -> List[Dict[str, Any]]:
+async def if_infos_from_wmic():
     # Get NIC info from different WMIC cmds.
     results = await do_wmic_cmds()
 
@@ -389,7 +387,7 @@ async def if_infos_from_wmic() -> List[Dict[str, Any]]:
     return ret
 
 
-async def workspace() -> None:
+async def workspace():
 
     results = await if_infos_from_wmic()
     print(results)

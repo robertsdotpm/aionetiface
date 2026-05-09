@@ -20,7 +20,6 @@ https://datatracker.ietf.org/doc/html/rfc5905#section-6
 
 import asyncio
 import time
-from typing import Any, Optional, Tuple
 from ..vendor.ntp_client import NTPClient
 from ..net.net_defs import UDP, IP4, IP6
 from .utils import log, log_exception, async_test, fstr
@@ -32,8 +31,8 @@ NTP_TIMEOUT = 2
 
 
 async def get_ntp(
-    af: int, interface: Any, server: Optional[Any] = None, retry: int = NTP_RETRY
-) -> Optional[float]:
+    af, interface, server=None, retry=NTP_RETRY
+):
     if server is None:
         groups = get_infra(af, UDP, "NTP", no=1)
         if not groups:
@@ -55,8 +54,8 @@ async def get_ntp(
 
 
 async def get_ntp_from_dest(
-    af: int, nic: Any, dest: Tuple[str, int], retry: int = NTP_RETRY
-) -> Optional[Tuple[float, float, float]]:
+    af, nic, dest, retry=NTP_RETRY
+):
     """Probe an NTP server and return (corrected_ntp, rtt, monotonic_at_sample).
 
     Standard NTP four-timestamp formula (RFC 5905 6) gives offset = the gap
@@ -98,10 +97,10 @@ class SysClock:
     """NTP-backed clock that tracks skew between the system clock and true network time."""
     def __init__(
         self,
-        interface: Any,
-        ntp: float = 0,
-        ntp_addr: Optional[str] = None,
-    ) -> None:
+        interface,
+        ntp=0,
+        ntp_addr=None,
+    ):
         self.start_time = time.monotonic()
         self.interface = interface
         self.ntp = ntp
@@ -115,11 +114,11 @@ class SysClock:
         # simultaneous-open on the LAN test bench).
         self.ntp_addr = ntp_addr
 
-    def advance(self, n: float) -> None:
+    def advance(self, n):
         """Shift the clock forward (or backward) by n seconds."""
         self.offset += n
 
-    async def start(self) -> "SysClock":
+    async def start(self):
         if self.ntp:
             return self
 
@@ -206,7 +205,7 @@ class SysClock:
             "wall-clock explicitly."
         )
 
-    def _use_system_clock(self) -> None:
+    def _use_system_clock(self):
         """Seed self.ntp from the local system clock.
 
         Only used when the caller passes ntp=time.time() into
@@ -218,10 +217,10 @@ class SysClock:
         self.ntp = time.time()
         self._ntp_loaded = False  # signal that this is not NTP-accurate
 
-    def __await__(self) -> Any:
+    def __await__(self):
         return self.start().__await__()
 
-    def time(self) -> float:
+    def time(self):
         """
         Return the best available timestamp.
 
@@ -238,7 +237,7 @@ class SysClock:
         return self.ntp + elapsed + self.offset
 
 
-async def test_clock_skew() -> None:  # pragma: no cover
+async def test_clock_skew():  # pragma: no cover
     from p2pd.nic.interface import Interface
 
     interface = await Interface()

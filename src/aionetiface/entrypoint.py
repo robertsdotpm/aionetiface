@@ -3,7 +3,6 @@ import asyncio
 import multiprocessing
 import socket
 import sys
-from typing import Any
 from .utility.utils import get_running_loop, log, log_exception
 from .net.net_defs import AF_ANY, IP4
 from .net.asyncio.event_loop import CustomEventLoop, CustomEventLoopPolicy
@@ -32,7 +31,7 @@ _cache_lock = None  # Lazily created inside the running event loop.
 # On Linux/BSD the standard netifaces package from PyPI is used directly.
 
 
-async def aionetiface_setup_netifaces() -> Any:
+async def aionetiface_setup_netifaces():
     """Set up the event loop and return a platform-appropriate netifaces instance, caching the result."""
     global _cached_netifaces
     global _cache_lock
@@ -106,7 +105,7 @@ async def aionetiface_setup_netifaces() -> Any:
         return netifaces
 
 
-def aionetiface_setup_event_loop() -> None:
+def aionetiface_setup_event_loop():
     """Patch the selector, configure the custom asyncio event loop policy,
     apply multiprocessing start-method, and install transport fatal-error patch.
 
@@ -155,8 +154,8 @@ def aionetiface_setup_event_loop() -> None:
     # Monkey-patch the selector transport so a fatal transport error is logged
     # and the transport is force-closed rather than propagating up.
     def fatal_error(
-        self, exc: BaseException, message: str = "Fatal error on transport"
-    ) -> None:
+        self, exc, message="Fatal error on transport"
+    ):
         """Log and forcibly close the transport on a fatal async transport error."""
         er = {
             "message": message,
@@ -177,7 +176,7 @@ def aionetiface_setup_event_loop() -> None:
 # Call it explicitly in your application entry point before using the library.
 
 
-async def entrypoint_test() -> None:
+async def entrypoint_test():
     """Run aionetiface setup and print the netifaces instance to stdout."""
     out = await aionetiface_setup_netifaces()
     print(out)

@@ -5,7 +5,6 @@
 import ipaddress
 import copy
 from functools import total_ordering
-from typing import Any, Dict, List, Optional, Union
 from ..utility.utils import fstr, log, range_intersects, hamming_weight, get_bits
 from .net_defs import BLACK_HOLE_IPS, IP4, IP6, IPA_TYPES, IP_PRIVATE, IP_PUBLIC
 from .net_utils import af_bitlen, cidr_to_netmask, ip_norm, v_to_af
@@ -23,15 +22,15 @@ __all__ = [
 class IPRangeIter:
     """Iterator over the host addresses within an IPRange, supporting forward and reverse traversal."""
 
-    def __init__(self, ipr: "IPRange", reverse: bool = False) -> None:
+    def __init__(self, ipr, reverse=False):
         self.ipr = ipr
         self.reverse = reverse
         self.host_p = 0
 
-    def __iter__(self) -> "IPRangeIter":
+    def __iter__(self):
         return self
 
-    def __next__(self) -> Any:
+    def __next__(self):
         if self.host_p >= self.ipr.host_no:
             raise StopIteration
 
@@ -64,11 +63,11 @@ class IPRange:
 
     def __init__(
         self,
-        ip: Any,
-        netmask: Any = None,
-        bitlen: Optional[int] = None,
-        af: Optional[int] = None,
-    ) -> None:
+        ip,
+        netmask=None,
+        bitlen=None,
+        af=None,
+    ):
         self.route = None
         self.subnet = None
 
@@ -187,21 +186,21 @@ class IPRange:
             raise ValueError("host_no must be non-zero")
 
     @property
-    def host_limit(self) -> int:
+    def host_limit(self):
         return self.host_no
 
-    def len(self) -> int:
+    def len(self):
         """Return the number of host addresses in this range."""
         return self.host_no
 
-    def ip_f(self, n: int) -> Any:
+    def ip_f(self, n):
         """Return an IPv4Address or IPv6Address object for the integer address n."""
         if self.af == IP4:
             return ipaddress.IPv4Address(n)
         if self.af == IP6:
             return ipaddress.IPv6Address(n)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self):
         """Serialise this IPRange to a plain dict suitable for JSON or pickling."""
         d = {"ip": self.ip, "host_limit": self.host_no, "af": int(self.af)}
         if self.subnet is not None:
@@ -209,7 +208,7 @@ class IPRange:
         return d
 
     @staticmethod
-    def from_dict(d: Dict[str, Any]) -> "IPRange":
+    def from_dict(d):
         """Reconstruct an IPRange from a dict previously produced by to_dict."""
         import math
 
@@ -221,15 +220,15 @@ class IPRange:
         return ipr
 
     # Pickle.
-    def __getstate__(self) -> Any:
+    def __getstate__(self):
         return self.to_dict()
 
     # Unpickle.
-    def __setstate__(self, state: Any) -> None:
+    def __setstate__(self, state):
         o = self.from_dict(state)
         self.__dict__ = o.__dict__
 
-    def __deepcopy__(self, memo: Any) -> "IPRange":
+    def __deepcopy__(self, memo):
         ip = self.ip
         netmask = self.netmask
         params = (ip, netmask, copy.deepcopy(self.bitlen))
@@ -237,10 +236,10 @@ class IPRange:
         new_ipr.subnet = self.subnet
         return new_ipr
 
-    def __int__(self) -> int:
+    def __int__(self):
         return self.i_nw + self.i_host
 
-    def __bytes__(self) -> bytes:
+    def __bytes__(self):
         if self.af == IP4:
             return int.to_bytes(
                 int(self),
@@ -254,16 +253,16 @@ class IPRange:
                 "big",
             )
 
-    def __len__(self) -> int:
+    def __len__(self):
         return self.host_no
 
-    def __iter__(self) -> "IPRangeIter":
+    def __iter__(self):
         return IPRangeIter(self)
 
-    def __reversed__(self) -> "IPRangeIter":
+    def __reversed__(self):
         return IPRangeIter(self, reverse=True)
 
-    def get_value(self, i: int) -> Any:
+    def get_value(self, i):
         """
         Return the IP address at offset i within this subnet.
 
@@ -285,7 +284,7 @@ class IPRange:
         i_host = (offset % (self.host_no + 1)) or 1
         return self.ip_f(self.i_nw + i_host)
 
-    def __add__(self, n: Any) -> Any:
+    def __add__(self, n):
         if isinstance(n, IPRange):
             return self[n.i_host]
 
@@ -294,10 +293,10 @@ class IPRange:
 
         raise NotImplementedError("IPRange.__add__ is not implemented for that type.")
 
-    def __radd__(self, n: Any) -> Any:
+    def __radd__(self, n):
         return self + n
 
-    def __sub__(self, n: Any) -> Any:
+    def __sub__(self, n):
         if isinstance(n, IPRange):
             return self[-n.i_host]
 
@@ -306,10 +305,10 @@ class IPRange:
 
         raise NotImplementedError("IPRange.__sub__ is not implemented for that type.")
 
-    def __rsub__(self, n: Any) -> Any:
+    def __rsub__(self, n):
         return self - n
 
-    def _convert_other(self, other: Any) -> "IPRange":
+    def _convert_other(self, other):
         """Coerce other to an IPRange for comparison operations."""
         if isinstance(other, (int, bytes, str)):
             ipa = ipaddress.ip_address(other)
@@ -322,20 +321,20 @@ class IPRange:
             "IPRange comparison is not implemented for that type."
         )
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other):
         other = self._convert_other(other)
         return range_intersects(self.r, other.r)
 
-    def __lt__(self, other: Any) -> bool:
+    def __lt__(self, other):
         other = self._convert_other(other)
 
         # Compare highest values in range.
         return self.r[1] < other.r[1]
 
-    def __contains__(self, item: Any) -> bool:
+    def __contains__(self, item):
         return self == item
 
-    def __getitem__(self, key: Any) -> Any:
+    def __getitem__(self, key):
         if isinstance(key, slice):
             start, stop, step = key.indices(len(self))
             return [self[i] for i in range(start, stop, step)]
@@ -345,21 +344,21 @@ class IPRange:
             return [self.get_value(x) for x in key]
         raise TypeError("Invalid argument type: {}".format(type(key)))
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return fstr("{0}", (str(self),))
 
     # Get an IPAddress obj at start of range.
     # Convert to a string.
-    def __str__(self) -> str:
+    def __str__(self):
         return ipr_norm(self)
 
-    def __hash__(self) -> int:
+    def __hash__(self):
         return hash(str(self))
 
 
 def ipr_in_interfaces(
-    needle_ipr: "IPRange", if_list: List[Any], mode: int = IP_PUBLIC
-) -> bool:
+    needle_ipr, if_list, mode=IP_PUBLIC
+):
     """Return True if needle_ipr matches any public (or private) IP in the given interface list."""
     af = needle_ipr.af
     for interface in if_list:
@@ -377,18 +376,18 @@ def ipr_in_interfaces(
     return False
 
 
-def ipr_norm(ipr: "IPRange") -> str:
+def ipr_norm(ipr):
     """Return the normalised string of the first (or only) host address in an IPRange."""
     return ip_norm(str(ipr[0]))
 
 
-def IPR(ip: Union[str, bytes], af: Optional[int] = None, bitlen: int = 0) -> "IPRange":
+def IPR(ip, af=None, bitlen=0):
     """Construct a single-host IPRange, inferring address family from the IP string when af is None."""
     af = af or IP6 if ":" in ip else IP4
     return IPRange(ip, af=af, bitlen=bitlen)
 
 
-def ensure_ip_is_public(ip: Union[str, bytes]) -> str:
+def ensure_ip_is_public(ip):
     """Normalise ip and raise if it is a private address; return the normalised IP on success."""
     ip = ip_norm(ip)
     ipr = IPRange(ip)

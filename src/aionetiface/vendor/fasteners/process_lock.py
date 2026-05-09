@@ -23,9 +23,6 @@ import os
 from pathlib import Path
 import threading
 import time
-from typing import Callable
-from typing import Optional
-from typing import Union
 
 from ._utils import *
 from .process_mechanism import _interprocess_mechanism
@@ -63,9 +60,9 @@ class InterProcessLock:
 
     def __init__(
         self,
-        path: Union[Path, str],
-        sleep_func: Callable[[float], None] = time.sleep,
-        logger: Optional[logging.Logger] = None,
+        path,
+        sleep_func=time.sleep,
+        logger=None,
     ):
         """
         args:
@@ -127,11 +124,11 @@ class InterProcessLock:
 
     def acquire(
         self,
-        blocking: bool = True,
-        delay: float = 0.01,
-        max_delay: float = 0.1,
-        timeout: Optional[float] = None,
-    ) -> bool:
+        blocking=True,
+        delay=0.01,
+        max_delay=0.1,
+        timeout=None,
+    ):
         """Attempt to acquire the lock.
 
         Args:
@@ -247,9 +244,9 @@ class InterProcessReaderWriterLock:
 
     def __init__(
         self,
-        path: Union[Path, str],
-        sleep_func: Callable[[float], None] = time.sleep,
-        logger: Optional[logging.Logger] = None,
+        path,
+        sleep_func=time.sleep,
+        logger=None,
     ):
         """
         Args:
@@ -334,21 +331,21 @@ class InterProcessReaderWriterLock:
 
     def acquire_read_lock(
         self,
-        blocking: bool = True,
-        delay: float = 0.01,
-        max_delay: float = 0.1,
-        timeout: float = None,
-    ) -> bool:
+        blocking=True,
+        delay=0.01,
+        max_delay=0.1,
+        timeout=None,
+    ):
         """Attempt to acquire a reader's lock."""
         return self._acquire(blocking, delay, max_delay, timeout, exclusive=False)
 
     def acquire_write_lock(
         self,
-        blocking: bool = True,
-        delay: float = 0.01,
-        max_delay: float = 0.1,
-        timeout: float = None,
-    ) -> bool:
+        blocking=True,
+        delay=0.01,
+        max_delay=0.1,
+        timeout=None,
+    ):
         """Attempt to acquire a writer's lock."""
         return self._acquire(blocking, delay, max_delay, timeout, exclusive=True)
 
@@ -433,7 +430,7 @@ class InterProcessReaderWriterLock:
                 )
 
 
-def interprocess_write_locked(path: Union[Path, str]):
+def interprocess_write_locked(path):
     """Acquires & releases an interprocess  **write** lock around the call into
     the decorated function
 
@@ -453,7 +450,7 @@ def interprocess_write_locked(path: Union[Path, str]):
     return decorator
 
 
-def interprocess_read_locked(path: Union[Path, str]):
+def interprocess_read_locked(path):
     """Acquires & releases an interprocess **read** lock around the call into
     the decorated function
 
@@ -473,7 +470,7 @@ def interprocess_read_locked(path: Union[Path, str]):
     return decorator
 
 
-def interprocess_locked(path: Union[Path, str]):
+def interprocess_locked(path):
     """Acquires & releases an interprocess lock around the call to the
     decorated function.
 

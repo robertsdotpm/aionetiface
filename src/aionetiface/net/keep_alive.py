@@ -5,14 +5,13 @@ Code taken from: https://github.com/sfinktah/keepalive/tree/master
 
 import platform
 import socket
-from typing import Any, Optional
 
 def set_keepalive_linux(
-    sock: Any,
-    after_idle_sec: Optional[int],
-    interval_sec: Optional[int],
-    max_fails: Optional[int],
-) -> None:
+    sock,
+    after_idle_sec,
+    interval_sec,
+    max_fails,
+):
     """Set TCP keepalive on an open socket.
 
     It activates after 1 second (after_idle_sec) of idleness,
@@ -29,11 +28,11 @@ def set_keepalive_linux(
 
 
 def set_keepalive_osx(
-    sock: Any,
-    after_idle_sec: Optional[int],
-    interval_sec: Optional[int],
-    max_fails: Optional[int],
-) -> None:
+    sock,
+    after_idle_sec,
+    interval_sec,
+    max_fails,
+):
     """Set TCP keepalive on an open socket.
 
     sends a keepalive ping once every 3 seconds (interval_sec)
@@ -47,11 +46,11 @@ def set_keepalive_osx(
 
 
 def set_keepalive_win(
-    sock: Any,
-    after_idle_sec: Optional[int],
-    interval_sec: Optional[int],
-    max_fails: Optional[int],
-) -> None:
+    sock,
+    after_idle_sec,
+    interval_sec,
+    max_fails,
+):
     """Configure TCP keepalive on an open socket using the Windows SIO_KEEPALIVE_VALS ioctl."""
     if after_idle_sec is not None and interval_sec is not None:
         sock.ioctl(
@@ -60,8 +59,8 @@ def set_keepalive_win(
 
 
 def set_keep_alive(
-    sock: Any, after_idle_sec: int = 60, interval_sec: int = 60, max_fails: int = 5
-) -> None:
+    sock, after_idle_sec=60, interval_sec=60, max_fails=5
+):
     """Apply platform-appropriate TCP keepalive settings to an open socket."""
     try:
         plat = platform.system()

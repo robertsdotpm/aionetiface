@@ -3,7 +3,6 @@ from struct import pack
 import hmac
 import socket
 import hashlib
-from typing import Any, Optional, Tuple
 from ...utility.utils import b_and, b_or, b_to_i, rand_b, xor_bufs
 from ...net.net_defs import IP4, IP6
 
@@ -33,7 +32,7 @@ RFC5389 = 2
 RFC8489 = 3
 
 
-def _get_const_name(cls, val, type_: type) -> str:
+def _get_const_name(cls, val, type_):
     """Return the attribute name in cls whose value equals val and whose type matches type_, or an empty string."""
     for attr_name in dir(cls):
         attr = getattr(cls, attr_name)
@@ -130,12 +129,12 @@ class STUNAddrTup:
     """Encode and decode STUN address attributes including XOR variants for IPv4 and IPv6."""
     def __init__(
         self,
-        ip: Optional[str] = None,
-        port: Optional[int] = None,
-        af: int = IP4,
-        txid: bytes = b"",
-        magic_cookie: bytes = STUN_MAGIC_XOR,
-    ) -> None:
+        ip=None,
+        port=None,
+        af=IP4,
+        txid=b"",
+        magic_cookie=STUN_MAGIC_XOR,
+    ):
         self.ip = ip
         self.port = port
         self.af = af
@@ -143,7 +142,7 @@ class STUNAddrTup:
         self.magic_cookie = magic_cookie
         self.tup = ()
 
-    def get_family_buf(self) -> bytes:
+    def get_family_buf(self):
         """Return the two-byte STUN address family field for this instance's address family."""
         if self.af == IP4:
             return b"\0\1"
@@ -151,7 +150,7 @@ class STUNAddrTup:
             return b"\0\2"
 
     @staticmethod
-    def get_addr_bufs(af: int, attr_data: Any) -> Tuple[Any, Any]:
+    def get_addr_bufs(af, attr_data):
         """Return (ip_buf, port_buf) slices extracted from the raw attr_data bytes for the given address family.
 
         Note: `af` is a hint from the caller (typically the AF of the
@@ -171,7 +170,7 @@ class STUNAddrTup:
         return (ip_buf, port_buf)
 
     @staticmethod
-    def get_attr_family(attr_data: Any) -> int:
+    def get_attr_family(attr_data):
         """Return the address family encoded inside the attribute itself
         (RFC 5389 §15.1: byte[1] is 0x01 for IPv4, 0x02 for IPv6).
         Falls back to IP4 on a malformed attribute. Use this in preference
@@ -187,13 +186,13 @@ class STUNAddrTup:
         return IP4
 
     @staticmethod
-    def addr_bufs_to_tup(af: int, ip_buf: Any, port_buf: Any) -> Tuple[str, int]:
+    def addr_bufs_to_tup(af, ip_buf, port_buf):
         """Convert raw IP and port byte buffers to a (ip_str, port_int) tuple."""
         port = b_to_i(port_buf, "big")
         ip = socket.inet_ntop(af, ip_buf)
         return (ip, port)
 
-    def decode(self, code: Any, data: Any) -> Tuple[Any, Any, Any]:
+    def decode(self, code, data):
         """Decode a STUN address attribute, un-XORing if required, and return (ip_buf, port_buf, processed_data).
 
         The address family used for slicing and inet_ntop is read from
@@ -241,7 +240,7 @@ class STUNAddrTup:
         self.tup = STUNAddrTup.addr_bufs_to_tup(attr_af, ip_buf, port_buf)
         return ip_buf, port_buf, data
 
-    def encode(self, code: Any) -> bytes:
+    def encode(self, code):
         """Encode this instance's IP and port into a STUN address attribute byte buffer for the given attribute code."""
         # Convert IP address to binary.
         family = self.get_family_buf()
@@ -260,7 +259,7 @@ class STUNAddrTup:
             return dec_buf
         return buf
 
-    def pack(self, ip: str, port: int, af: int) -> bytes:
+    def pack(self, ip, port, af):
         """Create a new STUNAddrTup from ip, port, and af and return its encoded byte buffer."""
         inst = STUNAddrTup(
             ip=ip,
@@ -271,13 +270,13 @@ class STUNAddrTup:
         )
         return inst.encode()
 
-    def unpack(self, code: Any, data: Any) -> "STUNAddrTup":
+    def unpack(self, code, data):
         """Decode data into a new STUNAddrTup instance and return it."""
         inst = STUNAddrTup(af=self.af, txid=self.txid, magic_cookie=self.magic_cookie)
         inst.decode(code, data)
         return inst
 
-    def __str__(self) -> str:
+    def __str__(self):
         return "{}:{}".format(self.ip, self.port)
 
 
@@ -285,10 +284,10 @@ class STUNMsg:
     """Build, pack, decode, and iterate over attributes of a STUN protocol message."""
     def __init__(
         self,
-        msg_type: Any = STUNMsgTypes.Binding,
-        msg_code: Any = STUNMsgCodes.Request,
-        mode: int = RFC3489,
-    ) -> None:
+        msg_type=STUNMsgTypes.Binding,
+        msg_code=STUNMsgCodes.Request,
+        mode=RFC3489,
+    ):
         self.msg_code = msg_code
         self.msg_type = msg_type  # type: int
         self.msg_len = 0  # type: int
@@ -304,12 +303,12 @@ class STUNMsg:
         else:
             self.magic_cookie = STUN_MAGIC_COOKIE
 
-    def reset_attr(self) -> None:
+    def reset_attr(self):
         """Clear all previously written attributes and reset the message length to zero."""
         self.msg_len = 0
         self.msg = bytearray()
 
-    def write_attr(self, attr: bytes, *data, fmt: str = None) -> None:
+    def write_attr(self, attr, *data, fmt=None):
         """Append a STUN attribute with the given code and data (optionally struct-formatted) to the message buffer."""
         # process data -> bytes
         if fmt:
@@ -337,29 +336,29 @@ class STUNMsg:
         self.msg_len += len(buf)
         self.msg += buf
 
-    def write_credential(self, username: str, realm: str, nonce: bytes = b"") -> None:
+    def write_credential(self, username, realm, nonce=b""):
         """Write Username, Realm, and Nonce attributes into the message for long-term credential authentication."""
         self.write_attr(STUNAttrs.Username, username)
         self.write_attr(STUNAttrs.Realm, realm)
         self.write_attr(STUNAttrs.Nonce, nonce)
 
-    def _hmac(self, key: bytes, msg: bytes) -> bytes:
+    def _hmac(self, key, msg):
         """Return the HMAC-SHA1 digest of msg using key."""
         hashed = hmac.new(key, msg, hashlib.sha1)
         return hashed.digest()
 
-    def write_hmac(self, key: bytes) -> None:
+    def write_hmac(self, key):
         """Compute and append a MessageIntegrity attribute using the HMAC-SHA1 of the current packed message."""
         self.msg_len += 24
         msg_hmac = self.pack()
         self.msg_len -= 24
         self.write_attr(STUNAttrs.MessageIntegrity, self._hmac(key, msg_hmac))
 
-    def eof(self) -> bool:
+    def eof(self):
         """Return True if the attribute cursor has reached the end of the message body."""
         return self.attr_cursor >= self.msg_len - 1
 
-    def read_attr(self) -> tuple:
+    def read_attr(self):
         """Read and return the next (attr_type, attr_len, attr_data) tuple from the message buffer."""
         # Process serialized attribute chunk using pointers.
         msg = memoryview(self.msg)
@@ -392,10 +391,10 @@ class STUNMsg:
         # Return results.
         return m_attr, m_len, m_data
 
-    def __bytes__(self) -> bytes:
+    def __bytes__(self):
         return b""
 
-    def pack(self) -> bytes:
+    def pack(self):
         """Serialise the message header and all written attributes into a complete STUN wire-format byte string."""
         # Starting with RFC 5389 and on a more complex
         # bit scheme is used for the message type.
@@ -414,7 +413,7 @@ class STUNMsg:
             ]
         )
 
-    def decode(self, msg: Any) -> Optional[Any]:
+    def decode(self, msg):
         """Populate this instance's fields from a raw STUN byte buffer and return any trailing bytes."""
         # Unpack data from buffer using memory views.
         msg_len = len(msg)
@@ -436,7 +435,7 @@ class STUNMsg:
                 else:
                     raise Exception("Invalid length for STUN msg.")
 
-    def unpack(msg: Any, mode: int = RFC3489) -> Tuple["STUNMsg", Any]:
+    def unpack(msg, mode=RFC3489):
         """Decode msg into a new STUNMsg instance and return (instance, trailing_bytes)."""
         inst = STUNMsg(mode=mode)
         buf = inst.decode(msg)

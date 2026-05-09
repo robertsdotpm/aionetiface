@@ -6,7 +6,6 @@ disconnects (TCP) or stop_reader signals (UDP, since UDP has no graceful close).
 
 import selectors
 import socket
-from typing import Any, Dict, List, Tuple, Union
 from ..utility.error_logger import log, log_exception
 from .net_utils import sock_has_data
 
@@ -19,8 +18,8 @@ RECV_CHUNK = 65536
 
 
 def close_pair(
-    sock: Any, peers: Dict[Any, Any], selector: Any, buffers: Dict[Any, Any],
-) -> None:
+    sock, peers, selector, buffers,
+):
     """Cleans up both sides of the proxy connection."""
     peer = peers.pop(sock, None)
     if peer:
@@ -41,8 +40,8 @@ def close_pair(
 
 
 def _connect_reverse(
-    destination: Tuple[str, int], sock_proto: int,
-) -> Any:
+    destination, sock_proto,
+):
     """Open the worker's reverse leg back to main. TCP -> create_connection,
     UDP -> bind a fresh socket and connect (UDP "connect" sets the kernel's
     default peer for send / filters recv to that peer).
@@ -58,7 +57,7 @@ def _connect_reverse(
     return s
 
 
-def _read_chunk(sock: Any, sock_proto: int) -> bytes:
+def _read_chunk(sock, sock_proto):
     """Read a chunk from sock. TCP: stream bytes (b"" == graceful close).
     UDP: one datagram (b"" is a real zero-length datagram, not a close).
     Raises BlockingIOError if no data available (selector mis-fired).
@@ -71,8 +70,8 @@ def _read_chunk(sock: Any, sock_proto: int) -> bytes:
 
 
 def _enqueue(
-    buffers: Dict[Any, Any], peer: Any, data: bytes, sock_proto: int,
-) -> None:
+    buffers, peer, data, sock_proto,
+):
     """Enqueue data for transmission to peer. TCP concatenates into a byte
     stream; UDP keeps each datagram as a separate list entry so boundaries
     are preserved across the bridge."""
@@ -83,7 +82,7 @@ def _enqueue(
     buffers[peer].append(data)
 
 
-def _has_pending(buf: Any, sock_proto: int) -> bool:
+def _has_pending(buf, sock_proto):
     """True if there's anything buffered for this socket to write."""
     if sock_proto == socket.SOCK_STREAM:
         return bool(buf)
@@ -91,8 +90,8 @@ def _has_pending(buf: Any, sock_proto: int) -> bool:
 
 
 def _write_chunk(
-    sock: Any, buffers: Dict[Any, Any], sock_proto: int,
-) -> None:
+    sock, buffers, sock_proto,
+):
     """Drain one chunk / one datagram from buffers[sock] to sock. Updates
     buffers[sock] in place."""
     if sock_proto == socket.SOCK_STREAM:
@@ -126,12 +125,12 @@ def _write_chunk(
 
 
 def selector_proxy(
-    socket_p: Any,
-    destination: Tuple[str, int],
-    stop_reader: Any,
-    sock_proto: int = socket.SOCK_STREAM,
-    socket_r: Any = None,
-) -> None:
+    socket_p,
+    destination,
+    stop_reader,
+    sock_proto=socket.SOCK_STREAM,
+    socket_r=None,
+):
     """Bidirectionally proxy data between socket_p and a connection to destination.
 
     sock_proto selects the transport semantics for BOTH legs of the

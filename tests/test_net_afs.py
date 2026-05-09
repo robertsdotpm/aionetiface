@@ -2,14 +2,12 @@
 nc -4 -u aionetiface.net 7
 
 """
-
-from typing import Any
 from aionetiface import *
 from aionetiface.testing import AsyncTestCase
 
 
 class TestAFsWork(AsyncTestCase):
-    async def test_afs(self) -> None:
+    async def test_afs(self):
         # TODO: fix this in the future when servers are back up
         return
 

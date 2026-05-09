@@ -10,7 +10,6 @@ import types
 import warnings
 import multiprocessing
 import platform
-from typing import Any
 from asyncio import futures
 
 # asyncio.futures._chain_future was added in Python 3.5.1; polyfill for 3.5.0.
@@ -129,7 +128,7 @@ class AsyncIOInteractiveConsole(code.InteractiveConsole):
         self.locals.update(captured)
         return False
 
-    def runcode(self, code: Any) -> None:
+    def runcode(self, code):
         """Compile and run a code object, scheduling any coroutine result on the event loop."""
         future = concurrent.futures.Future()
 
@@ -180,7 +179,7 @@ class AsyncIOInteractiveConsole(code.InteractiveConsole):
 class REPLThread(threading.Thread):
     """Background thread that drives the interactive REPL console."""
 
-    def run(self) -> None:
+    def run(self):
         """Start the interactive console banner and enter the REPL loop."""
         try:
             loop_policy = str(asyncio.get_event_loop_policy())

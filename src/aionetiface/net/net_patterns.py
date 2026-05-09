@@ -1,11 +1,10 @@
 """Higher-level send/receive patterns built on raw sockets."""
 import asyncio
-from typing import Any
 from ..utility.utils import log_exception
 from .net_defs import SUB_ALL, TCP
 
 
-async def proto_recv(pipe: Any) -> Any:
+async def proto_recv(pipe):
     """Receive a message from pipe, retrying up to 5 times for UDP connections."""
     n = 1 if pipe.sock.type == TCP else 5
     for _ in range(0, n):
@@ -15,7 +14,7 @@ async def proto_recv(pipe: Any) -> Any:
             continue
 
 
-async def proto_send(pipe: Any, buf: bytes) -> None:
+async def proto_send(pipe, buf):
     """Send buf over pipe, retrying up to 5 times with brief delays for UDP connections."""
     n = 1 if pipe.sock.type == TCP else 5
     for i in range(0, n):
@@ -31,7 +30,7 @@ async def proto_send(pipe: Any, buf: bytes) -> None:
             await asyncio.sleep(0.1)
 
 
-async def send_recv_loop(dest: Any, pipe: Any, buf: bytes, sub: Any = SUB_ALL) -> Any:
+async def send_recv_loop(dest, pipe, buf, sub=SUB_ALL):
     """Send buf to dest and wait for a matching reply, retrying up to 3 times for UDP."""
     n = 1 if pipe.sock.type == TCP else 3
     for _ in range(0, n):

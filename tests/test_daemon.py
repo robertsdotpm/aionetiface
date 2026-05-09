@@ -1,11 +1,10 @@
-from typing import Any
 from aionetiface import *
 from aionetiface.testing import AsyncTestCase
 from port_helpers import xdist_port_base
 
 
 class TestDaemon(AsyncTestCase):
-    async def test_daemon(self) -> None:
+    async def test_daemon(self):
         loop = asyncio.get_event_loop()
         print(loop)
 

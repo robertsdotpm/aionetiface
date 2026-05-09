@@ -14,8 +14,6 @@ Ports used: 34600–34699 (avoid overlap with other test files).
 Run with:
     python3 -m pytest tests/test_link_local_daemon.py -v
 """
-
-from typing import Any
 from aionetiface import *
 from aionetiface.testing import AsyncTestCase
 from port_helpers import xdist_port_base
@@ -25,7 +23,7 @@ BASE_PORT = xdist_port_base(34600)
 MSG = b"link-local scope test"
 
 
-def _get_link_local(interface: Any):
+def _get_link_local(interface):
     """Return the first link-local string for the interface, or None."""
     try:
         route = interface.route(IP6)

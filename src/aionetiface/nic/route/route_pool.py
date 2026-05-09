@@ -1,6 +1,5 @@
 """RoutePool: a set of routes grouped by address family."""
 import copy
-from typing import Any, Dict, List, Optional
 from ...utility.utils import sorted_search
 from ...net.ip_range import IPRange
 from .route import Route
@@ -12,7 +11,7 @@ from .route import Route
 class RoutePoolIter:
     """Iterator that traverses a RoutePool host-by-host, optionally in reverse order."""
 
-    def __init__(self, rp: "RoutePool", reverse: bool = False) -> None:
+    def __init__(self, rp, reverse=False):
         self.rp = rp
         self.reverse = reverse
         self.host_p = 0
@@ -22,10 +21,10 @@ class RoutePoolIter:
         if self.reverse:
             self.route_offset = len(self.rp.routes) - 1
 
-    def __iter__(self) -> "RoutePoolIter":
+    def __iter__(self):
         return self
 
-    def __next__(self) -> Any:
+    def __next__(self):
         # Avoid overflow.
         if self.host_p >= self.rp.wan_hosts:
             raise StopIteration
@@ -59,9 +58,9 @@ class RoutePool:
 
     def __init__(
         self,
-        routes: Optional[List[Any]] = None,
-        link_locals: Optional[List[Any]] = None,
-    ) -> None:
+        routes=None,
+        link_locals=None,
+    ):
         self.routes = routes or []
         self.link_locals = link_locals or []
 
@@ -97,7 +96,7 @@ class RoutePool:
         # Simulate 'removing' past elements.
         self.pop_pointer = 0
 
-    def to_dict(self) -> List[Dict[str, Any]]:
+    def to_dict(self):
         """Serialise this pool to a list of route dicts suitable for JSON storage."""
         routes = []
         for route in self.routes:
@@ -106,7 +105,7 @@ class RoutePool:
         return routes
 
     @staticmethod
-    def from_dict(route_dicts: List[Dict[str, Any]]) -> "RoutePool":
+    def from_dict(route_dicts):
         """Reconstruct a RoutePool from a list of route dicts previously produced by to_dict."""
         routes = []
         for route_dict in route_dicts:
@@ -115,15 +114,15 @@ class RoutePool:
         return RoutePool(routes)
 
     # Pickle.
-    def __getstate__(self) -> List[Dict[str, Any]]:
+    def __getstate__(self):
         return self.to_dict()
 
     # Unpickle.
-    def __setstate__(self, state: List[Dict[str, Any]]) -> None:
+    def __setstate__(self, state):
         o = self.from_dict(state)
         self.__dict__ = o.__dict__
 
-    def locate(self, other: Any) -> Optional[Any]:
+    def locate(self, other):
         """Return the first route in the pool equal to other, or None if not found."""
         for route in self.routes:
             if route == other:
@@ -132,7 +131,7 @@ class RoutePool:
         return None
 
     # Is a route in this route pool?
-    def __contains__(self, other: Any) -> bool:
+    def __contains__(self, other):
         route = self.locate(other)
         if route is not None:
             return True
@@ -140,7 +139,7 @@ class RoutePool:
 
     # Simulate fetching a route off a stack of routes.
     # Just hides certain pointer offsets when indexing, lel.
-    def pop(self) -> Any:
+    def pop(self):
         """Return the next route in traversal order, advancing the internal pop pointer."""
         if self.pop_pointer >= self.wan_hosts:
             raise IndexError("No more routes.")
@@ -150,7 +149,7 @@ class RoutePool:
 
         return ret
 
-    def get_route_info(self, route_offset: int, abs_host_offset: int) -> Any:
+    def get_route_info(self, route_offset, abs_host_offset):
         """Build and return a single-host Route for the WAN host at abs_host_offset within route_offset."""
         # Route to use for the WAN addresses.
         assert route_offset <= (len(self.routes) - 1)
@@ -188,10 +187,10 @@ class RoutePool:
 
         return new_route
 
-    def __len__(self) -> int:
+    def __len__(self):
         return self.wan_hosts
 
-    def __getitem__(self, key: Any) -> Any:
+    def __getitem__(self, key):
         # Possible due to pop decreasing host no.
         if not self.wan_hosts:
             return []
@@ -213,8 +212,8 @@ class RoutePool:
             return [self[x] for x in key]
         raise TypeError("Invalid argument type: {}".format(type(key)))
 
-    def __iter__(self) -> RoutePoolIter:
+    def __iter__(self):
         return RoutePoolIter(self)
 
-    def __reversed__(self) -> RoutePoolIter:
+    def __reversed__(self):
         return RoutePoolIter(self, reverse=True)

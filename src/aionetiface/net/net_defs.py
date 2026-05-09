@@ -5,7 +5,6 @@ import asyncio
 import platform
 import ipaddress
 from io import BytesIO
-from typing import Any
 
 __all__ = [
     "HOST_TYPE_DOMAIN",
@@ -247,21 +246,21 @@ NET_CONF = {
 class FakeSocket:
     """Minimal socket-like object backed by a BytesIO buffer, used for HTTP response parsing."""
 
-    def __init__(self, response_bytes: bytes) -> None:
+    def __init__(self, response_bytes):
         self._file = BytesIO(response_bytes)
 
-    def makefile(self, *args: Any, **kwargs: Any) -> BytesIO:
+    def makefile(self, *args, **kwargs):
         """Return the underlying BytesIO buffer as a file-like object."""
         return self._file
 
-    def close(self) -> None:
+    def close(self):
         """No-op close to satisfy the socket interface."""
         return
 
-    def _close_conn(self) -> None:
+    def _close_conn(self):
         """No-op connection-close stub to satisfy the socket interface."""
         return
 
-    def flush(self) -> None:
+    def flush(self):
         """No-op flush to satisfy the socket interface."""
         return

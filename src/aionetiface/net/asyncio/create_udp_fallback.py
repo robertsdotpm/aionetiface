@@ -5,13 +5,12 @@ a fallback implementation using low-level socket operations.
 """
 
 import asyncio
-from typing import Any, List, Optional
 
 
 class PolledDatagramTransport:
     """Polled datagram transport for platforms where asyncio UDP is unavailable."""
 
-    def __init__(self, loop: Any, sock: Any, protocol: Any) -> None:
+    def __init__(self, loop, sock, protocol):
         self.loop = loop
         self.sock = sock
         self.protocol = protocol
@@ -21,7 +20,7 @@ class PolledDatagramTransport:
         self.sock.setblocking(False)
         protocol.connection_made(self)
 
-    def poll(self) -> None:
+    def poll(self):
         """Drain all pending datagrams from the socket and deliver them to the protocol."""
         if self.closing:
             return
@@ -43,7 +42,7 @@ class PolledDatagramTransport:
             if self.consecutive_errors >= 10:
                 self.close()
 
-    def sendto(self, data: bytes, addr: Optional[Any] = None) -> None:
+    def sendto(self, data, addr=None):
         """Send a datagram to addr (or the connected remote if addr is None)."""
         if self.closing:
             return
@@ -57,7 +56,7 @@ class PolledDatagramTransport:
         except OSError as e:
             self.protocol.error_received(e)
 
-    def close(self) -> None:
+    def close(self):
         """Mark transport as closing, close the socket, and notify the protocol."""
         if self.closing:
             return
@@ -75,11 +74,11 @@ class PolledDatagramTransport:
                 if not fut.done():
                     self.loop.call_soon(fut.set_result, True)
 
-    def is_closing(self) -> bool:
+    def is_closing(self):
         """Return True if this transport has been closed or is in the process of closing."""
         return self.closing
 
-    def get_extra_info(self, name: str, default: Optional[Any] = None) -> Any:
+    def get_extra_info(self, name, default=None):
         """Return transport-level metadata by name, or default if not available."""
         if name == "socket":
             return self.sock
@@ -89,24 +88,24 @@ class PolledDatagramTransport:
 class UdpPoller:
     """Periodically polls all registered PolledDatagramTransports and delivers received data."""
 
-    def __init__(self, loop: Any) -> None:
+    def __init__(self, loop):
         self.loop = loop
         self.sockets = []
         self.interval = 0.01  # 10ms polling interval
         self.task = loop.create_task(self.poll_loop())
 
-    def register(self, transport: Any) -> None:
+    def register(self, transport):
         """Add a PolledDatagramTransport to the set of sockets to be polled."""
         self.sockets.append(transport)
         if self.task is None or self.task.done():
             self.task = self.loop.create_task(self.poll_loop())
 
-    def close(self) -> None:
+    def close(self):
         """Schedule cancellation of the polling task (non-blocking)."""
         if self.task and not self.task.done():
             self.task.cancel()
 
-    async def aclose(self) -> None:
+    async def aclose(self):
         """Async close — cancels the polling task and waits for it to exit."""
         self.close()
         if self.task is not None:
@@ -116,7 +115,7 @@ class UdpPoller:
                 pass
             self.task = None
 
-    async def poll_loop(self) -> None:
+    async def poll_loop(self):
         """Poll registered transports until all are closed or task is cancelled."""
         while self.sockets:
             self.sockets = [t for t in self.sockets if not t.is_closing()]

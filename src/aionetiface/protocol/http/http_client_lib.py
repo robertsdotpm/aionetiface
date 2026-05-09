@@ -5,7 +5,6 @@ from http.client import HTTPResponse
 import json
 import re
 import urllib.parse
-from typing import Any, Dict, List, Optional, Tuple
 from ...net.net_defs import IP4, TCP, NET_CONF, FakeSocket, SUB_ALL
 from ...net.pipe.pipe import Pipe
 from ...net.address import resolv_dest
@@ -31,13 +30,13 @@ HTTP_HEADERS = [
 
 
 def http_req_buf(
-    af: int,
-    host: Any,
-    path: bytes = b"/",
-    method: bytes = b"GET",
-    payload: bytes = b"",
-    headers: Optional[List[Any]] = None,
-) -> bytes:
+    af,
+    host,
+    path=b"/",
+    method=b"GET",
+    payload=b"",
+    headers=None,
+):
     """Build and return a raw HTTP/1.0 request byte string for the given host, path, method, and payload."""
     # Format headers.
     hdrs = {}
@@ -83,7 +82,7 @@ def http_req_buf(
     return buf
 
 
-def http_parse_headers(self: Any) -> None:
+def http_parse_headers(self):
     """Parse the headers from self into self.hdrs as a flat dict keyed by both original and lowercase names."""
     # Get headers from named pair list.
     hdrs = {}
@@ -103,7 +102,7 @@ def http_parse_headers(self: Any) -> None:
 
 class ParseHTTPResponse(HTTPResponse):
     """Parse a raw HTTP response byte string and expose its headers and body."""
-    def __init__(self, resp_text: bytes) -> None:
+    def __init__(self, resp_text):
         self.resp_len = len(resp_text)
         self.fp = self.sock = FakeSocket(resp_text)
         super().__init__(self.sock)
@@ -115,12 +114,12 @@ class ParseHTTPResponse(HTTPResponse):
             if self.hdrs[te] == "chunked":
                 raise Exception("chunked encoding not supported!")
 
-    def out(self) -> bytes:
+    def out(self):
         """Return the full response body as bytes."""
         return self.read(self.resp_len)
 
 
-def get_hdr(name: Any, hdrs: Any) -> Tuple[int, Optional[Any]]:
+def get_hdr(name, hdrs):
     """Search hdrs for a header matching name (case-insensitive) and return its (index, value) or (-1, None)."""
     # Hdrs none probably.
     if not isinstance(hdrs, list):
@@ -135,7 +134,7 @@ def get_hdr(name: Any, hdrs: Any) -> Tuple[int, Optional[Any]]:
     return (-1, None)
 
 
-async def url_res(route: Any, url: str, timeout: int = 3) -> Dict[str, Any]:
+async def url_res(route, url, timeout=3):
     """
     Break up a URL into its host, port, and file path, and resolve the
     domain for use with networking code that makes the HTTP request.
@@ -162,7 +161,7 @@ async def url_res(route: Any, url: str, timeout: int = 3) -> Dict[str, Any]:
 
 
 # Web payload decorators
-def Payload(f: Any, url: Optional[Dict[str, Any]] = None, body: bytes = b"") -> Any:
+def Payload(f, url=None, body=b""):
     """Wrap f with url and body defaults and return an async callable that accepts path and hdrs."""
     if url is None:
         url = {}
@@ -177,12 +176,12 @@ def Payload(f: Any, url: Optional[Dict[str, Any]] = None, body: bytes = b"") -> 
 
 # Returns pipe, ParseHTTPResponse
 async def do_web_req(
-    addr: Any,
-    http_buf: bytes,
-    do_close: int,
-    route: Any,
-    conf: Optional[Dict[str, Any]] = None,
-) -> Tuple[Optional[Any], Optional[Any]]:
+    addr,
+    http_buf,
+    do_close,
+    route,
+    conf=None,
+):
     if conf is None:
         conf = NET_CONF
     log(fstr("{0}", (addr,)))
@@ -274,12 +273,12 @@ class WebCurl:
 
     def __init__(
         self,
-        addr: Any,
-        route: Any,
-        throttle: int = 0,
-        do_close: int = 1,
-        hdrs: Optional[List[Any]] = None,
-    ) -> None:
+        addr,
+        route,
+        throttle=0,
+        do_close=1,
+        hdrs=None,
+    ):
         self.addr = addr
         self.route = route
         self.url_params = {}
@@ -291,7 +290,7 @@ class WebCurl:
         self.do_close = do_close
 
     # Returns a deep copy of this client for use in concurrent requests.
-    def copy(self) -> "WebCurl":
+    def copy(self):
         """Return a deep copy of this WebCurl instance suitable for concurrent use."""
         route = copy.deepcopy(self.route)
         client = WebCurl(self.addr, route)
@@ -307,8 +306,8 @@ class WebCurl:
         return client
 
     def vars(
-        self, url_params: Optional[Dict[str, Any]] = None, body: bytes = b""
-    ) -> "WebCurl":
+        self, url_params=None, body=b""
+    ):
         """Return a copy of this client configured with the given URL query parameters and request body."""
         # Avoid race conditions.
         client = self.copy()
@@ -326,8 +325,8 @@ class WebCurl:
         return client
 
     async def api(
-        self, method: Any, path: Any, hdrs: Any, conf: Dict[str, Any]
-    ) -> "WebCurl":
+        self, method, path, hdrs, conf
+    ):
         # New instance to avoid race conditions.
         client = self.copy()
         client.path = path
@@ -393,24 +392,24 @@ class WebCurl:
 
     async def get(
         self,
-        path: Any,
-        hdrs: Optional[List[Any]] = None,
-        conf: Optional[Dict[str, Any]] = None,
-    ) -> "WebCurl":
+        path,
+        hdrs=None,
+        conf=None,
+    ):
         return await self.api("GET", path, hdrs or [], conf or NET_CONF)
 
     async def post(
         self,
-        path: Any,
-        hdrs: Optional[List[Any]] = None,
-        conf: Optional[Dict[str, Any]] = None,
-    ) -> "WebCurl":
+        path,
+        hdrs=None,
+        conf=None,
+    ):
         return await self.api("POST", path, hdrs or [], conf or NET_CONF)
 
     async def delete(
         self,
-        path: Any,
-        hdrs: Optional[List[Any]] = None,
-        conf: Dict[str, Any] = NET_CONF,
-    ) -> "WebCurl":
+        path,
+        hdrs=None,
+        conf=NET_CONF,
+    ):
         return await self.api("DELETE", path, hdrs or [], conf)

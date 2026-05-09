@@ -1,14 +1,13 @@
 """High-level route-table queries (default gateway, internet check)."""
 import re
 import platform
-from typing import Any, Dict, List, Optional
 from ...utility.utils import async_test, ip_f
 from ...utility.cmd_tools import cmd
 from ...net.net_defs import IP4, IP6, VALID_AFS
 from ...net.net_utils import ip_norm
 
 
-async def windows_get_route_table(af: int) -> List[Dict[str, Any]]:
+async def windows_get_route_table(af):
     table = []
     if af == IP4:
         cmd_buf = 'powershell "Get-NetRoute -AddressFamily IPv4"'
@@ -34,7 +33,7 @@ async def windows_get_route_table(af: int) -> List[Dict[str, Any]]:
     return table
 
 
-async def linux_get_route_table(af: int) -> List[Dict[str, Any]]:
+async def linux_get_route_table(af):
     table = []
     bin_path = "/usr/sbin/route"
     if af == IP4:
@@ -77,7 +76,7 @@ async def linux_get_route_table(af: int) -> List[Dict[str, Any]]:
     return table
 
 
-async def darwin_get_route_table(af: int) -> List[Dict[str, Any]]:
+async def darwin_get_route_table(af):
     table = []
     p = r"([^\r\n]+?)[ ]+([^\r\n]+?)[ ]+([^\r\n]+?)[ ]+([^\r\n ]+)[ ]*(([^\r\n]+)[ ]*)?[\r\n]+"
     if af == IP4:
@@ -101,7 +100,7 @@ async def darwin_get_route_table(af: int) -> List[Dict[str, Any]]:
     return table
 
 
-async def get_route_table(af: int) -> List[Dict[str, Any]]:
+async def get_route_table(af):
     if platform.system() == "Windows":
         return await windows_get_route_table(af)
 
@@ -115,8 +114,8 @@ async def get_route_table(af: int) -> List[Dict[str, Any]]:
 
 
 def find_rt_entry(
-    dest: Any, if_name: Any, table: List[Dict[str, Any]]
-) -> Optional[Dict[str, Any]]:
+    dest, if_name, table
+):
     """Return the first route-table entry matching dest and if_name, or None."""
     for entry in table:
         if entry["dest"] != dest:
@@ -128,7 +127,7 @@ def find_rt_entry(
         return entry
 
 
-async def darwin_is_internet_if(if_name: str) -> bool:
+async def darwin_is_internet_if(if_name):
     def is_internet_if(table):
         # Find default entry for iface.
         default_entry = find_rt_entry("default", if_name, table)
@@ -151,7 +150,7 @@ async def darwin_is_internet_if(if_name: str) -> bool:
     return False
 
 
-async def linux_is_internet_if(if_name: str) -> bool:
+async def linux_is_internet_if(if_name):
     def is_internet_if(table, af):
         if af == IP6:
             for entry in table:
@@ -195,7 +194,7 @@ async def linux_is_internet_if(if_name: str) -> bool:
     return False
 
 
-async def windows_is_internet_if(if_index: Any) -> bool:
+async def windows_is_internet_if(if_index):
     def is_internet_if(table, af):
         if af == IP4:
             dest = "0.0.0.0/0"
@@ -212,7 +211,7 @@ async def windows_is_internet_if(if_index: Any) -> bool:
     return False
 
 
-async def is_internet_if(if_name: Any) -> bool:
+async def is_internet_if(if_name):
     if platform.system() == "Linux":
         return await linux_is_internet_if(if_name)
 
@@ -228,7 +227,7 @@ async def is_internet_if(if_name: Any) -> bool:
 if __name__ == "__main__":  # pragma: no cover
     from .interface import Interface
 
-    async def test_route_table() -> None:
+    async def test_route_table():
         i = Interface()
         if i.nic_no:
             await is_internet_if(i.nic_no)

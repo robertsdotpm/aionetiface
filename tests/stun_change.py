@@ -1,5 +1,4 @@
 import asyncio
-from typing import Any
 from aionetiface import *
 
 """
@@ -7,7 +6,7 @@ Demonstrates that change attribute replies through STUN RFC 5389 aren't supporte
 """
 
 
-async def main() -> None:
+async def main():
     nic = await Interface()
 
     dest = ("ovh1.p2pd.net", 3478)

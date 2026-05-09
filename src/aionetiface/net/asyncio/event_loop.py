@@ -2,7 +2,6 @@
 import asyncio
 import selectors
 import traceback
-from typing import Any, Dict, Optional
 from ...utility.utils import *
 
 
@@ -15,7 +14,7 @@ CLOSE_FUTURES = {}
 class ProxySelector:
     """A wrapper around elector object to intercept unregister calls."""
 
-    def __init__(self, selector_instance: Any, loop: Any) -> None:
+    def __init__(self, selector_instance, loop):
         self.selector = selector_instance
         self.loop = loop
 
@@ -31,7 +30,7 @@ class ProxySelector:
         self.get_map = selector_instance.get_map
         self.get_key = selector_instance.get_key
 
-    def select(self, timeout: Any = None) -> Any:
+    def select(self, timeout=None):
         """Forward to the underlying selector, recovering from stale-FD errors.
 
         On Windows XP (and other older Winsock stacks) a closed socket
@@ -87,7 +86,7 @@ class ProxySelector:
             # other than a stale FD is wrong.
             return self.selector.select(timeout)
 
-    def maybe_signal_removal(self, fd: Any, events: int, data: Any) -> None:
+    def maybe_signal_removal(self, fd, events, data):
         """Helper to signal if FD is being completely unregistered."""
 
         # Check if the FD's future exists in the global map
@@ -104,7 +103,7 @@ class ProxySelector:
                     # potential recursion issues during selector processing
                     self.loop.call_soon(future.set_result, True)
 
-    def unregister(self, fd: Any) -> Any:
+    def unregister(self, fd):
         """Intercepts the complete removal of the FD."""
         # CLOSE_FUTURES is keyed by integer fd.  Convert a socket/file object
         # to its integer fd before the lookup so the future is actually found.
@@ -112,7 +111,7 @@ class ProxySelector:
         self.maybe_signal_removal(real_fd, 0, None)
         return self.selector.unregister(fd)
 
-    def modify(self, fd: Any, events: int, data: Optional[Any] = None) -> Any:
+    def modify(self, fd, events, data=None):
         """Intercepts modification, checking if FD is effectively unregistered."""
         # fileobj/fd check
         real_fd = fd if isinstance(fd, int) else fd.fileno()
@@ -128,7 +127,7 @@ class ProxySelector:
 class CustomEventLoop(asyncio.SelectorEventLoop):
     """Event loop that uses the ProxySelector."""
 
-    def create_future(self) -> Any:
+    def create_future(self):
         # loop.create_future() was added in Python 3.5.1; 3.5.0 lacks it.
         # On 3.5.1+ the super() call goes to BaseEventLoop.create_future().
         try:
@@ -136,7 +135,7 @@ class CustomEventLoop(asyncio.SelectorEventLoop):
         except AttributeError:
             return asyncio.Future(loop=self)
 
-    def __init__(self, selector: Optional[Any] = None) -> None:
+    def __init__(self, selector=None):
         # Determine the default selector class if none is provided
         if selector is None:
             selector_cls = selectors.DefaultSelector
@@ -153,7 +152,7 @@ class CustomEventLoop(asyncio.SelectorEventLoop):
         # The base SelectorEventLoop expects a selector object here.
         super().__init__(proxy_selector)
 
-    def close(self) -> None:
+    def close(self):
         """
         Override to drain CLOSE_FUTURES when the loop is closed.
 
@@ -175,7 +174,7 @@ class CustomEventLoop(asyncio.SelectorEventLoop):
         super().close()
 
     # Add your public API method back (using the global map from the proxy)
-    def await_fd_close(self, sock: Any) -> Any:
+    def await_fd_close(self, sock):
         """Return a Future that resolves once the selector unregisters this socket's file descriptor."""
         # Ensure we are not returning a coroutine
         fd = sock.fileno()
@@ -198,7 +197,7 @@ class CustomEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
     """Asyncio event loop policy that installs CustomEventLoop and a structured exception handler."""
 
     @staticmethod
-    def exception_handler(self: Any, context: Dict[str, Any]) -> None:
+    def exception_handler(self, context):
         """
         Custom asyncio exception handler.
         Logs exception type, message, and the line number where it occurred.
@@ -247,7 +246,7 @@ class CustomEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
         log("\n".join(buf))
 
     @staticmethod
-    def loop_setup(loop: Any) -> None:
+    def loop_setup(loop):
         """Apply standard debug and exception-handler settings to a freshly created loop."""
         loop.set_debug(False)
         loop.set_exception_handler(CustomEventLoopPolicy.exception_handler)
@@ -257,7 +256,7 @@ class CustomEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
         # not two.  Assigning our staticmethod (which needs two args) would cause a
         # TypeError the first time the default handler is invoked directly.
 
-    def new_event_loop(self) -> CustomEventLoop:
+    def new_event_loop(self):
         """Create, configure, and return a new CustomEventLoop with the ProxySelector installed."""
         selector = selectors.SelectSelector()
         loop = CustomEventLoop(selector)

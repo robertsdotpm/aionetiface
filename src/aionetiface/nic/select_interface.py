@@ -1,6 +1,5 @@
 """Heuristics for selecting the best NIC for a given connection."""
 import platform
-from typing import Any, List, Optional, Tuple
 from ..utility.utils import to_unique
 from ..net.net_defs import INTERFACE_UNKNOWN
 from ..net.ip_range import IPRange
@@ -11,7 +10,7 @@ from .interface_utils import get_interface_type
 from ..entrypoint import aionetiface_setup_netifaces
 
 
-def get_if_by_nic_ipr(nic_ipr: Any, netifaces: Any) -> Optional[Any]:
+def get_if_by_nic_ipr(nic_ipr, netifaces):
     """Return the Interface whose bound address matches nic_ipr, or None if not found."""
     for if_name in netifaces.interfaces():
         valid_afs = [netifaces.AF_INET, netifaces.AF_INET6]
@@ -43,12 +42,12 @@ intended as the source for a connection.
 
 
 async def select_if_by_dest(
-    af: int,
-    src_index: int,
-    dest_ip: str,
-    interface: Any,
-    ifs: Optional[List[Any]] = None,
-) -> Tuple[Any, int]:
+    af,
+    src_index,
+    dest_ip,
+    interface,
+    ifs=None,
+):
     """
     All valid interfaces for the software can reach
     internet -- use original interface if the dest_ip
@@ -129,7 +128,7 @@ Other OS is based on the interface name (not that accurate.)
 """
 
 
-async def filter_trash_interfaces(netifaces: Optional[Any] = None) -> List[str]:
+async def filter_trash_interfaces(netifaces=None):
     netifaces = netifaces or Interface.get_netifaces()
     ifs = netifaces.interfaces()
     os_family = platform.system()
@@ -175,7 +174,7 @@ async def filter_trash_interfaces(netifaces: Optional[Any] = None) -> List[str]:
     return clean_ifs
 
 
-async def list_interfaces(netifaces: Optional[Any] = None) -> List[str]:
+async def list_interfaces(netifaces=None):
     if netifaces is None:
         netifaces = await aionetiface_setup_netifaces()
 

@@ -4,7 +4,6 @@ import re
 import socket
 import time
 from functools import lru_cache
-from typing import Any, Dict, List, Optional
 from ..utility.utils import fstr, log, log_exception, to_s
 from ..errors import ErrorCantLoadNATInfo, InterfaceInvalidAF, InterfaceNotFound
 from ..net.net_defs import (
@@ -24,7 +23,7 @@ from .route.route_pool import RoutePool
 from ..utility.var_names import TXT
 
 
-def get_interface_af(netifaces: Any, name: str) -> int:
+def get_interface_af(netifaces, name):
     """Return the address-family stack constant (DUEL_STACK, IP4, IP6, or UNKNOWN_STACK) for interface name."""
     af_list = []
     for af in [IP4, IP6]:
@@ -44,7 +43,7 @@ def get_interface_af(netifaces: Any, name: str) -> int:
 
 
 @lru_cache(maxsize=None)
-def get_default_nic_ip(af: int) -> str:
+def get_default_nic_ip(af):
     """Return the local IP address the OS would use to reach the internet for the given address family."""
     af = int(af)
     try:
@@ -59,11 +58,11 @@ def get_default_nic_ip(af: int) -> str:
 
 
 def get_default_iface(
-    netifaces: Any,
-    afs: Optional[List[int]] = None,
-    exp: int = 1,
-    duel_stack_test: bool = True,
-) -> str:
+    netifaces,
+    afs=None,
+    exp=1,
+    duel_stack_test=True,
+):
     """Return the interface name whose address matches the OS-selected source IP, or an empty string if none found."""
     if afs is None:
         afs = VALID_AFS
@@ -82,7 +81,7 @@ def get_default_iface(
     return ""
 
 
-def get_interface_type(name: str) -> int:
+def get_interface_type(name):
     """Classify a network interface name as INTERFACE_ETHERNET, INTERFACE_WIRELESS, or INTERFACE_UNKNOWN."""
     name = name.lower()
     if re.match(r"en[0-9]+", name) is not None:
@@ -104,7 +103,7 @@ def get_interface_type(name: str) -> int:
     return INTERFACE_UNKNOWN
 
 
-def get_interface_stack(rp: Dict[int, Any]) -> int:
+def get_interface_stack(rp):
     """Derive the stack constant (DUEL_STACK, single AF, or UNKNOWN_STACK) from a route-pool dict."""
     stacks = []
     for af in [IP4, IP6]:
@@ -121,7 +120,7 @@ def get_interface_stack(rp: Dict[int, Any]) -> int:
     return UNKNOWN_STACK
 
 
-def clean_if_list(ifs: List[str]) -> List[str]:
+def clean_if_list(ifs):
     """Filter an interface name list to only those with a recognised type (ethernet or wireless)."""
     # Otherwise use the interface type function.
     # Looks at common patterns for interface names (not accurate.)
@@ -134,7 +133,7 @@ def clean_if_list(ifs: List[str]) -> List[str]:
     return clean_ifs
 
 
-def log_interface_rp(interface: Any) -> None:
+def log_interface_rp(interface):
     """Log the route pool, NIC IP, and external IP for each address family on the given interface."""
     for af in VALID_AFS:
         if not len(interface.rp[af].routes):
@@ -154,7 +153,7 @@ def log_interface_rp(interface: Any) -> None:
         log(fstr("> ext() = {0}", (interface.route(af).ext(),)))
 
 
-def get_ifs_by_af_intersect(if_list: List[Any]) -> List[Any]:
+def get_ifs_by_af_intersect(if_list):
     """Return the [interfaces, af] pair where af is the address family with the most supporting interfaces."""
     largest = []
     af_used = None
@@ -171,7 +170,7 @@ def get_ifs_by_af_intersect(if_list: List[Any]) -> List[Any]:
     return [largest, af_used]
 
 
-def is_nic_default(nic: Any, af: int, gws: Optional[Any] = None) -> bool:
+def is_nic_default(nic, af, gws=None):
     """Return True if nic owns the IP the OS would pick for outbound traffic on af.
 
     Cross-platform: a single ``Interface("default")`` is constructed lazily and
@@ -220,7 +219,7 @@ def is_nic_default(nic: Any, af: int, gws: Optional[Any] = None) -> bool:
     return False
 
 
-def nic_from_dict(d: Dict[str, Any], Interface: Any) -> Any:
+def nic_from_dict(d, Interface):
     """Reconstruct an Interface object from a serialised dict, restoring routes, NAT info, and stack type."""
     i = Interface(d["name"])
     i.netiface_index = d["netiface_index"]
@@ -259,7 +258,7 @@ def nic_from_dict(d: Dict[str, Any], Interface: Any) -> Any:
     return i
 
 
-def nic_to_dict(nic: Any) -> Dict[str, Any]:
+def nic_to_dict(nic):
     """Serialise a NIC interface object to a plain dict, including route pools, NAT info, and default flags."""
     if nic.nat is not None:
         nat_dict = {
@@ -287,7 +286,7 @@ def nic_to_dict(nic: Any) -> Dict[str, Any]:
 
 # Given a list of Interface dicts.
 # Convert them back to Interfaces and return a list.
-def dict_to_if_list(dict_list: List[Dict[str, Any]], Interface: Any) -> List[Any]:
+def dict_to_if_list(dict_list, Interface):
     """Convert a list of interface dicts back into Interface objects and return them as a list."""
     if_list = []
     for d in dict_list:
@@ -299,7 +298,7 @@ def dict_to_if_list(dict_list: List[Dict[str, Any]], Interface: Any) -> List[Any
 
 # Given a list of Interface objs.
 # Convert to dict and return a list.
-def if_list_to_dict(if_list: List[Any]) -> List[Dict[str, Any]]:
+def if_list_to_dict(if_list):
     """Convert a list of Interface objects to a list of serialised dicts."""
     dict_list = []
     for interface in if_list:
@@ -310,13 +309,13 @@ def if_list_to_dict(if_list: List[Any]) -> List[Dict[str, Any]]:
 
 
 async def load_interfaces(
-    if_names: List[Any],
-    Interface: Any,
-    min_agree: int = 2,
-    max_agree: int = 5,
-    skip_nat: bool = False,
-    timeout: int = 4,
-) -> List[Any]:
+    if_names,
+    Interface,
+    min_agree=2,
+    max_agree=5,
+    skip_nat=False,
+    timeout=4,
+):
     """
     Load every NIC concurrently with a per-NIC wall-clock cap.
 
@@ -358,7 +357,7 @@ async def load_interfaces(
     LOAD_CONCURRENCY = 4
     sem = asyncio.Semaphore(LOAD_CONCURRENCY)
 
-    async def load_one(if_name: Any) -> Optional[Any]:
+    async def load_one(if_name):
         async with sem:
             t0 = time.time()
             log("[IFLOAD] enter nic={0} start_cap={1}s nat_cap={2}s timeout={3}s skip_nat={4}".format(
@@ -463,7 +462,7 @@ async def load_interfaces(
     return loaded
 
 
-def get_nic_for_af(nic_list: List[Any]) -> Dict[int, Optional[Any]]:
+def get_nic_for_af(nic_list):
     """Return a {IP4: nic, IP6: nic} dict mapping each address family to the first NIC that supports it."""
     ret = {IP4: None, IP6: None}
     for af in (IP4, IP6):

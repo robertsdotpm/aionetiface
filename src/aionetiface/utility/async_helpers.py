@@ -4,7 +4,6 @@ import functools
 import inspect
 import random
 import sys
-from typing import Any, Callable, List, Optional
 
 from .fstr import fstr
 from .error_logger import log, log_exception
@@ -35,13 +34,13 @@ __all__ = [
 STATUS_RETRY = 1
 
 
-def create_task(coro: Any, loop: Optional[Any] = None) -> Any:
+def create_task(coro, loop=None):
     """Schedule coro as a task on the given (or current) event loop."""
     loop = loop or asyncio.get_event_loop()
     return loop.create_task(coro)
 
 
-def get_running_loop() -> Optional[Any]:
+def get_running_loop():
     """Return the running event loop if one exists, falling back to get_event_loop() on Python < 3.7."""
     try:
         return asyncio.get_running_loop()
@@ -54,7 +53,7 @@ def get_running_loop() -> Optional[Any]:
         return None
 
 
-async def safe_run(f: Any, args: Optional[List[Any]] = None) -> None:
+async def safe_run(f, args=None):
     """
     Run f(*args), then wait for all remaining tasks in the event loop to finish.
 
@@ -69,14 +68,14 @@ async def safe_run(f: Any, args: Optional[List[Any]] = None) -> None:
     await asyncio.gather(*tasks - {cur_task})
 
 
-async def return_true(result: Any = None) -> bool:
+async def return_true(result=None):
     """No-op coroutine that always returns True. Useful as a stub callback."""
     return True
 
 
 async def threshold_gather(
-    tasks: List[Any], result_filter: Callable[[List[Any]], List[Any]], threshold: int
-) -> Optional[Any]:
+    tasks, result_filter, threshold
+):
     """
     Run tasks concurrently and return the first result that appears at least
     `threshold` times after applying result_filter.
@@ -108,8 +107,8 @@ async def threshold_gather(
 
 
 async def async_wrap_errors(
-    coro: Any, timeout: Optional[int] = None, logging: bool = True
-) -> Optional[Any]:
+    coro, timeout=None, logging=True
+):
     """
     Await coro, optionally bounded by timeout seconds.
 
@@ -130,8 +129,8 @@ async def async_wrap_errors(
 
 
 def sync_wrap_errors(
-    f: Callable[..., Any], args: Optional[List[Any]] = None
-) -> Optional[Any]:
+    f, args=None
+):
     """
     Call f(*args) synchronously, logging any exception without re-raising.
 
@@ -150,7 +149,7 @@ def sync_wrap_errors(
     return None
 
 
-async def async_retry(gen: Callable[[], Any], count: int, timeout: int = 4) -> None:
+async def async_retry(gen, count, timeout=4):
     """
     Retry the coroutine produced by gen() up to count times with the given timeout.
 
@@ -191,7 +190,7 @@ async def async_retry(gen: Callable[[], Any], count: int, timeout: int = 4) -> N
 
 
 # Will be used in sample code to avoid boilerplate.
-def async_test(coro: Any, loop: Optional[Any] = None) -> None:
+def async_test(coro, loop=None):
     """
     Run a coroutine (or coroutine function) synchronously.
 
@@ -209,8 +208,8 @@ def async_test(coro: Any, loop: Optional[Any] = None) -> None:
 
 
 def async_to_sync(
-    f: Callable[..., Any], params: Optional[Any] = None, loop: Optional[Any] = None
-) -> Callable[..., Any]:
+    f, params=None, loop=None
+):
     """
     Wrap async function f into a synchronous callable.
 
@@ -249,8 +248,8 @@ def async_to_sync(
 
 
 def handler_done_builder(
-    pipe: Any, handler: Any, task: Optional[Any] = None
-) -> Callable[[Any], None]:
+    pipe, handler, task=None
+):
     """
     Return a done-callback for a handler task attached to pipe.
 
@@ -281,11 +280,11 @@ def handler_done_builder(
 
 
 def run_handler(
-    pipe: Any,
-    handler: Callable[..., Any],
-    client_tup: Any,
-    data: Optional[bytes] = None,
-) -> None:
+    pipe,
+    handler,
+    client_tup,
+    data=None,
+):
     """
     Dispatch a single handler on a received message.
 
@@ -313,11 +312,11 @@ def run_handler(
 
 
 def run_handlers(
-    pipe: Any,
-    handlers: List[Callable[..., Any]],
-    client_tup: Any,
-    data: Optional[bytes] = None,
-) -> None:
+    pipe,
+    handlers,
+    client_tup,
+    data=None,
+):
     """
     Dispatch all registered handlers for a pipe event.
 
@@ -348,7 +347,7 @@ def submit_to_executor(fn, loop):
     return loop.run_in_executor(None, fn)
 
 
-def run_in_executor(f: Callable[..., Any]) -> Callable[..., Any]:
+def run_in_executor(f):
     """
     Decorator that runs f in a thread-pool executor.
 
@@ -378,7 +377,7 @@ def run_in_executor(f: Callable[..., Any]) -> Callable[..., Any]:
     return inner
 
 
-def run_in_executor2(f: Callable[..., Any]) -> Callable[..., Any]:
+def run_in_executor2(f):
     """
     Decorator that schedules async functions as tasks, or runs sync
     functions in the executor.
@@ -400,7 +399,7 @@ def run_in_executor2(f: Callable[..., Any]) -> Callable[..., Any]:
 # ---------------------------------------------------------------------------
 
 
-async def safe_gather(*args: Any) -> List[Any]:
+async def safe_gather(*args):
     """
     Gather coroutines, but run them sequentially on Python 3.5 to avoid
     filling the executor pool, which is buggy on older interpreter versions.
@@ -414,7 +413,7 @@ async def safe_gather(*args: Any) -> List[Any]:
     return await asyncio.gather(*args)
 
 
-async def sleep_random(min_ms: int = 100, max_ms: int = 2000) -> None:
+async def sleep_random(min_ms=100, max_ms=2000):
     """Sleep for a random duration between min_ms and max_ms milliseconds."""
     delay = random.randrange(min_ms, max_ms + 1) / 1000.0
     await asyncio.sleep(delay)

@@ -1,16 +1,15 @@
 """Top-level async runner (event loop bootstrapping)."""
 import asyncio
 from asyncio import events, coroutines
-from typing import Any, Optional
 try:
-    from typing import Type
+    pass
 except ImportError:
     Type = Any  # type: ignore
 from ...utility.cleanup import cancel_all_tasks
 from ...utility.utils import get_running_loop
 
 
-def patch_asyncio_backports(loop_cls: Optional[Any] = None) -> None:
+def patch_asyncio_backports(loop_cls=None):
     """Monkey-patch shutdown_asyncgens and shutdown_default_executor onto loop_cls when absent."""
     # Default to whatever class is passed, or fall back to the base event loop
     if loop_cls is None:
@@ -40,7 +39,7 @@ def patch_asyncio_backports(loop_cls: Optional[Any] = None) -> None:
         loop_cls.shutdown_default_executor = _shutdown_default_executor
 
 
-def async_run(main: Any, *, debug: bool = False) -> Any:
+def async_run(main, *, debug=False):
     """Execute the coroutine and return the result.
 
     This function runs the passed coroutine, taking care of

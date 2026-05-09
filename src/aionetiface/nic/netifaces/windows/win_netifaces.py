@@ -63,7 +63,6 @@ Notes:
 import asyncio
 import re
 import platform
-from typing import Any, Dict, List, Optional
 from ....net.net_defs import IP4, IP6, VALID_AFS
 from ....net.net_utils import cidr_to_netmask, v_to_af, ip_strip_if, ip_strip_cidr, af_bitlen
 from ....net.ip_range import IPRange
@@ -128,7 +127,7 @@ Foreach($iface in $ifs){
 """
 
 
-async def load_ifs_from_ps1() -> List[Dict[str, Any]]:
+async def load_ifs_from_ps1():
     # Get all interface details as one big script.
     out = await asyncio.wait_for(ps1_exec_trick(IFS_PS1), 10)
     if "InterfaceDescription" not in out:
@@ -247,7 +246,7 @@ async def load_ifs_from_ps1() -> List[Dict[str, Any]]:
     return if_infos
 
 
-async def get_default_gw_by_if_index(af: int, if_index: int) -> Optional[str]:
+async def get_default_gw_by_if_index(af, if_index):
     dest_ip = "0.0.0.0/0" if af == IP4 else "::/0"
     cmd_str = '{} "(Get-NetRoute {} -InterfaceIndex {}).NextHop"'
     cmd_str = cmd_str.format("powershell", dest_ip, if_index)
@@ -271,7 +270,7 @@ async def get_default_gw_by_if_index(af: int, if_index: int) -> Optional[str]:
         return None
 
 
-async def get_addr_info_by_if_index(if_index: int) -> Dict[Any, List[Dict[str, Any]]]:
+async def get_addr_info_by_if_index(if_index):
     addr = {IP4: [], IP6: []}
     cmd_str = 'powershell "Get-NetIPAddress -InterfaceIndex {}"'
     cmd_str = cmd_str.format(if_index)
@@ -309,7 +308,7 @@ async def get_addr_info_by_if_index(if_index: int) -> Dict[Any, List[Dict[str, A
     return addr
 
 
-async def get_default_iface_by_af(af: int) -> Optional[int]:
+async def get_default_iface_by_af(af):
     if af == IP4:
         any_offset = 0
     if af == IP6:
@@ -337,7 +336,7 @@ async def get_default_iface_by_af(af: int) -> Optional[int]:
         return None
 
 
-def extract_if_fields(ifs_str: str) -> List[Dict[str, Any]]:
+def extract_if_fields(ifs_str):
     """Returns a list of interface field dicts parsed from powershell Get-NetAdapter output."""
     results = []
     try:
@@ -371,7 +370,7 @@ def extract_if_fields(ifs_str: str) -> List[Dict[str, Any]]:
 # Get list of net adaptors via powershell.
 # Ignore hidden adapters. Non-physical or down.
 # Specify desc and index to show full entry.
-async def get_ifaces() -> str:
+async def get_ifaces():
     ps_path = get_powershell_path()
     try:
         out = await asyncio.wait_for(
@@ -392,7 +391,7 @@ async def get_ifaces() -> str:
     return out
 
 
-async def win_load_interface_state(if_results: List[Dict[str, Any]]) -> Dict[str, Any]:
+async def win_load_interface_state(if_results):
     # Lookup whether an1
     if_defaults_by_index = {}
     af_index = {}
@@ -475,7 +474,7 @@ async def win_load_interface_state(if_results: List[Dict[str, Any]]) -> Dict[str
     return by_guid_index
 
 
-def win_set_gateways(by_guid_index: Dict[str, Any]) -> Dict[Any, Any]:
+def win_set_gateways(by_guid_index):
     """Returns a netifaces-style gateways dict built from the given GUID-indexed interface data.
 
     Every NIC that has a configured gateway is listed in ``gws[af]`` regardless
@@ -522,10 +521,10 @@ class Netifaces:
     AF_INET6 = IP6
     AF_LINK = 18
 
-    def __init__(self) -> None:
+    def __init__(self):
         pass
 
-    async def start(self) -> "Netifaces":
+    async def start(self):
         # Per-version loader capability matrix. Don't invoke backends on
         # Windows versions where they can't work or are known to hang;
         # each fallback carries a real wall-clock cost (CMD_TIMEOUT per
@@ -695,25 +694,25 @@ class Netifaces:
         self.gws = win_set_gateways(self.by_guid_index)
         return self
 
-    def gateways(self) -> Dict[Any, Any]:
+    def gateways(self):
         """Returns the netifaces-style gateways dict for all detected interfaces."""
         return self.gws
 
-    def if_info(self, if_name: str) -> Dict[str, Any]:
+    def if_info(self, if_name):
         """Returns the full interface info dict for the given interface name."""
         return self.by_name_index[if_name]
 
-    def guid(self, if_name: str) -> str:
+    def guid(self, if_name):
         """Returns the GUID string for the given interface name."""
         if_info = self.if_info(if_name)
         return if_info["guid"]
 
-    def nic_no(self, if_name: str) -> int:
+    def nic_no(self, if_name):
         """Returns the integer interface index for the given interface name."""
         if_info = self.if_info(if_name)
         return if_info["no"]
 
-    def get_nic_id(self, af: Optional[int], if_name: str) -> int:
+    def get_nic_id(self, af, if_name):
         """Return the kernel-level interface index for if_name appropriate to af.
 
         af=None or IP4 -> the v4 ifindex (same as nic_no).
@@ -728,7 +727,7 @@ class Netifaces:
             return if_info.get("v6_no") or if_info["no"]
         return if_info["no"]
 
-    def ifaddresses(self, if_name: str) -> Dict[int, Any]:
+    def ifaddresses(self, if_name):
         """Returns a netifaces-style address dict keyed by address family for the given interface."""
         if_info = self.by_name_index[if_name]
         addr_format = {
@@ -750,7 +749,7 @@ class Netifaces:
 
         return addr_format
 
-    def interfaces(self) -> List[str]:
+    def interfaces(self):
         """Returns a sorted list of all detected interface names.
 
         Each interface contributes its friendly name and, when
@@ -770,7 +769,7 @@ class Netifaces:
         return ifs
 
 
-async def workspace() -> None:
+async def workspace():
     netifaces = Netifaces()
     await netifaces.start()
     print(netifaces.interfaces())

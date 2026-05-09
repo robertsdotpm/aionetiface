@@ -1,6 +1,5 @@
 """Bind policy application to sockets."""
 import copy
-from typing import Any, List, Optional, Tuple
 from ...net.net_defs import IP6, LOOPBACK_BIND, NIC_BIND
 from .bind_rules import binder_async
 from .bind_utils import bind_closure
@@ -17,12 +16,12 @@ class Bind:
 
     def __init__(
         self,
-        interface: Optional[Any],
-        af: int,
-        port: int = 0,
-        ips: Optional[Any] = None,
-        leave_none: int = 0,
-    ) -> None:
+        interface,
+        af,
+        port=0,
+        ips=None,
+        leave_none=0,
+    ):
         # if IS_DEBUG:
         # assert("Interface" in str(type(interface)))
         self.ips = ips
@@ -36,20 +35,20 @@ class Bind:
         if not hasattr(self, "bind"):
             self.bind = bind_closure(self, binder_async)
 
-    def __await__(self) -> Any:
+    def __await__(self):
         return self.bind().__await__()
 
-    async def res(self) -> "Bind":
+    async def res(self):
         """Resolve the bind parameters by calling the internal bind closure."""
         return await self.bind()
 
-    async def start(self) -> None:
+    async def start(self):
         """Trigger resolution of the bind configuration."""
         await self.res()
 
     def bind_tup(
-        self, port: Optional[int] = None, flag: int = NIC_BIND
-    ) -> Tuple[Any, ...]:
+        self, port=None, flag=NIC_BIND
+    ):
         """Return the (ip, port) tuple to pass to socket.bind(), optionally overriding the port."""
         # Handle loopback support.
         if flag == LOOPBACK_BIND:
@@ -76,6 +75,6 @@ class Bind:
         # log("> binding to tup = {}".format(tup))
         return tup
 
-    def supported(self) -> List[int]:
+    def supported(self):
         """Return a one-element list with the address family this Bind was configured for."""
         return [self.af]

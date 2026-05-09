@@ -5,7 +5,6 @@ import operator
 import os
 import random
 from functools import reduce
-from typing import Any, Dict, List
 
 from .net.net_defs import IP4, UDP
 from .utility.utils import rand_b, to_b
@@ -21,7 +20,7 @@ INFRA = json.loads(INFRA_BUF)
 INFRA_SEED = rand_b(8)
 
 
-def rng_for_attempt(attempt: int) -> random.Random:
+def rng_for_attempt(attempt):
     """Return a seeded Random instance deterministic for the given attempt number."""
     h = hashlib.sha256(INFRA_SEED + to_b(str(attempt))).digest()
     seed = int.from_bytes(h[:8], "big")
@@ -29,8 +28,8 @@ def rng_for_attempt(attempt: int) -> random.Random:
 
 
 def filter_by_score(
-    groups: List[List[Dict[str, Any]]], threshold: float = 0.8
-) -> List[List[Dict[str, Any]]]:
+    groups, threshold=0.8
+):
     """Return only those server groups whose minimum score meets or exceeds the threshold."""
     filtered = []
     for group in groups:
@@ -43,8 +42,8 @@ def filter_by_score(
 
 
 def get_infra(
-    af: int, proto: int, name: str, no: int = 1, attempt: int = 0, sample: bool = False
-) -> List[Any]:
+    af, proto, name, no=1, attempt=0, sample=False
+):
     """Look up infrastructure server entries by address family, protocol, and name."""
     af_str = ".IPv4" if af == IP4 else ".IPv6"
     proto_str = ".UDP" if proto == UDP else ".TCP"

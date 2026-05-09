@@ -7,7 +7,6 @@ and returns the parsed reply with address fields attached.
 """
 
 import re
-from typing import Any, Dict, List, Optional, Tuple
 from ...utility.utils import async_test, fstr, log, to_h, valid_port
 from ...errors import ErrorNoReply
 from .stun_defs import RFC3489, STUNAddrTup, STUNAttrs, STUNMsg
@@ -15,7 +14,7 @@ from ...net.ip_range import IPRange
 from ...net.net_patterns import send_recv_loop
 
 
-def stun_proc_attrs(af: int, attr_code: Any, attr_data: Any, msg: Any) -> None:
+def stun_proc_attrs(af, attr_code, attr_data, msg):
     """Decode a single STUN attribute and attach the resulting address tuple to msg as rtup or ctup."""
     # Set our remote IP and port.
     if not hasattr(msg, "rtup"):
@@ -39,7 +38,7 @@ def stun_proc_attrs(af: int, attr_code: Any, attr_data: Any, msg: Any) -> None:
             msg.ctup = stun_addr_field.tup
 
 
-def stun_proto(buf: bytes, af: int) -> Tuple[Any, bytes]:
+def stun_proto(buf, af):
     """Unpack a raw STUN buffer, process all its attributes, and return (STUNMsg, remaining_bytes)."""
     msg, buf = STUNMsg.unpack(buf)
     msg.af = af
@@ -53,12 +52,12 @@ def stun_proto(buf: bytes, af: int) -> Tuple[Any, bytes]:
 # Handles making a STUN request to a server.
 # Pipe also accepts route and its upgraded to a pipe.
 async def get_stun_reply(
-    mode: int,
-    dest_addr: Tuple[str, int],
-    reply_addr: Tuple[str, int],
-    pipe: Any,
-    attrs: Optional[List[Any]] = None,
-) -> Any:
+    mode,
+    dest_addr,
+    reply_addr,
+    pipe,
+    attrs=None,
+):
     """
     The function uses subscriptions to the TXID so that even
     on unordered protocols like UDP the right reply is returned.
@@ -91,7 +90,7 @@ async def get_stun_reply(
     return reply
 
 
-async def stun_reply_to_ret_dic(reply: Any) -> Optional[Dict[str, Any]]:
+async def stun_reply_to_ret_dic(reply):
     ret = {}
     if reply is None:
         return None
@@ -128,7 +127,7 @@ async def stun_reply_to_ret_dic(reply: Any) -> Optional[Dict[str, Any]]:
     return ret
 
 
-def validate_stun_reply(reply: Any, mode: int) -> Optional[Any]:
+def validate_stun_reply(reply, mode):
     """Return reply if it contains all required address attributes with public IPs and valid ports, otherwise None."""
     if reply is None:
         return None
@@ -190,7 +189,7 @@ def validate_stun_reply(reply: Any, mode: int) -> Optional[Any]:
     return reply
 
 
-async def run_stun_utils() -> None:
+async def run_stun_utils():
     m = STUNMsg()
     m.encode()
 

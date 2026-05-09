@@ -17,17 +17,8 @@ import sys
 import time
 import traceback
 import urllib.parse
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Iterator,
-    List,
-    Optional,
-    Union,
-)
 try:
-    from typing import Type
+    pass
 except ImportError:
     # typing.Type was added in Python 3.5.3; fall back to Any for older builds.
     Type = Any  # type: ignore
@@ -230,130 +221,130 @@ MAX_PORT = 65535
 ip_f = ipaddress.ip_address
 
 # Regex / string helpers.
-def re_unescape(x: str) -> str:
+def re_unescape(x):
     """Remove backslash escapes from a string."""
     return re.sub(r"\\(.)", r"\1", x)
 
 
-def rm_whitespace(x: str) -> str:
+def rm_whitespace(x):
     """Remove all whitespace from string x."""
     return re.sub(r"\s+", "", x, flags=re.UNICODE)
 
 
-def urlencode(x: str) -> bytes:
+def urlencode(x):
     """Percent-encode a string for use in a URL."""
     return to_b(urllib.parse.quote(x))
 
 
-def urldecode(x: str) -> bytes:
+def urldecode(x):
     """Decode a percent-encoded URL component."""
     return to_b(urllib.parse.unquote(x))
 
 
 # Port helpers.
-def valid_port(p: int) -> bool:
+def valid_port(p):
     """Return True if p is a valid TCP/UDP port number (1-65535)."""
     return 1 <= p <= MAX_PORT
 
 
-def port_wrap(p: int) -> int:
+def port_wrap(p):
     """Wrap p into the valid port range, skipping privileged ports."""
     return (p % MAX_PORT) or 1
 
 
 # List / dict helpers.
-def to_unique(x: list) -> list:
+def to_unique(x):
     """Return a list with duplicates removed (preserving first occurrence)."""
     return [i for n, i in enumerate(x) if i not in x[:n]]
 
 
-def strip_none(x: list) -> list:
+def strip_none(x):
     """Remove None values from a list."""
     return [i for i in x if i is not None]
 
 
-def shuffle(x: list) -> list:
+def shuffle(x):
     """Shuffle x in place and return it."""
     random.shuffle(x)
     return x
 
 
-def d_keys(x: dict) -> list:
+def d_keys(x):
     """Return the keys of dict d as a list."""
     return list(x.keys())
 
 
-def d_vals(x: dict) -> list:
+def d_vals(x):
     """Return the values of dict d as a list."""
     return list(x.values())
 
 
-def list_join(lists: list) -> list:
+def list_join(lists):
     """Concatenate a list of lists into a flat list."""
     return list(itertools.chain.from_iterable(lists))
 
 
-def list_x_to_dict(x: list) -> list:
+def list_x_to_dict(x):
     """Call .dict() on each element of x and return the resulting list."""
     return [v.dict() for v in x]
 
 
 # Numeric / range helpers.
-def from_range(r: Any) -> int:
+def from_range(r):
     """Return a value clamped into [lo, hi]."""
     return random.randrange(r[0], r[1] + 1)
 
 
-def in_range(x: Any, r: Any) -> bool:
+def in_range(x, r):
     """Return True if lo <= val <= hi."""
     return r[0] <= x <= r[1]
 
 
-def len_range(r: Any) -> int:
+def len_range(r):
     """Return the length of range r as r[1] - r[0]."""
     return r[1] - r[0]
 
 
-def dict_plus(d: dict, k: Any) -> Any:
+def dict_plus(d, k):
     """Return d[k] if k exists, else 0."""
     return d[k] if k in d else 0
 
 
 # Byte-level bitwise operations.
-def b_and(a: bytes, b: bytes) -> bytes:
+def b_and(a, b):
     """Bitwise AND of two equal-length byte strings."""
     return bytes(map(lambda x, y: x & y, a, b))
 
 
-def b_or(a: bytes, b: bytes) -> bytes:
+def b_or(a, b):
     """Bitwise OR of two equal-length byte strings."""
     return bytes(map(lambda x, y: x | y, a, b))
 
 
 # Type predicates.
-def is_number(x: Any) -> bool:
+def is_number(x):
     """Return True if x can be interpreted as a number."""
     return to_s(x).isnumeric()
 
 
-def is_bytes(x: Any) -> bool:
+def is_bytes(x):
     """Return True if x is a bytes-like object."""
     return isinstance(x, bytes)
 
 
 # Reflection helpers.
-def class_name(x: Any) -> Any:
+def class_name(x):
     """Return the class name of obj as a string."""
     return type(x).__name__ if inspect.isclass(x) else None
 
 
-def timestamp(precise: bool = False) -> float:
+def timestamp(precise=False):
     """Return the current time as an integer (or float when precise=True)."""
     return time.time() if precise else int(time.time())
 
 
 # Address string helpers.
-def bind_str(r: Any) -> str:
+def bind_str(r):
     """Format an (ip, port) tuple as a 'ip:port' string."""
     return fstr(
         "{0}:{1}",
@@ -372,7 +363,7 @@ rand_rang = random.randrange
 # ---------------------------------------------------------------------------
 
 
-def get_bits(n: int, length: int, position: int = 0) -> int:
+def get_bits(n, length, position=0):
     """
     Extract `length` bits from integer `n` starting at `position`
     (0 = least significant bit).
@@ -388,12 +379,12 @@ def get_bits(n: int, length: int, position: int = 0) -> int:
 # ---------------------------------------------------------------------------
 
 
-def neg_flip(result: float, x: float, y: float) -> float:
+def neg_flip(result, x, y):
     """Return -result if x > y, otherwise result."""
     return -result if x > y else result
 
 
-def numeric_distance(x: float, y: float) -> float:
+def numeric_distance(x, y):
     """Signed distance between two numbers: positive if y > x."""
     raw = max(x, y) - min(x, y)
     return neg_flip(raw, x, y)
@@ -408,29 +399,29 @@ n_dist = numeric_distance
 # ---------------------------------------------------------------------------
 
 
-def rand_rang_alias() -> Callable[..., int]:
+def rand_rang_alias():
     """Alias kept for backward compatibility. Prefer random.randrange directly."""
     return random.randrange
 
 
-def rand_b(n: int) -> bytes:
+def rand_b(n):
     """Return n random bytes from the OS entropy source."""
     return os.urandom(n)
 
 
-def rand_b_readable(n: int) -> bytes:
+def rand_b_readable(n):
     """Return n random printable ASCII bytes (letters, digits, space)."""
     chars = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 "
     return bytes(random.choice(chars) for _ in range(n))
 
 
-def rand_plain(n: int) -> bytes:
+def rand_plain(n):
     """Return n random alphanumeric bytes (no spaces)."""
     charset = b"012345678abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
     return bytes(random.choice(charset) for _ in range(n))
 
 
-def list_clone_rand(the_list: List[Any], n: int) -> List[Any]:
+def list_clone_rand(the_list, n):
     """Return a randomly shuffled copy of the_list, trimmed to n elements."""
     the_clone = the_list[:]
     random.shuffle(the_clone)
@@ -443,8 +434,8 @@ def list_clone_rand(the_list: List[Any], n: int) -> List[Any]:
 
 
 def list_exclude_dict(
-    key_name: str, exclusion: Any, entry_list: List[Dict[str, Any]]
-) -> List[Dict[str, Any]]:
+    key_name, exclusion, entry_list
+):
     """Return entry_list without entries where entry[key_name] == exclusion."""
     result = []
     for entry in entry_list:
@@ -459,8 +450,8 @@ def list_exclude_dict(
 
 
 def list_get_dict(
-    key_name: str, criteria: Any, entry_list: List[Dict[str, Any]]
-) -> Optional[Dict[str, Any]]:
+    key_name, criteria, entry_list
+):
     """Return the first entry in entry_list where entry[key_name] == criteria."""
     for entry in entry_list:
         if key_name not in entry:
@@ -472,20 +463,20 @@ def list_get_dict(
     return None
 
 
-def file_get_contents(path: str) -> bytes:
+def file_get_contents(path):
     """Read and return the raw bytes of the file at path."""
     with open(path, mode="rb") as f:
         return f.read()
 
 
-def to_type(x: Union[str, bytes], out_type: Union[str, bytes]) -> Union[str, bytes]:
+def to_type(x, out_type):
     """Convert x to the same type as out_type (str or bytes)."""
     if isinstance(out_type, str):
         return to_s(x)
     return to_b(x)
 
 
-def dict_child(x: Dict[str, Any], y: Dict[str, Any]) -> Dict[str, Any]:
+def dict_child(x, y):
     """
     Merge child dict x into template dict y.
 
@@ -503,7 +494,7 @@ def dict_child(x: Dict[str, Any], y: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
-def dict_merge(x: Dict[str, Any], y: Dict[str, Any]) -> Dict[str, Any]:
+def dict_merge(x, y):
     """Merge dict y into dict x in place and return x."""
     x.update(y)
     return x
@@ -514,7 +505,7 @@ def dict_merge(x: Dict[str, Any], y: Dict[str, Any]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def xor_bufs(a: bytes, b: bytes) -> bytes:
+def xor_bufs(a, b):
     """
     XOR two byte strings together.
 
@@ -532,12 +523,12 @@ def xor_bufs(a: bytes, b: bytes) -> bytes:
     return bytes(result)[: min(a_len, b_len)]
 
 
-def bits_to_bytes(s: str) -> bytes:
+def bits_to_bytes(s):
     """Convert a binary string like '1010' to bytes."""
     return int(s, 2).to_bytes((len(s) + 7) // 8, byteorder="big")
 
 
-def buf_in_class(cls: Any, buf: Any) -> Union[str, bool]:
+def buf_in_class(cls, buf):
     """
     Search cls for a member whose value equals buf.
 
@@ -552,7 +543,7 @@ def buf_in_class(cls: Any, buf: Any) -> Union[str, bool]:
     return False
 
 
-def hamming_weight(n: int) -> int:
+def hamming_weight(n):
     """
     Count the number of set bits in integer n (also called popcount).
 
@@ -572,7 +563,7 @@ def hamming_weight(n: int) -> int:
 # ---------------------------------------------------------------------------
 
 
-def range_intersects(a: List[int], b: List[int]) -> bool:
+def range_intersects(a, b):
     """
     Return True if two numeric ranges [a[0], a[1]] and [b[0], b[1]] overlap.
 
@@ -589,7 +580,7 @@ def range_intersects(a: List[int], b: List[int]) -> bool:
     return ordered[2] <= ordered[1]
 
 
-def intersect_range(a: List[int], b: List[int]) -> List[int]:
+def intersect_range(a, b):
     """
     Return the overlapping sub-range [start, end] of ranges a and b.
 
@@ -600,7 +591,7 @@ def intersect_range(a: List[int], b: List[int]) -> List[int]:
     return [all_endpoints[1], all_endpoints[2]]
 
 
-def field_wrap(n: int, field: List[int]) -> int:
+def field_wrap(n, field):
     """
     Wrap integer n so that it falls within [field[0], field[1]].
 
@@ -620,7 +611,7 @@ def field_wrap(n: int, field: List[int]) -> int:
     return x
 
 
-def field_dist(x: int, y: int, field: int) -> int:
+def field_dist(x, y, field):
     """
     Return the shortest signed distance between x and y within a circular field.
 
@@ -647,8 +638,8 @@ def field_dist(x: int, y: int, field: int) -> int:
 
 
 def sorted_search(
-    n_list: List[int], target: int, start_at: Optional[int] = None
-) -> Optional[int]:
+    n_list, target, start_at=None
+):
     """
     Binary search returning the index of the first element >= target.
 
@@ -702,12 +693,12 @@ from .cleanup import (  # noqa: E402  # pylint: disable=cyclic-import
 
 
 def recover_verify_key(
-    msg_b: bytes,
-    sig_b: bytes,
-    vk_b: Optional[bytes] = None,
-    curve: Any = NIST192p,
-    hashfunc: Any = hashlib.sha1,
-) -> Any:
+    msg_b,
+    sig_b,
+    vk_b=None,
+    curve=NIST192p,
+    hashfunc=hashlib.sha1,
+):
     """
     Recover ECDSA verify key(s) from a signature.
 
@@ -739,7 +730,7 @@ def recover_verify_key(
 # ---------------------------------------------------------------------------
 
 
-def find_intersect(list_a: List[Any], list_b: List[Any]) -> Iterator[Any]:
+def find_intersect(list_a, list_b):
     """Yield values that appear in both list_a and list_b."""
     for a_val in list_a:
         for b_val in list_b:
@@ -747,7 +738,7 @@ def find_intersect(list_a: List[Any], list_b: List[Any]) -> Iterator[Any]:
                 yield a_val
 
 
-def as_slice(needle: bytes, haystack: bytes) -> Optional[slice]:
+def as_slice(needle, haystack):
     """Return a slice for the first occurrence of needle in haystack, or None."""
     pos = haystack.find(needle)
     if pos == -1:
@@ -755,7 +746,7 @@ def as_slice(needle: bytes, haystack: bytes) -> Optional[slice]:
     return slice(pos, pos + len(needle))
 
 
-def is_ascii(data: Union[str, bytes]) -> bool:
+def is_ascii(data):
     """Return True if data can be encoded/decoded as ASCII without errors."""
     if isinstance(data, bytes):
         try:
@@ -771,12 +762,12 @@ def is_ascii(data: Union[str, bytes]) -> bool:
             return False
 
 
-def sqlite_dict_factory(cursor: Any, row: Any) -> Dict[str, Any]:
+def sqlite_dict_factory(cursor, row):
     """Row factory for sqlite3 that returns rows as dicts keyed by column name."""
     return {col[0]: row[idx] for idx, col in enumerate(cursor.description)}
 
 
-def what_exception() -> None:
+def what_exception():
     """
     Print a formatted summary of the current exception to stdout.
 
@@ -809,13 +800,13 @@ def what_exception() -> None:
     print(traceback.format_exc())
 
 
-def my_except_hook(exctype: Any, value: BaseException, tb: Any) -> None:
+def my_except_hook(exctype, value, tb):
     """Global exception hook that logs unexpected top-level exceptions."""
     log("Global except handler called.")
     log_exception()
 
 
-def ensure_resolved(targets: Union[Any, List[Any]]) -> None:
+def ensure_resolved(targets):
     """
     Assert that all targets have been resolved (i.e. target.resolved is truthy).
 

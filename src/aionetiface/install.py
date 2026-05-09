@@ -11,7 +11,7 @@ __all__ = [
 
 
 # Path to where the script is running from.
-def get_script_parent() -> str:
+def get_script_parent():
     """Return the absolute path of the directory containing the calling script."""
     # .f_back moves up one frame to the function that called this one
     caller_frame = inspect.currentframe().f_back
@@ -24,14 +24,14 @@ def get_script_parent() -> str:
 
 
 # Home dir / aionetiface.
-def get_aionetiface_install_root() -> str:
+def get_aionetiface_install_root():
     """Return the absolute path to the aionetiface installation root in the user's home directory."""
     return os.path.realpath(os.path.join(os.path.expanduser("~"), "aionetiface"))
 
 
 # Installs aionetiface files into home dir.
 # The software only needs this for using PDNS functions.
-def copy_aionetiface_install_files_as_needed() -> None:
+def copy_aionetiface_install_files_as_needed():
     """Create the aionetiface install directory in the user's home folder if it does not exist."""
     # Make install dir if needed.
     install_root = get_aionetiface_install_root()

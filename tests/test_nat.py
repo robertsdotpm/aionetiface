@@ -1,9 +1,8 @@
-from typing import Any, List
 from aionetiface import *
 from aionetiface.testing import AsyncTestCase
 
 
-async def get_test_stun_clients(n: int = 8) -> List[Any]:
+async def get_test_stun_clients(n=8):
     stun_clients = []
     fake_stun = FakeSTUNClient()
     for _ in range(0, n):
@@ -12,7 +11,7 @@ async def get_test_stun_clients(n: int = 8) -> List[Any]:
 
 
 class TestNAT(AsyncTestCase):
-    async def test_preserving_delta(self) -> None:
+    async def test_preserving_delta(self):
         n = 8
         stun_clients = await get_test_stun_clients(n)
         stun_clients[0].set_mappings(
@@ -34,7 +33,7 @@ class TestNAT(AsyncTestCase):
         out = await stun_clients[0].get_mapping()
         self.assertEqual(expected, got)
 
-    async def test_equal_delta(self) -> None:
+    async def test_equal_delta(self):
         n = 8
         stun_clients = await get_test_stun_clients(n)
         stun_clients[0].set_mappings(
@@ -54,7 +53,7 @@ class TestNAT(AsyncTestCase):
         got = await delta_test(stun_clients, concurrency=False)
         self.assertEqual(expected, got)
 
-    async def test_independent_delta(self) -> None:
+    async def test_independent_delta(self):
         n = 8
         stun_clients = await get_test_stun_clients(n)
         stun_clients[0].set_mappings(
@@ -74,7 +73,7 @@ class TestNAT(AsyncTestCase):
         got = await delta_test(stun_clients, concurrency=False)
         self.assertEqual(expected, got)
 
-    async def test_dependent_delta(self) -> None:
+    async def test_dependent_delta(self):
         n = 8
         stun_clients = await get_test_stun_clients(n)
         stun_clients[0].set_mappings(
@@ -94,7 +93,7 @@ class TestNAT(AsyncTestCase):
         got = await delta_test(stun_clients, concurrency=False)
         self.assertEqual(expected, got)
 
-    async def test_random_delta(self) -> None:
+    async def test_random_delta(self):
         n = 8
         stun_clients = await get_test_stun_clients(n)
         stun_clients[0].set_mappings(
@@ -114,7 +113,7 @@ class TestNAT(AsyncTestCase):
         got = await delta_test(stun_clients, concurrency=False)
         self.assertEqual(expected, got)
 
-    async def test_nat_intersect_range(self) -> None:
+    async def test_nat_intersect_range(self):
         tests = [
             [[2000, 10000], [5000, 20000], [5000, 10000]],
             [
@@ -138,7 +137,7 @@ class TestNAT(AsyncTestCase):
             got = nats_intersect(nat_a, nat_b, 0)
             self.assertEqual(got, expected)
 
-    async def test_get_single_mapping(self) -> None:
+    async def test_get_single_mapping(self):
         return
         # Attempt to mimic other sides remote ports.
         mode = TCP_PUNCH_REMOTE

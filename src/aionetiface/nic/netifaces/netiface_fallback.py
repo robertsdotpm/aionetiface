@@ -1,10 +1,9 @@
 """Fallback netifaces implementation when the C extension is absent."""
 import socket
-from typing import Any
 from ...net.net_defs import AF_LINK, INTERFACE_ETHERNET, IP4, IP6, VALID_AFS
 
 
-def load_if_info_fallback(nic: Any) -> None:
+def load_if_info_fallback(nic):
     """Populate nic with best-effort interface info using raw socket probes when netifaces is unavailable."""
     # Just guess name.
     # Getting this wrong will only break IPv6 link-local binds.
@@ -33,14 +32,14 @@ def load_if_info_fallback(nic: Any) -> None:
     class NetifaceShim:
         """Minimal netifaces-compatible shim backed by IP addresses discovered via socket probes."""
 
-        def __init__(self, if_addrs: Any) -> None:
+        def __init__(self, if_addrs):
             self.if_addrs = if_addrs
 
-        def interfaces(self) -> Any:
+        def interfaces(self):
             """Return a list containing only this shim's interface name."""
             return [self.name]
 
-        def ifaddresses(self, name: str) -> Any:
+        def ifaddresses(self, name):
             """Return a netifaces-style address dict for name, using the probed IP addresses."""
             ret = {
                 # MAC address (blanket)

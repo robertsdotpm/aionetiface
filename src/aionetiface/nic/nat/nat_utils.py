@@ -1,7 +1,6 @@
 """Helper functions for NAT type classification."""
 import asyncio
 import random
-from typing import Any, Dict, List, Optional
 from .nat_defs import (
     STUN_PORT,
     MAX_MAP_NO,
@@ -31,32 +30,32 @@ from ...utility.utils import (
 
 # Convenience funcs.
 # delta, nat_type
-def f_is_open(n: int, d: Any) -> bool:
+def f_is_open(n, d):
     """Return True if nat type n represents an open internet connection or a symmetric UDP firewall."""
     return n in [OPEN_INTERNET, SYMMETRIC_UDP_FIREWALL]
 
 
-def f_can_predict(n: int, d: Any) -> bool:
+def f_can_predict(n, d):
     """Return True if nat type n has predictable port mappings that enable hole-punching."""
     return n in PREDICTABLE_NATS
 
 
-def f_is_hard(n: int, d: Dict[str, Any]) -> bool:
+def f_is_hard(n, d):
     """Return True if nat type n is not in the easy NAT set and its delta is neither preserving nor equal."""
     not_easy = n not in EASY_NATS
     return not_easy and d["type"] not in [PRESERV_DELTA, EQUAL_DELTA]
 
 
-def delta_info(delta_type: int, delta_value: int) -> Dict[str, Any]:
+def delta_info(delta_type, delta_value):
     """Return a delta dict with the given type and value fields."""
     return {"type": delta_type, "value": delta_value}
 
 
 def nat_info(
-    nat_type: Optional[int] = None,
-    delta: Optional[Dict[str, Any]] = None,
-    map_range: Optional[List[int]] = None,
-) -> Dict[str, Any]:
+    nat_type=None,
+    delta=None,
+    map_range=None,
+):
     """Build and return a NAT descriptor dict with type, delta, port range, and derived capability flags."""
     # Defaults.
     delta = delta or delta_info(RANDOM_DELTA, 0)
@@ -81,7 +80,7 @@ def nat_info(
     return nat
 
 
-def valid_mappings_len(mappings: List[Any]) -> int:
+def valid_mappings_len(mappings):
     """Return 1 if mappings has a valid non-empty length within MAX_MAP_NO, else 0."""
     if not len(mappings):
         return 0
@@ -93,11 +92,11 @@ def valid_mappings_len(mappings: List[Any]) -> int:
 
 
 async def delta_test(
-    stun_clients: List[Any],
-    test_no: int = 8,
-    threshold: int = 5,
-    concurrency: bool = True,
-) -> Dict[str, Any]:
+    stun_clients,
+    test_no=8,
+    threshold=5,
+    concurrency=True,
+):
     """
     Probe the NAT to determine what kind of port delta behaviour it exhibits.
 
@@ -129,7 +128,7 @@ async def delta_test(
         """Pick a random starting port that does not overlap any existing port-test ranges."""
         if range_info is None:
             range_info = []
-        def rand_start_port() -> int:
+        def rand_start_port():
             """Return a random port number safely below the upper bound for the test range."""
             return random.randrange(4000, MAX_PORT - (test_no * port_dist))
 
@@ -382,8 +381,8 @@ async def delta_test(
 
 
 def nats_intersect(
-    our_nat: Dict[str, Any], their_nat: Dict[str, Any], test_no: int
-) -> List[int]:
+    our_nat, their_nat, test_no
+):
     """
     Return the port range both NATs can agree on for test probes.
 
@@ -422,7 +421,7 @@ def nats_intersect(
     return use_range
 
 
-def nats_can_predict(our_nat: Dict[str, Any], their_nat: Dict[str, Any]) -> int:
+def nats_can_predict(our_nat, their_nat):
     """
     Validate that mapping prediction is possible given the two NAT profiles.
 

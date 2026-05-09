@@ -16,7 +16,6 @@ import copy
 import os
 import pathlib
 import re
-from typing import Any
 from ..utility.utils import (
     async_test,
     async_wrap_errors,
@@ -38,7 +37,7 @@ from ..install import get_aionetiface_install_root
 DAEMON_CONF = dict_child({"reuse_addr": True}, NET_CONF)
 
 
-async def is_serv_listening(proto: int, listen_route: Any) -> bool:
+async def is_serv_listening(proto, listen_route):
     """
     Return True if there is already a server listening on listen_route.
 
@@ -76,8 +75,8 @@ async def is_serv_listening(proto: int, listen_route: Any) -> bool:
 
 
 def get_serv_lock(
-    af: int, proto: int, serv_port: int, serv_ip: Any, install_path: str
-) -> Any:
+    af, proto, serv_port, serv_ip, install_path
+):
     """
     Return a filesystem-based inter-process lock for the given server endpoint.
 
@@ -129,7 +128,7 @@ def get_serv_lock(
         return None
 
 
-async def for_server_in_daemon(daemon: "Daemon", func: Any) -> None:
+async def for_server_in_daemon(daemon, func):
     """
     Call func(server) concurrently for every server pipe registered in daemon.
 
@@ -150,7 +149,7 @@ async def for_server_in_daemon(daemon: "Daemon", func: Any) -> None:
 class Daemon:
     """Manages one or more listening server pipes and routes incoming messages to callbacks."""
 
-    def __init__(self, conf: Any = DAEMON_CONF) -> None:
+    def __init__(self, conf=DAEMON_CONF):
         # Special net conf for daemon servers.
         self.conf = conf
 
@@ -164,7 +163,7 @@ class Daemon:
         }
 
     # On message received (placeholder.)
-    async def msg_cb(self, msg: Any, client_tup: Any, pipe: Any) -> None:
+    async def msg_cb(self, msg, client_tup, pipe):
         """Default message handler that echoes received data back to the sender."""
         print("Specify your own msg_cb in a child class.")
         print(
@@ -181,10 +180,10 @@ class Daemon:
     # On connection success (placeholder.)
     # Ran when a connection is first created for a client.
     # Just like connection_made in protocol classes.
-    def up_cb(self, msg: Any, client_tup: Any, pipe: Any) -> None:
+    def up_cb(self, msg, client_tup, pipe):
         """Default connection-established handler; override in subclasses to react to new clients."""
 
-    async def add_listener(self, proto: int, route: Any) -> Any:
+    async def add_listener(self, proto, route):
         """
         Attach a server listening pipe to this daemon.
 
@@ -263,7 +262,7 @@ class Daemon:
         self.servers[route.af][proto][port][ip] = pipe
         return (port, pipe)
 
-    async def listen_all(self, proto: int, port: int, nic: Any) -> list:
+    async def listen_all(self, proto, port, nic):
         """
         Listen on all addresses supported by nic.
 
@@ -279,7 +278,7 @@ class Daemon:
 
         return strip_none(outs)
 
-    async def listen_loopback(self, proto: int, port: int, nic: Any) -> list:
+    async def listen_loopback(self, proto, port, nic):
         """
         Listen on the loopback address for each address family supported by nic.
 
@@ -295,8 +294,8 @@ class Daemon:
         return strip_none(outs)
 
     async def listen_local(
-        self, proto: int, port: int, nic: Any, limit: Any = 1
-    ) -> list:
+        self, proto, port, nic, limit=1
+    ):
         """
         Listen on LAN-accessible addresses only.
 
@@ -372,7 +371,7 @@ class Daemon:
 
         return strip_none(outs)
 
-    def add_msg_cb(self, msg_cb: Any) -> Any:
+    def add_msg_cb(self, msg_cb):
         """
         Register msg_cb on every server pipe managed by this daemon.
 
@@ -392,7 +391,7 @@ class Daemon:
         # the handler, causing a silent miss.
         return asyncio.create_task(for_server_in_daemon(self, func))
 
-    async def close(self) -> None:
+    async def close(self):
         """Close all server pipes managed by this daemon."""
         async def func(server):
             """Attempt to close a single server pipe, ignoring OS and timeout errors."""
@@ -403,15 +402,15 @@ class Daemon:
 
         await for_server_in_daemon(self, func)
 
-    async def __aenter__(self) -> "Daemon":
+    async def __aenter__(self):
         return self
 
-    async def __aexit__(self, *_: Any) -> bool:
+    async def __aexit__(self, *_):
         await self.close()
         return False
 
 
-async def daemon_rewrite_workspace() -> None:
+async def daemon_rewrite_workspace():
     """Development scratch function for testing daemon listen_local on a hard-coded interface."""
     nic = await Interface("wlx00c0cab5760d")
     async with Daemon() as serv:

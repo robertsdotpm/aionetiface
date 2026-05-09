@@ -2,7 +2,6 @@
 import asyncio
 import socket
 import platform
-from typing import Any, List, Optional, Tuple
 from ...utility.utils import fstr
 from ...net.net_defs import (
     VALID_AFS,
@@ -24,7 +23,7 @@ from .bind_utils import match_bind_rule
 # --- Reusable Logic Functions ---
 
 
-def get_bind_magic_table(af: int) -> List[Any]:
+def get_bind_magic_table(af):
     """
     Generates the table of edge-cases for bind() across platforms and AFs.
     """
@@ -49,8 +48,8 @@ def get_bind_magic_table(af: int) -> List[Any]:
 
 
 def resolve_bind_ip(
-    ip: str, af: int, nic_id: Any, plat: str, bind_magic: List[Any]
-) -> str:
+    ip, af, nic_id, plat, bind_magic
+):
     """
     Processes IP_APPEND rules to normalize the IP string before lookup.
     """
@@ -79,13 +78,13 @@ def resolve_bind_ip(
 
 
 def resolve_bind_tuple(
-    initial_tup: Tuple[Any, ...],
-    ip: str,
-    af: int,
-    nic_id: Any,
-    plat: str,
-    bind_magic: List[Any],
-) -> Tuple[Any, ...]:
+    initial_tup,
+    ip,
+    af,
+    nic_id,
+    plat,
+    bind_magic,
+):
     """
     Processes IP_BIND_TUP rules to modify the tuple (e.g. Scope IDs) after lookup.
     """
@@ -132,12 +131,12 @@ def resolve_bind_tuple(
 
 
 async def binder_async(
-    af: int,
-    ip: str = "",
-    port: int = 0,
-    nic_id: Optional[Any] = None,
-    plat: str = platform.system(),
-) -> Optional[Tuple[Any, ...]]:
+    af,
+    ip="",
+    port=0,
+    nic_id=None,
+    plat=platform.system(),
+):
     """
     Async version of the binder.
     """
@@ -163,12 +162,12 @@ async def binder_async(
 
 
 def binder_sync(
-    af: int,
-    ip: str = "",
-    port: int = 0,
-    nic_id: Optional[Any] = None,
-    plat: str = platform.system(),
-) -> Optional[Tuple[Any, ...]]:
+    af,
+    ip="",
+    port=0,
+    nic_id=None,
+    plat=platform.system(),
+):
     """
     Synchronous version of the binder.
     """

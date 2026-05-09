@@ -3,7 +3,6 @@ import asyncio
 import copy
 import random
 import time
-from typing import Any, Dict, List, Optional, Tuple
 from ...utility.utils import async_wrap_errors, fstr, log, log_exception
 from ...utility.pattern_factory import concurrent_first_agree_or_best
 from ...net.net_defs import IP4, IP6, TCP
@@ -31,9 +30,9 @@ that particular address for a bind() call.
 
 
 async def lookup_wan_ip_for_nic_ip(
-    src_ip: str, min_agree: int, stun_clients: List[Any], timeout: float,
-    input_ipr: Optional[Any] = None,
-) -> Optional[Tuple[str, Any]]:
+    src_ip, min_agree, stun_clients, timeout,
+    input_ipr=None,
+):
     """STUN-discover the WAN IP that egresses for a given NIC source address.
 
     input_ipr (optional) is the original IPRange for src_ip as returned
@@ -205,7 +204,7 @@ async def lookup_wan_ip_for_nic_ip(
 STUN_BATCH_SIZE = 4
 
 
-async def run_stun_tasks_batched(tasks: List[Any]) -> List[Any]:
+async def run_stun_tasks_batched(tasks):
     """
     Run STUN tasks in small batches with jitter between batches to avoid
     flooding the router with a UDP burst.
@@ -221,8 +220,8 @@ async def run_stun_tasks_batched(tasks: List[Any]) -> List[Any]:
 
 
 def group_pub_iprs_by_subnet(
-    pub_iprs: List[Any], max_bits: int
-) -> Tuple[Dict[str, List[Any]], List[Any], Dict[str, Any]]:
+    pub_iprs, max_bits
+):
     """
     Group public IPRange objects by their OS network prefix (subnet).
     Returns (group_heads, individual_iprs, head_iprs):
@@ -291,14 +290,14 @@ for their interface but it doesn't mean that the addresses are valid.
 
 
 async def discover_nic_wan_ips(
-    af: int,
-    min_agree: int,
-    enable_default: bool,
-    interface: Any,
-    stun_clients: List[Any],
-    netifaces: Any,
-    timeout: float,
-) -> List[Any]:
+    af,
+    min_agree,
+    enable_default,
+    interface,
+    stun_clients,
+    netifaces,
+    timeout,
+):
     # Get a list of tasks to resolve NIC addresses.
     tasks = []
     link_locals = []

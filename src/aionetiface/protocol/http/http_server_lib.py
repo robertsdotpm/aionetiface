@@ -5,7 +5,6 @@ import json
 import urllib.parse
 from http.server import BaseHTTPRequestHandler
 from io import BytesIO
-from typing import Any, Callable, Dict, List, Optional, Tuple
 from ...utility.utils import fstr, re_unescape, dict_merge, to_b, to_s, to_n, in_range, log_exception
 from .http_client_lib import http_parse_headers
 from ...net.daemon import Daemon
@@ -17,7 +16,7 @@ aionetiface_MIME = [[dict, "json"], [bytes, "binary"], [str, "text"]]
 
 # Support passing in GET params using path seperators.
 # Ex: /timeout/10/sub/all -> {'timeout': '10', 'sub': 'all'}
-def get_params(field_names: List[str], url_path: str) -> Dict[str, str]:
+def get_params(field_names, url_path):
     """Extract named key/value pairs from a slash-separated URL path and return them as a dict."""
     # Return empty.
     if not field_names:
@@ -61,7 +60,7 @@ def get_params(field_names: List[str], url_path: str) -> Dict[str, str]:
     return params
 
 
-def api_closure(url_path: str) -> Callable[..., Any]:
+def api_closure(url_path):
     """Return an api() callable that matches url_path against a regex and returns a named-field dict."""
     # Fields list names a p result and is in a fixed order.
     # Get names matches named values and is in a variable order.
@@ -93,7 +92,7 @@ def api_closure(url_path: str) -> Callable[..., Any]:
 
 # p = {}, optional = [ named ... ]
 # default = [ matching values ... ]
-def set_defaults(p: Dict[str, Any], optional: List[str], default: List[Any]) -> None:
+def set_defaults(p, optional, default):
     """Fill in missing keys in p from the parallel default list for any optional parameter names."""
     # Set default param values.
     for i, named in enumerate(optional):
@@ -104,14 +103,14 @@ def set_defaults(p: Dict[str, Any], optional: List[str], default: List[Any]) -> 
 class ParseHTTPRequest(BaseHTTPRequestHandler):
     """Parse a raw HTTP request byte string using BaseHTTPRequestHandler."""
 
-    def __init__(self, request_text: bytes) -> None:
+    def __init__(self, request_text):
         self.rfile = BytesIO(request_text)
         self.raw_requestline = self.rfile.readline()
         self.error_code = self.error_message = None
         self.parse_request()
         http_parse_headers(self)
 
-    def send_error(self, code: int, message: Optional[str] = None) -> None:
+    def send_error(self, code, message=None):
         """Record the error code and message instead of sending an HTTP response."""
         self.error_code = code
         self.error_message = message
@@ -120,8 +119,8 @@ class ParseHTTPRequest(BaseHTTPRequestHandler):
 # Create a HTTP server response.
 # Supports JSON or binary.
 def http_res(
-    payload: Any, mime: str, req: Any, client_tup: Optional[Tuple[str, int]] = None
-) -> bytes:
+    payload, mime, req, client_tup=None
+):
     """Serialise payload to the given MIME type and return a complete HTTP/1.1 200 response as bytes."""
     # Support JSON responses.
     if mime == "json":
@@ -158,8 +157,8 @@ def http_res(
 
 
 async def send_json(
-    a_dict: Dict[str, Any], req: Any, client_tup: Tuple[str, int], pipe: Any
-) -> None:
+    a_dict, req, client_tup, pipe
+):
     """Send a_dict as a JSON HTTP response to client_tup and close the pipe."""
     remote_client_tup = None
     if "client_tup" in a_dict:
@@ -171,15 +170,15 @@ async def send_json(
 
 
 async def send_binary(
-    out: bytes, req: Any, client_tup: Tuple[str, int], pipe: Any
-) -> None:
+    out, req, client_tup, pipe
+):
     """Send out as an octet-stream HTTP response to client_tup and close the pipe."""
     res = http_res(out, "binary", req, client_tup)
     await pipe.send(res, client_tup)
     await pipe.close()
 
 
-async def send_text(out: str, req: Any, client_tup: Tuple[str, int], pipe: Any) -> None:
+async def send_text(out, req, client_tup, pipe):
     """Send out as a text/html HTTP response to client_tup and close the pipe."""
     res = http_res(out, "text", req, client_tup)
     await pipe.send(res, client_tup)
@@ -187,11 +186,11 @@ async def send_text(out: str, req: Any, client_tup: Tuple[str, int], pipe: Any) 
 
 
 async def rest_service(
-    msg: bytes,
-    client_tup: Tuple[str, int],
-    pipe: Any,
-    api_closure: Callable[..., Any] = api_closure,
-) -> Optional[Any]:
+    msg,
+    client_tup,
+    pipe,
+    api_closure=api_closure,
+):
     """Parse an incoming HTTP message, enforce CORS, handle pre-flight requests, and return the parsed req object."""
     # Parse http request.
     try:
@@ -235,7 +234,7 @@ async def rest_service(
 
 # Routes a URL path to named and unnamed parameters based on scheme definitions.
 # Each scheme entry is [name] or [name, default] or [name, default, regex].
-def api_route_closure(url_path: str) -> Callable[..., Any]:
+def api_route_closure(url_path):
     """Return an api() callable that maps slash-separated URL segments to scheme-defined named and positional params."""
     # Fields list names a p result and is in a fixed order.
     # Get names matches named values and is in a variable order.
@@ -317,7 +316,7 @@ def api_route_closure(url_path: str) -> Callable[..., Any]:
 class RESTD(Daemon):
     """Daemon subclass that automatically discovers decorated REST API handlers and dispatches HTTP requests to them."""
 
-    def __init__(self) -> None:
+    def __init__(self):
         super().__init__()
 
         # Get a list of function methods for this class.
@@ -336,7 +335,7 @@ class RESTD(Daemon):
                 self.apis[f.http_method].append(f)
 
     @staticmethod
-    def rest_api_decorator(f: Any, args: Any) -> Any:
+    def rest_api_decorator(f, args):
         """Tag function f with a REST__ prefix and store its route scheme args so it can be discovered at runtime."""
         # Allow this method to be looked up.
         f.__name__ = "REST__" + f.__name__
@@ -355,7 +354,7 @@ class RESTD(Daemon):
         return f
 
     @staticmethod
-    def GET(*args: Any, **kw: Any) -> Callable[..., Any]:
+    def GET(*args, **kw):
         """Decorator that registers the decorated function as a GET route with the given URL scheme args."""
         def decorate(f):
             """Tag f as a GET handler and register it with the REST dispatcher."""
@@ -366,7 +365,7 @@ class RESTD(Daemon):
         return decorate
 
     @staticmethod
-    def POST(*args: Any, **kw: Any) -> Callable[..., Any]:
+    def POST(*args, **kw):
         """Decorator that registers the decorated function as a POST route with the given URL scheme args."""
         def decorate(f):
             """Tag f as a POST handler and register it with the REST dispatcher."""
@@ -377,7 +376,7 @@ class RESTD(Daemon):
         return decorate
 
     @staticmethod
-    def DELETE(*args: Any, **kw: Any) -> Callable[..., Any]:
+    def DELETE(*args, **kw):
         """Decorator that registers the decorated function as a DELETE route with the given URL scheme args."""
         def decorate(f):
             """Tag f as a DELETE handler and register it with the REST dispatcher."""
@@ -388,7 +387,7 @@ class RESTD(Daemon):
         return decorate
 
     # Todo: $_GET from ?...
-    async def msg_cb(self, msg: bytes, client_tup: Tuple[str, int], pipe: Any) -> None:
+    async def msg_cb(self, msg, client_tup, pipe):
         """Parse an incoming HTTP request, route it to the best matching REST API method, and send the reply."""
         # Parse HTTP message and handle CORS.
         req = await rest_service(msg, client_tup, pipe, api_route_closure)

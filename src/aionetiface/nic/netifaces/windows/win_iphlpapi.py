@@ -29,8 +29,6 @@ and the rest of the entry points raise RuntimeError if you call them
 anyway.  No top-level ctypes calls so the module loads cleanly under
 unit-test runs on Linux/Mac.
 """
-
-from typing import Any, Dict, List, Optional
 import ctypes
 import socket
 import sys
@@ -59,7 +57,7 @@ ERROR_NO_DATA = 232
 ERROR_NOT_ENOUGH_MEMORY = 8
 
 
-def is_supported() -> bool:
+def is_supported():
     """True iff this process can call iphlpapi.GetAdaptersAddresses.
 
     Cheap top-level check so callers don't have to import-guard every
@@ -237,7 +235,7 @@ if sys.platform == "win32":
     ]
 
 
-def sockaddr_to_ip(sock_addr: Any) -> Optional[str]:
+def sockaddr_to_ip(sock_addr):
     """Convert a SOCKET_ADDRESS containing a v4 or v6 sockaddr into a string IP.
 
     Returns None when the family isn't INET / INET6 (link-layer or
@@ -270,14 +268,14 @@ def sockaddr_to_ip(sock_addr: Any) -> Optional[str]:
     return None
 
 
-def mac_from_physical(buf: Any, length: int) -> str:
+def mac_from_physical(buf, length):
     """Format the first *length* bytes of an adapter's PhysicalAddress as a MAC."""
     if length <= 0:
         return ""
     return ":".join("{0:02x}".format(buf[i]) for i in range(min(length, 6)))
 
 
-def get_interfaces() -> Dict[str, Dict[Any, Any]]:
+def get_interfaces():
     """Enumerate every adapter via GetAdaptersAddresses and return a
     netifaces-shape dict keyed by friendly name.
 
@@ -401,7 +399,7 @@ def get_interfaces() -> Dict[str, Dict[Any, Any]]:
     return interfaces
 
 
-def to_netifaces_shape(interfaces: Dict[str, Dict[Any, Any]]) -> Dict[str, Dict[int, List[Dict[str, Any]]]]:
+def to_netifaces_shape(interfaces):
     """Project our richer shape into the exact dict layout that
     netifaces' ifaddresses(name) returns, so callers can drop this
     module in as a fallback without rewriting their parsing.
@@ -445,7 +443,7 @@ def to_netifaces_shape(interfaces: Dict[str, Dict[Any, Any]]) -> Dict[str, Dict[
 # ---------------------------------------------------------------------------
 
 
-def cidr_to_netmask_v4(prefix: int) -> str:
+def cidr_to_netmask_v4(prefix):
     """Convert an IPv4 prefix length to dotted-quad netmask, matching netifaces."""
     if prefix <= 0:
         return "0.0.0.0"
@@ -458,7 +456,7 @@ def cidr_to_netmask_v4(prefix: int) -> str:
     )
 
 
-def get_v4_masks_from_adapters_info() -> Dict[str, str]:
+def get_v4_masks_from_adapters_info():
     """Return {ip_str: netmask_str} from GetAdaptersInfo.
 
     GetAdaptersInfo (Win98+) stores subnet masks as dotted-quad strings and
@@ -515,7 +513,7 @@ def get_v4_masks_from_adapters_info() -> Dict[str, str]:
         return {}
 
 
-async def if_infos_from_iphlpapi() -> List[Dict[str, Any]]:
+async def if_infos_from_iphlpapi():
     """Translate get_interfaces() into the netifaces-vector if_info shape.
 
     Returns a list of dicts each containing::
@@ -560,7 +558,7 @@ async def if_infos_from_iphlpapi() -> List[Dict[str, Any]]:
     # stores subnet masks as dotted-quad strings and works correctly on XP.
     v4_masks = get_v4_masks_from_adapters_info()
 
-    def netmask_to_prefix(netmask_str: str) -> Optional[int]:
+    def netmask_to_prefix(netmask_str):
         """Convert '255.255.255.0' -> 24. Returns None on parse failure."""
         if not netmask_str:
             return None
@@ -578,7 +576,7 @@ async def if_infos_from_iphlpapi() -> List[Dict[str, Any]]:
         except (ValueError, AttributeError):
             return None
 
-    def sanitize_prefix(raw_prefix: Any, af: int) -> int:
+    def sanitize_prefix(raw_prefix, af):
         """Return raw_prefix iff it's a sensible CIDR for af, else af_bitlen(af).
 
         Windows iphlpapi.GetAdaptersAddresses leaves OnLinkPrefixLength

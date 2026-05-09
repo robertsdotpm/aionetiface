@@ -10,7 +10,6 @@ import platform
 import unittest
 from aionetiface.testing import AsyncTestCase
 from unittest import main
-from typing import Any, List, Dict, Optional
 from aionetiface.settings import IP4, IP6
 from aionetiface.net.net_utils import cidr_to_netmask, af_bitlen
 
@@ -20,11 +19,11 @@ from aionetiface.net.net_utils import cidr_to_netmask, af_bitlen
 # ---------------------------------------------------------------------------
 
 
-def _has_addr(addr_list: List[Dict[str, Any]], ip: str) -> bool:
+def _has_addr(addr_list, ip):
     return any(a["addr"] == ip for a in addr_list)
 
 
-def _get_addr(addr_list: List[Dict[str, Any]], ip: str) -> Optional[Dict[str, Any]]:
+def _get_addr(addr_list, ip):
     for a in addr_list:
         if a["addr"] == ip:
             return a
@@ -39,7 +38,7 @@ def _get_addr(addr_list: List[Dict[str, Any]], ip: str) -> Optional[Dict[str, An
 class TestNetshParsers(unittest.TestCase):
     """Tests for win_netsh.NetshParse – regex-only, no I/O."""
 
-    def setUp(self) -> None:
+    def setUp(self):
         if platform.system() != "Windows":
             # Import still works on non-Windows; we just skip execution.
             pass
@@ -58,7 +57,7 @@ Idx     Met         MTU          State                Name
  14          35        1500  connected     Wi-Fi
 """
 
-    def test_show_interfaces_v4(self) -> None:
+    def test_show_interfaces_v4(self):
         af, key, data = self.parser.show_interfaces(IP4, self.INTERFACES_V4)
         self.assertEqual(key, "ifs")
         self.assertIn("12", data)
@@ -81,7 +80,7 @@ Addr Type  DAD State  Valid Life Pref. Life Address
 Other      Preferred  infinite   infinite   10.0.0.50
 """
 
-    def test_show_addresses_v4(self) -> None:
+    def test_show_addresses_v4(self):
         af, key, data = self.parser.show_addresses(IP4, self.ADDRESSES_V4)
         self.assertEqual(key, "addrs")
         self.assertIn("12", data)
@@ -97,7 +96,7 @@ Other      Preferred  infinite   infinite   2402:1f00:8101:83f::1
 Other      Preferred  infinite   infinite   fe80::ae1f:6bff:fe94:531a
 """
 
-    def test_show_addresses_v6(self) -> None:
+    def test_show_addresses_v6(self):
         af, key, data = self.parser.show_addresses(IP6, self.ADDRESSES_V6)
         self.assertEqual(key, "addrs")
         self.assertIn("12", data)
@@ -116,7 +115,7 @@ No  System  10  192.168.1.0/24   12  Ethernet
 No  System  20  10.0.0.0/8       14  Wi-Fi
 """
 
-    def test_show_route_v4(self) -> None:
+    def test_show_route_v4(self):
         af, key, data = self.parser.show_route(IP4, self.ROUTES_V4)
         self.assertEqual(key, "routes")
         self.assertIn("12", data)
@@ -131,7 +130,7 @@ No  System  10  2402:1f00:8101:83f::/64         12  Ethernet
 No  System  20  fe80::/64                       12  Ethernet
 """
 
-    def test_show_route_v6(self) -> None:
+    def test_show_route_v6(self):
         af, key, data = self.parser.show_route(IP6, self.ROUTES_V6)
         self.assertEqual(key, "routes")
         self.assertIn("12", data)
@@ -141,7 +140,7 @@ No  System  20  fe80::/64                       12  Ethernet
     # -----------------------------------------------------------------------
     # get_host_limit_from_route_infos
     # -----------------------------------------------------------------------
-    def test_get_host_limit_from_route_infos_v4(self) -> None:
+    def test_get_host_limit_from_route_infos_v4(self):
         from aionetiface.nic.netifaces.windows.win_netsh import (
             get_host_limit_from_route_infos,
         )
@@ -157,7 +156,7 @@ No  System  20  fe80::/64                       12  Ethernet
         self.assertEqual(host_limit, 24)
         self.assertEqual(netmask, "255.255.255.0")
 
-    def test_get_host_limit_from_route_infos_v6(self) -> None:
+    def test_get_host_limit_from_route_infos_v6(self):
         from aionetiface.nic.netifaces.windows.win_netsh import (
             get_host_limit_from_route_infos,
         )
@@ -171,7 +170,7 @@ No  System  20  fe80::/64                       12  Ethernet
         )
         self.assertEqual(host_limit, 64)
 
-    def test_get_host_limit_from_route_infos_most_specific(self) -> None:
+    def test_get_host_limit_from_route_infos_most_specific(self):
         """Most-specific (highest host_limit) matching prefix wins."""
         from aionetiface.nic.netifaces.windows.win_netsh import (
             get_host_limit_from_route_infos,
@@ -203,7 +202,7 @@ Network Destination        Netmask          Gateway       Interface  Metric
 ===========================================================================
 """
 
-    def test_show_mac(self) -> None:
+    def test_show_mac(self):
         af, key, data = self.parser.show_mac(IP4, self.ROUTE_PRINT)
         self.assertEqual(key, "macs")
         # default v4 route should be captured
@@ -218,7 +217,7 @@ Ethernet adapter Ethernet:
                                         fe80::1
 """
 
-    def test_show_gws(self) -> None:
+    def test_show_gws(self):
         af, key, data = self.parser.show_gws(IP4, self.IPCONFIG_ALL)
         self.assertEqual(key, "gws")
         mac = "aa-bb-cc-dd-ee-ff"
@@ -235,7 +234,7 @@ Ethernet adapter Ethernet:
 class TestWMICParsers(unittest.TestCase):
     """Tests for win_wmic.WMICParse – regex-only, no I/O."""
 
-    def setUp(self) -> None:
+    def setUp(self):
         from aionetiface.nic.netifaces.windows.win_wmic import (
             WMICParse,
             parse_wmic_addrs,
@@ -247,27 +246,27 @@ class TestWMICParsers(unittest.TestCase):
     # -----------------------------------------------------------------------
     # parse_wmic_addrs
     # -----------------------------------------------------------------------
-    def test_parse_wmic_addrs_v4(self) -> None:
+    def test_parse_wmic_addrs_v4(self):
         addrs = ["192.168.1.100", "10.0.0.1"]
         result = self.parse_wmic_addrs(addrs)
         self.assertTrue(len(result[IP4]) == 2)
         self.assertEqual(len(result[IP6]), 0)
         self.assertTrue(_has_addr(result[IP4], "192.168.1.100"))
 
-    def test_parse_wmic_addrs_v6(self) -> None:
+    def test_parse_wmic_addrs_v6(self):
         addrs = ["2402:1f00:8101:83f::1", "fe80::ae1f:6bff:fe94:531a"]
         result = self.parse_wmic_addrs(addrs)
         self.assertEqual(len(result[IP4]), 0)
         self.assertTrue(len(result[IP6]) == 2)
         self.assertTrue(_has_addr(result[IP6], "2402:1f00:8101:83f::1"))
 
-    def test_parse_wmic_addrs_mixed(self) -> None:
+    def test_parse_wmic_addrs_mixed(self):
         addrs = ["192.168.1.1", "2402:1f00:8101:83f::1"]
         result = self.parse_wmic_addrs(addrs)
         self.assertEqual(len(result[IP4]), 1)
         self.assertEqual(len(result[IP6]), 1)
 
-    def test_parse_wmic_addrs_empty(self) -> None:
+    def test_parse_wmic_addrs_empty(self):
         result = self.parse_wmic_addrs([])
         self.assertEqual(len(result[IP4]), 0)
         self.assertEqual(len(result[IP6]), 0)
@@ -275,20 +274,20 @@ class TestWMICParsers(unittest.TestCase):
     # -----------------------------------------------------------------------
     # parse_wmic_list
     # -----------------------------------------------------------------------
-    def test_parse_wmic_list_braces(self) -> None:
+    def test_parse_wmic_list_braces(self):
         from aionetiface.nic.netifaces.windows.win_wmic import parse_wmic_list
 
         result = parse_wmic_list("{'192.168.1.1', '10.0.0.1'}")
         self.assertIn("192.168.1.1", result)
         self.assertIn("10.0.0.1", result)
 
-    def test_parse_wmic_list_empty(self) -> None:
+    def test_parse_wmic_list_empty(self):
         from aionetiface.nic.netifaces.windows.win_wmic import parse_wmic_list
 
         result = parse_wmic_list("")
         self.assertEqual(result, [])
 
-    def test_parse_wmic_list_single(self) -> None:
+    def test_parse_wmic_list_single(self):
         from aionetiface.nic.netifaces.windows.win_wmic import parse_wmic_list
 
         result = parse_wmic_list("{'192.168.1.1'}")
@@ -309,7 +308,7 @@ class TestWMICParsers(unittest.TestCase):
     )
 
     # show_main regex is complex; smoke-test that it doesn't crash.
-    def test_show_main_smoke(self) -> None:
+    def test_show_main_smoke(self):
         af, key, data = self.parser.show_main(IP4, self.WMIC_MAIN)
         self.assertEqual(key, "main")
         # May or may not match depending on exact spacing – just assert no exception.
@@ -321,7 +320,7 @@ class TestWMICParsers(unittest.TestCase):
         "Index  Name\r\n-----  ----\r\n12     Ethernet   \r\n14     Wi-Fi 2    \r\n"
     )
 
-    def test_show_con_names(self) -> None:
+    def test_show_con_names(self):
         af, key, data = self.parser.show_con_names(IP4, self.CON_NAMES)
         self.assertEqual(key, "con_names")
         self.assertIn("12", data)
@@ -345,7 +344,7 @@ If  Met  Prefix                         Next Hop
 12    5  ::/0                           fe80::1
 """
 
-    def test_show_routes(self) -> None:
+    def test_show_routes(self):
         af, key, data = self.parser.show_routes(IP4, self.WMIC_ROUTES)
         self.assertEqual(key, "routes")
         self.assertIsNotNone(data["default"][IP4])
@@ -394,7 +393,7 @@ v6GW                 : null
 10.0.0.50/24
 """
 
-    def _parse_ps1_addr_block(self, block: str) -> Dict[Any, List[Dict[str, Any]]]:
+    def _parse_ps1_addr_block(self, block):
         """Replicate the PS1 address parsing logic from load_ifs_from_ps1."""
         import re
         from aionetiface.net.ip_range import IPRange
@@ -428,7 +427,7 @@ v6GW                 : null
             )
         return addr_info
 
-    def test_ps1_ipv4_prefix_parsed(self) -> None:
+    def test_ps1_ipv4_prefix_parsed(self):
         block = "192.168.1.100/24\n"
         result = self._parse_ps1_addr_block(block)
         self.assertEqual(len(result[IP4]), 1)
@@ -437,7 +436,7 @@ v6GW                 : null
         self.assertEqual(addr["host_limit"], 24)
         self.assertEqual(addr["netmask"], "255.255.255.0")
 
-    def test_ps1_ipv6_prefix_parsed(self) -> None:
+    def test_ps1_ipv6_prefix_parsed(self):
         block = "2402:1f00:8101:83f::1/64\n"
         result = self._parse_ps1_addr_block(block)
         self.assertEqual(len(result[IP6]), 1)
@@ -445,20 +444,20 @@ v6GW                 : null
         self.assertEqual(addr["addr"], "2402:1f00:8101:83f::1")
         self.assertEqual(addr["host_limit"], 64)
 
-    def test_ps1_link_local_prefix_parsed(self) -> None:
+    def test_ps1_link_local_prefix_parsed(self):
         block = "fe80::ae1f:6bff:fe94:531a/64\n"
         result = self._parse_ps1_addr_block(block)
         self.assertEqual(len(result[IP6]), 1)
         addr = result[IP6][0]
         self.assertEqual(addr["host_limit"], 64)
 
-    def test_ps1_no_prefix_falls_back_to_max(self) -> None:
+    def test_ps1_no_prefix_falls_back_to_max(self):
         """When no /prefix is present, af_bitlen is used as fallback."""
         block = "192.168.1.100\n"
         result = self._parse_ps1_addr_block(block)
         self.assertEqual(result[IP4][0]["host_limit"], 32)
 
-    def test_ps1_mixed_block(self) -> None:
+    def test_ps1_mixed_block(self):
         block = (
             "192.168.1.100/24\n2402:1f00:8101:83f::1/64\nfe80::ae1f:6bff:fe94:531a/64\n"
         )
@@ -466,7 +465,7 @@ v6GW                 : null
         self.assertEqual(len(result[IP4]), 1)
         self.assertEqual(len(result[IP6]), 2)
 
-    def test_ps1_regex_captures_slash_in_ip_list(self) -> None:
+    def test_ps1_regex_captures_slash_in_ip_list(self):
         """Confirm the updated regex accepts /prefix in the IP list field."""
         import re
 
@@ -517,7 +516,7 @@ AddressFamily  : IPv6
 PrefixLength   : 64
 """
 
-    def _parse_addr_output(self, out: str) -> Dict[Any, List[Dict[str, Any]]]:
+    def _parse_addr_output(self, out):
         import re
         from aionetiface.net.net_utils import cidr_to_netmask
 
@@ -543,21 +542,21 @@ PrefixLength   : 64
             )
         return addr
 
-    def test_ipv4_extracted(self) -> None:
+    def test_ipv4_extracted(self):
         result = self._parse_addr_output(self.PS_ADDR_OUTPUT)
         self.assertEqual(len(result[IP4]), 1)
         self.assertEqual(result[IP4][0]["addr"], "192.168.1.100")
         self.assertEqual(result[IP4][0]["host_limit"], 24)
         self.assertEqual(result[IP4][0]["netmask"], "255.255.255.0")
 
-    def test_ipv6_extracted(self) -> None:
+    def test_ipv6_extracted(self):
         result = self._parse_addr_output(self.PS_ADDR_OUTPUT)
         self.assertEqual(len(result[IP6]), 2)
         self.assertTrue(_has_addr(result[IP6], "2402:1f00:8101:83f::1"))
         addr = _get_addr(result[IP6], "2402:1f00:8101:83f::1")
         self.assertEqual(addr["host_limit"], 64)
 
-    def test_netmask_populated(self) -> None:
+    def test_netmask_populated(self):
         result = self._parse_addr_output(self.PS_ADDR_OUTPUT)
         for addr in result[IP4]:
             self.assertIsNotNone(addr.get("netmask"))
@@ -576,37 +575,37 @@ class TestNetiaceAddrToIPR(AsyncTestCase):
     covering all the edge cases that arise from different OS netmask formats.
     """
 
-    async def _to_ipr(self, af: Any, addr: str, netmask: str, nic_id: int = 0) -> Any:
+    async def _to_ipr(self, af, addr, netmask, nic_id=0):
         from aionetiface.nic.netifaces.netiface_extra import netiface_addr_to_ipr
 
         info = {"addr": addr, "netmask": netmask}
         return await netiface_addr_to_ipr(af, nic_id, info)
 
-    async def test_ipv4_host_with_slash24_netmask(self) -> None:
+    async def test_ipv4_host_with_slash24_netmask(self):
         ipr = await self._to_ipr(IP4, "192.168.1.100", "255.255.255.0")
         self.assertIsNotNone(ipr)
         self.assertEqual(ipr.bitlen, 0)  # single-host range
         self.assertEqual(ipr.subnet, 24)  # OS prefix stored separately
 
-    async def test_ipv4_host_with_full_netmask(self) -> None:
+    async def test_ipv4_host_with_full_netmask(self):
         ipr = await self._to_ipr(IP4, "8.8.8.8", "255.255.255.255")
         self.assertIsNotNone(ipr)
         self.assertEqual(ipr.bitlen, 0)
         self.assertEqual(ipr.subnet, 32)
 
-    async def test_ipv4_missing_addr(self) -> None:
+    async def test_ipv4_missing_addr(self):
         from aionetiface.nic.netifaces.netiface_extra import netiface_addr_to_ipr
 
         result = await netiface_addr_to_ipr(IP4, 0, {"netmask": "255.255.255.0"})
         self.assertIsNone(result)
 
-    async def test_ipv4_missing_netmask(self) -> None:
+    async def test_ipv4_missing_netmask(self):
         from aionetiface.nic.netifaces.netiface_extra import netiface_addr_to_ipr
 
         result = await netiface_addr_to_ipr(IP4, 0, {"addr": "192.168.1.1"})
         self.assertIsNone(result)
 
-    async def test_ipv6_host_with_slash64_netmask(self) -> None:
+    async def test_ipv6_host_with_slash64_netmask(self):
         ipr = await self._to_ipr(
             IP6, "2402:1f00:8101:83f::1", "ffff:ffff:ffff:ffff::/64"
         )
@@ -614,7 +613,7 @@ class TestNetiaceAddrToIPR(AsyncTestCase):
         self.assertEqual(ipr.bitlen, 0)  # single-host
         self.assertEqual(ipr.subnet, 64)  # OS /64 prefix
 
-    async def test_ipv6_host_with_full_netmask(self) -> None:
+    async def test_ipv6_host_with_full_netmask(self):
         ipr = await self._to_ipr(
             IP6, "2402:1f00:8101:83f::1", "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
         )
@@ -622,7 +621,7 @@ class TestNetiaceAddrToIPR(AsyncTestCase):
         self.assertEqual(ipr.bitlen, 0)
         self.assertEqual(ipr.subnet, 128)
 
-    async def test_ipv6_link_local_with_slash64(self) -> None:
+    async def test_ipv6_link_local_with_slash64(self):
         ipr = await self._to_ipr(
             IP6, "fe80::ae1f:6bff:fe94:531a", "ffff:ffff:ffff:ffff::/64"
         )
@@ -630,19 +629,19 @@ class TestNetiaceAddrToIPR(AsyncTestCase):
         self.assertEqual(ipr.bitlen, 0)
         self.assertEqual(ipr.subnet, 64)
 
-    async def test_ipv6_link_local_with_interface_suffix(self) -> None:
+    async def test_ipv6_link_local_with_interface_suffix(self):
         """Addresses with %interface suffixes must load correctly."""
         ipr = await self._to_ipr(
             IP6, "fe80::ae1f:6bff:fe94:531a%eth0", "ffff:ffff:ffff:ffff::/64"
         )
         self.assertIsNotNone(ipr)
 
-    async def test_bad_netmask_falls_back_gracefully(self) -> None:
+    async def test_bad_netmask_falls_back_gracefully(self):
         """Unusual netmask format must not drop the address entirely."""
         ipr = await self._to_ipr(IP4, "10.0.0.1", "255.255.255.0")
         self.assertIsNotNone(ipr)
 
-    async def test_ipv4_block_assignment(self) -> None:
+    async def test_ipv4_block_assignment(self):
         """Network address assigned to interface (i_host==0) → block IPRange with bitlen=5 (5 host bits = /27)."""
         ipr = await self._to_ipr(IP4, "203.0.113.0", "255.255.255.224")
         self.assertIsNotNone(ipr)
@@ -651,7 +650,7 @@ class TestNetiaceAddrToIPR(AsyncTestCase):
         self.assertEqual(ipr.subnet, 27)
         self.assertEqual(ipr.i_host, 0)
 
-    async def test_net_cidr_preserved_across_deepcopy(self) -> None:
+    async def test_net_cidr_preserved_across_deepcopy(self):
         import copy
 
         ipr = await self._to_ipr(IP4, "192.168.1.5", "255.255.255.0")
@@ -670,20 +669,20 @@ class TestGroupPubIPRsByNetCidr(unittest.TestCase):
     Uses synthetic IPRange objects with manually set subnet values.
     """
 
-    def _make_ipr(self, ip: str, subnet: int, af: Any = IP4) -> Any:
+    def _make_ipr(self, ip, subnet, af=IP4):
         from aionetiface.net.ip_range import IPRange
 
         ipr = IPRange(ip, bitlen=0)
         ipr.subnet = subnet
         return ipr
 
-    def _group(self, iprs: List[Any], af: Any = IP4) -> Any:
+    def _group(self, iprs, af=IP4):
         from aionetiface.nic.route.route_load import group_pub_iprs_by_subnet
 
         max_bits = 128 if af == IP6 else 32
         return group_pub_iprs_by_subnet(iprs, max_bits)
 
-    def test_same_subnet_grouped(self) -> None:
+    def test_same_subnet_grouped(self):
         """Two IPv4 IPs in the same /24 share one group head."""
         ipr_a = self._make_ipr("192.168.1.1", 24)
         ipr_b = self._make_ipr("192.168.1.2", 24)
@@ -694,7 +693,7 @@ class TestGroupPubIPRsByNetCidr(unittest.TestCase):
         rest = list(heads.values())[0]
         self.assertEqual(len(rest), 1)
 
-    def test_different_subnets_separate_groups(self) -> None:
+    def test_different_subnets_separate_groups(self):
         """IPs in different /24 subnets each get their own group."""
         ipr_a = self._make_ipr("192.168.1.1", 24)
         ipr_b = self._make_ipr("192.168.2.1", 24)
@@ -702,21 +701,21 @@ class TestGroupPubIPRsByNetCidr(unittest.TestCase):
         self.assertEqual(len(heads), 2)
         self.assertEqual(len(individuals), 0)
 
-    def test_ipv4_max_cidr_goes_individual(self) -> None:
+    def test_ipv4_max_cidr_goes_individual(self):
         """IPv4 /32 addresses (unknown prefix) go to individual_iprs."""
         ipr = self._make_ipr("8.8.8.8", 32)
         heads, individuals = self._group([ipr])
         self.assertEqual(len(heads), 0)
         self.assertEqual(len(individuals), 1)
 
-    def test_ipv6_slash128_goes_individual(self) -> None:
+    def test_ipv6_slash128_goes_individual(self):
         """IPv6 /128 addresses go to individual_iprs."""
         ipr = self._make_ipr("2402:1f00:8101:83f::1", 128, af=IP6)
         heads, individuals = self._group([ipr], af=IP6)
         self.assertEqual(len(heads), 0)
         self.assertEqual(len(individuals), 1)
 
-    def test_ipv6_slash64_grouped(self) -> None:
+    def test_ipv6_slash64_grouped(self):
         """Two IPv6 IPs in the same /64 share one group head."""
         ipr_a = self._make_ipr("2402:1f00:8101:83f::1", 64, af=IP6)
         ipr_b = self._make_ipr("2402:1f00:8101:83f::2", 64, af=IP6)
@@ -724,7 +723,7 @@ class TestGroupPubIPRsByNetCidr(unittest.TestCase):
         self.assertEqual(len(heads), 1)
         self.assertEqual(len(individuals), 0)
 
-    def test_ipv6_different_slash64_separate(self) -> None:
+    def test_ipv6_different_slash64_separate(self):
         """IPv6 IPs in different /64 subnets are separate groups."""
         ipr_a = self._make_ipr("2402:1f00:8101:83f::1", 64, af=IP6)
         ipr_b = self._make_ipr("2402:1f00:8101:840::1", 64, af=IP6)
@@ -732,12 +731,12 @@ class TestGroupPubIPRsByNetCidr(unittest.TestCase):
         self.assertEqual(len(heads), 2)
         self.assertEqual(len(individuals), 0)
 
-    def test_empty_list(self) -> None:
+    def test_empty_list(self):
         heads, individuals = self._group([])
         self.assertEqual(len(heads), 0)
         self.assertEqual(len(individuals), 0)
 
-    def test_none_net_cidr_falls_back_to_individual(self) -> None:
+    def test_none_net_cidr_falls_back_to_individual(self):
         """subnet=None is treated as max_bits → individual query."""
         from aionetiface.net.ip_range import IPRange
 
@@ -762,13 +761,13 @@ class TestGetMacMixedRegex(unittest.TestCase):
     MAC_P = r"((?:[0-9a-fA-F]{2}[\s:-]*){6})"
     IFCONFIG_P = r"\s+[a-zA-Z]+\s+([^\s]+)"
 
-    def _extract_mac_ip_addr(self, output: str) -> Optional[str]:
+    def _extract_mac_ip_addr(self, output):
         import re
 
         matches = re.findall(self.MAC_P, output)
         return matches[0].strip() if matches else None
 
-    def _extract_mac_ifconfig(self, output: str) -> Optional[str]:
+    def _extract_mac_ifconfig(self, output):
         import re
 
         matches = re.findall(self.IFCONFIG_P, output)
@@ -779,7 +778,7 @@ class TestGetMacMixedRegex(unittest.TestCase):
     # Ubuntu 18.04 / Debian – plain link/ether line
     LINUX_IP_ADDR_UBUNTU = "    link/ether 52:54:00:12:34:56 brd ff:ff:ff:ff:ff:ff\n"
 
-    def test_linux_ip_addr_ubuntu(self) -> None:
+    def test_linux_ip_addr_ubuntu(self):
         mac = self._extract_mac_ip_addr(self.LINUX_IP_ADDR_UBUNTU)
         self.assertIsNotNone(mac)
         self.assertIn("52", mac)
@@ -789,7 +788,7 @@ class TestGetMacMixedRegex(unittest.TestCase):
         "    link/ether 00:1A:4B:C8:D3:F2 brd ff:ff:ff:ff:ff:ff link-netnsid 0\n"
     )
 
-    def test_linux_ip_addr_rhel_link_netnsid(self) -> None:
+    def test_linux_ip_addr_rhel_link_netnsid(self):
         mac = self._extract_mac_ip_addr(self.LINUX_IP_ADDR_RHEL)
         self.assertIsNotNone(mac)
         self.assertIn("1A", mac.upper())
@@ -797,14 +796,14 @@ class TestGetMacMixedRegex(unittest.TestCase):
     # Alpine Linux / Docker – minimal output, no broadcast line
     LINUX_IP_ADDR_ALPINE = "    link/ether aa:bb:cc:dd:ee:ff brd ff:ff:ff:ff:ff:ff\n"
 
-    def test_linux_ip_addr_alpine(self) -> None:
+    def test_linux_ip_addr_alpine(self):
         mac = self._extract_mac_ip_addr(self.LINUX_IP_ADDR_ALPINE)
         self.assertIsNotNone(mac)
 
     # Raspberry Pi – MAC with Raspberry Pi OUI (b8:27:eb)
     LINUX_IP_ADDR_RPI = "    link/ether b8:27:eb:12:34:56 brd ff:ff:ff:ff:ff:ff\n"
 
-    def test_linux_ip_addr_rpi(self) -> None:
+    def test_linux_ip_addr_rpi(self):
         mac = self._extract_mac_ip_addr(self.LINUX_IP_ADDR_RPI)
         self.assertIsNotNone(mac)
         self.assertIn("b8", mac.lower())
@@ -814,7 +813,7 @@ class TestGetMacMixedRegex(unittest.TestCase):
         "    link/ether 00:0c:29:57:d0:5c brd ff:ff:ff:ff:ff:ff\n    altname enp3s0\n"
     )
 
-    def test_linux_ip_addr_with_altname(self) -> None:
+    def test_linux_ip_addr_with_altname(self):
         mac = self._extract_mac_ip_addr(self.LINUX_IP_ADDR_WITH_ALTNAME)
         self.assertIsNotNone(mac)
         self.assertIn("00:0c:29", mac.lower())
@@ -822,14 +821,14 @@ class TestGetMacMixedRegex(unittest.TestCase):
     # Linux – VLAN interface (ether appears same way)
     LINUX_IP_ADDR_VLAN = "    link/ether 00:11:22:33:44:55 brd ff:ff:ff:ff:ff:ff\n"
 
-    def test_linux_ip_addr_vlan(self) -> None:
+    def test_linux_ip_addr_vlan(self):
         mac = self._extract_mac_ip_addr(self.LINUX_IP_ADDR_VLAN)
         self.assertIsNotNone(mac)
 
     # OpenWrt – compact format, no trailing spaces
     LINUX_IP_ADDR_OPENWRT = "    link/ether dc:ef:09:ab:cd:ef brd ff:ff:ff:ff:ff:ff\n"
 
-    def test_linux_ip_addr_openwrt(self) -> None:
+    def test_linux_ip_addr_openwrt(self):
         mac = self._extract_mac_ip_addr(self.LINUX_IP_ADDR_OPENWRT)
         self.assertIsNotNone(mac)
         self.assertIn("dc", mac.lower())
@@ -839,7 +838,7 @@ class TestGetMacMixedRegex(unittest.TestCase):
     # OpenBSD 7.x – uses "lladdr"
     OPENBSD_IFCONFIG_LLADDR = "        lladdr 00:0c:29:57:d0:5c\n"
 
-    def test_openbsd_ifconfig_lladdr(self) -> None:
+    def test_openbsd_ifconfig_lladdr(self):
         mac = self._extract_mac_ifconfig(self.OPENBSD_IFCONFIG_LLADDR)
         self.assertIsNotNone(mac)
         self.assertEqual(mac, "00:0c:29:57:d0:5c")
@@ -847,7 +846,7 @@ class TestGetMacMixedRegex(unittest.TestCase):
     # FreeBSD 13 – uses "ether" keyword
     FREEBSD_IFCONFIG_ETHER = "        ether 00:19:d1:ab:cd:ef\n"
 
-    def test_freebsd_ifconfig_ether(self) -> None:
+    def test_freebsd_ifconfig_ether(self):
         mac = self._extract_mac_ifconfig(self.FREEBSD_IFCONFIG_ETHER)
         self.assertIsNotNone(mac)
         self.assertEqual(mac, "00:19:d1:ab:cd:ef")
@@ -855,7 +854,7 @@ class TestGetMacMixedRegex(unittest.TestCase):
     # macOS 12 Monterey – "ether" with trailing space
     MACOS_IFCONFIG_ETHER = "        ether 8c:85:90:12:34:56 \n"
 
-    def test_macos_ifconfig_ether(self) -> None:
+    def test_macos_ifconfig_ether(self):
         mac = self._extract_mac_ifconfig(self.MACOS_IFCONFIG_ETHER)
         self.assertIsNotNone(mac)
         self.assertEqual(mac, "8c:85:90:12:34:56")
@@ -863,7 +862,7 @@ class TestGetMacMixedRegex(unittest.TestCase):
     # macOS – Apple Silicon OUI (f8:ff:c2)
     MACOS_IFCONFIG_M1 = "        ether f8:ff:c2:ab:cd:ef\n"
 
-    def test_macos_ifconfig_m1(self) -> None:
+    def test_macos_ifconfig_m1(self):
         mac = self._extract_mac_ifconfig(self.MACOS_IFCONFIG_M1)
         self.assertIsNotNone(mac)
         self.assertIn("f8", mac.lower())
@@ -871,14 +870,14 @@ class TestGetMacMixedRegex(unittest.TestCase):
     # NetBSD – "ether" like FreeBSD
     NETBSD_IFCONFIG = "        ether 52:54:00:de:ad:be\n"
 
-    def test_netbsd_ifconfig(self) -> None:
+    def test_netbsd_ifconfig(self):
         mac = self._extract_mac_ifconfig(self.NETBSD_IFCONFIG)
         self.assertIsNotNone(mac)
 
     # OpenBSD – WiFi interface uses same lladdr format
     OPENBSD_IFCONFIG_WIFI = "        lladdr a4:c3:f0:12:34:56\n"
 
-    def test_openbsd_ifconfig_wifi(self) -> None:
+    def test_openbsd_ifconfig_wifi(self):
         mac = self._extract_mac_ifconfig(self.OPENBSD_IFCONFIG_WIFI)
         self.assertIsNotNone(mac)
         self.assertEqual(mac, "a4:c3:f0:12:34:56")
@@ -887,7 +886,7 @@ class TestGetMacMixedRegex(unittest.TestCase):
 
     WIN_P = r"[0-9]+\s*[.]+([^.]+)\s*[.]+"
 
-    def _extract_win_mac(self, output: str, if_name: str) -> Optional[str]:
+    def _extract_win_mac(self, output, if_name):
         import re
 
         matches = re.findall(self.WIN_P + re.escape(if_name), output)
@@ -903,7 +902,7 @@ class TestGetMacMixedRegex(unittest.TestCase):
         "===========================================================================\r\n"
     )
 
-    def test_win7_route_print_ethernet(self) -> None:
+    def test_win7_route_print_ethernet(self):
         mac = self._extract_win_mac(self.WIN7_ROUTE_PRINT, "Ethernet")
         self.assertIsNotNone(mac)
         self.assertEqual(mac, "aa-bb-cc-dd-ee-ff")
@@ -917,21 +916,21 @@ class TestGetMacMixedRegex(unittest.TestCase):
         " 16...00 50 56 c0 00 08 ......VMware Virtual Ethernet Adapter for VMnet8\r\n"
     )
 
-    def test_win10_route_print_wifi(self) -> None:
+    def test_win10_route_print_wifi(self):
         mac = self._extract_win_mac(
             self.WIN10_ROUTE_PRINT, "Intel(R) Wi-Fi 6 AX200 160MHz"
         )
         self.assertIsNotNone(mac)
         self.assertEqual(mac, "11-22-33-44-55-66")
 
-    def test_win10_route_print_ethernet(self) -> None:
+    def test_win10_route_print_ethernet(self):
         mac = self._extract_win_mac(
             self.WIN10_ROUTE_PRINT, "Intel(R) Ethernet Connection I219-V"
         )
         self.assertIsNotNone(mac)
         self.assertEqual(mac, "aa-bb-cc-dd-ee-ff")
 
-    def test_win10_route_print_vmware(self) -> None:
+    def test_win10_route_print_vmware(self):
         mac = self._extract_win_mac(
             self.WIN10_ROUTE_PRINT, "VMware Virtual Ethernet Adapter for VMnet8"
         )
@@ -947,14 +946,14 @@ class TestGetMacMixedRegex(unittest.TestCase):
         " 10...00 0c 29 ab cd ef ......Intel(R) 82574L Gigabit Network Connection\r\n"
     )
 
-    def test_win_server_route_print_hyperv(self) -> None:
+    def test_win_server_route_print_hyperv(self):
         mac = self._extract_win_mac(
             self.WIN_SERVER_ROUTE_PRINT, "Hyper-V Virtual Ethernet Adapter"
         )
         self.assertIsNotNone(mac)
         self.assertEqual(mac, "de-ad-be-ef-ca-fe")
 
-    def test_win_server_route_print_hyperv2(self) -> None:
+    def test_win_server_route_print_hyperv2(self):
         mac = self._extract_win_mac(
             self.WIN_SERVER_ROUTE_PRINT, "Hyper-V Virtual Ethernet Adapter #2"
         )
@@ -970,7 +969,7 @@ class TestGetMacMixedRegex(unittest.TestCase):
 class TestNetshParsersExtended(unittest.TestCase):
     """Additional real-world output samples for NetshParse."""
 
-    def setUp(self) -> None:
+    def setUp(self):
         from aionetiface.nic.netifaces.windows.win_netsh import NetshParse
 
         self.parser = NetshParse()
@@ -988,7 +987,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         "  3          25        1500  disconnected  Wireless Network Connection\r\n"
     )
 
-    def test_show_interfaces_vista(self) -> None:
+    def test_show_interfaces_vista(self):
         af, key, data = self.parser.show_interfaces(IP4, self.IFACES_VISTA)
         self.assertIn("2", data)
         self.assertEqual(data["2"]["con_name"], "Local Area Connection")
@@ -1004,7 +1003,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         " 15          35        1280  connected     Teredo Tunneling Pseudo-Interface\r\n"
     )
 
-    def test_show_interfaces_win7_teredo(self) -> None:
+    def test_show_interfaces_win7_teredo(self):
         af, key, data = self.parser.show_interfaces(IP4, self.IFACES_WIN7)
         self.assertIn("15", data)
         self.assertEqual(data["15"]["mtu"], "1280")
@@ -1021,7 +1020,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         " 21          15        1280  connected     Teredo Tunneling Pseudo-Interface\r\n"
     )
 
-    def test_show_interfaces_win10_multi(self) -> None:
+    def test_show_interfaces_win10_multi(self):
         af, key, data = self.parser.show_interfaces(IP4, self.IFACES_WIN10)
         self.assertIn("17", data)
         self.assertEqual(data["17"]["con_name"], "Wi-Fi")
@@ -1038,7 +1037,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         "  6          30        1500  disconnected  Ethernet2\r\n"
     )
 
-    def test_show_interfaces_server2012(self) -> None:
+    def test_show_interfaces_server2012(self):
         af, key, data = self.parser.show_interfaces(IP4, self.IFACES_SERVER2012)
         self.assertIn("4", data)
         self.assertEqual(data["4"]["con_name"], "Ethernet0")
@@ -1055,7 +1054,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         " 40           5        1500  connected     vEthernet\r\n"
     )
 
-    def test_show_interfaces_win11_vethernet(self) -> None:
+    def test_show_interfaces_win11_vethernet(self):
         af, key, data = self.parser.show_interfaces(IP4, self.IFACES_WIN11)
         self.assertIn("40", data)
         self.assertEqual(data["40"]["metric"], "5")
@@ -1071,7 +1070,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         "100          20        1500  connected     Management\r\n"
     )
 
-    def test_show_interfaces_server2019_team(self) -> None:
+    def test_show_interfaces_server2019_team(self):
         af, key, data = self.parser.show_interfaces(IP4, self.IFACES_SERVER2019)
         self.assertIn("2", data)
         self.assertEqual(data["2"]["mtu"], "9000")
@@ -1089,7 +1088,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         "Manual       Manual     infinite   infinite   192.168.0.100\r\n"
     )
 
-    def test_show_addresses_vista_static(self) -> None:
+    def test_show_addresses_vista_static(self):
         af, key, data = self.parser.show_addresses(IP4, self.ADDRS_VISTA_STATIC)
         self.assertIn("2", data)
         self.assertEqual(data["2"][0]["addr"], "192.168.0.100")
@@ -1103,7 +1102,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         "Dhcp       Preferred  86399s     86399s     10.0.1.76\r\n"
     )
 
-    def test_show_addresses_win10_dhcp_lifetime(self) -> None:
+    def test_show_addresses_win10_dhcp_lifetime(self):
         af, key, data = self.parser.show_addresses(IP4, self.ADDRS_WIN10_DHCP)
         self.assertIn("15", data)
         self.assertEqual(data["15"][0]["addr"], "10.0.1.76")
@@ -1118,7 +1117,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         "Other      Preferred  infinite   infinite   203.0.113.0\r\n"
     )
 
-    def test_show_addresses_block_assignment(self) -> None:
+    def test_show_addresses_block_assignment(self):
         """A /27 network address assigned directly to an interface (ISP block)."""
         af, key, data = self.parser.show_addresses(IP4, self.ADDRS_BLOCK_ASSIGNMENT)
         self.assertIn("12", data)
@@ -1134,7 +1133,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         "Other      Preferred  infinite   infinite   fe80::20c:29ff:fe57:d05c\r\n"
     )
 
-    def test_show_addresses_v6_multi_including_deprecated(self) -> None:
+    def test_show_addresses_v6_multi_including_deprecated(self):
         af, key, data = self.parser.show_addresses(IP6, self.ADDRS_V6_MULTI)
         self.assertIn("15", data)
         addrs = [e["addr"] for e in data["15"]]
@@ -1149,7 +1148,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         "Other      Preferred  infinite   infinite   2001:db8::\r\n"
     )
 
-    def test_show_addresses_v6_block(self) -> None:
+    def test_show_addresses_v6_block(self):
         """Network address of a /48 block assigned to an interface."""
         af, key, data = self.parser.show_addresses(IP6, self.ADDRS_V6_BLOCK)
         self.assertIn("4", data)
@@ -1169,7 +1168,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         "Other      Preferred  infinite   infinite   10.0.0.51\r\n"
     )
 
-    def test_show_addresses_multi_interface(self) -> None:
+    def test_show_addresses_multi_interface(self):
         af, key, data = self.parser.show_addresses(IP4, self.ADDRS_MULTI_IF)
         self.assertIn("12", data)
         self.assertIn("14", data)
@@ -1189,7 +1188,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         "Yes Manual   5  172.16.0.0/12    12  Ethernet\r\n"
     )
 
-    def test_show_route_v4_manual(self) -> None:
+    def test_show_route_v4_manual(self):
         af, key, data = self.parser.show_route(IP4, self.ROUTES_V4_FULL)
         self.assertIn("12", data)
         prefixes = [r["prefix"] for r in data["12"]]
@@ -1208,7 +1207,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         "No  System   0  0.0.0.0/0        12  Ethernet\r\n"
     )
 
-    def test_show_route_v4_host_routes(self) -> None:
+    def test_show_route_v4_host_routes(self):
         af, key, data = self.parser.show_route(IP4, self.ROUTES_V4_HOST)
         self.assertIn("15", data)
         prefixes = [r["prefix"] for r in data["15"]]
@@ -1228,7 +1227,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         "No  System  30  ::1/128                         12  Ethernet\r\n"
     )
 
-    def test_show_route_v6_prefix_lengths(self) -> None:
+    def test_show_route_v6_prefix_lengths(self):
         af, key, data = self.parser.show_route(IP6, self.ROUTES_V6_FULL)
         self.assertIn("12", data)
         prefixes = [r["prefix"] for r in data["12"]]
@@ -1247,7 +1246,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         "No  System   0  ::/0                            14  Wi-Fi\r\n"
     )
 
-    def test_show_route_v6_link_local_and_global(self) -> None:
+    def test_show_route_v6_link_local_and_global(self):
         af, key, data = self.parser.show_route(IP6, self.ROUTES_V6_MIXED)
         self.assertIn("14", data)
         prefixes = [r["prefix"] for r in data["14"]]
@@ -1264,7 +1263,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         "No  System  10  10.0.0.0/24      14  Wi-Fi\r\n"
     )
 
-    def test_show_route_v4_multi_interface(self) -> None:
+    def test_show_route_v4_multi_interface(self):
         af, key, data = self.parser.show_route(IP4, self.ROUTES_V4_MULTI_IF)
         self.assertIn("12", data)
         self.assertIn("14", data)
@@ -1293,7 +1292,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         "===========================================================================\r\n"
     )
 
-    def test_show_mac_win7(self) -> None:
+    def test_show_mac_win7(self):
         af, key, data = self.parser.show_mac(IP4, self.ROUTE_PRINT_WIN7)
         self.assertEqual(key, "macs")
         self.assertIn("12", data)
@@ -1320,7 +1319,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         " 15    5  ::/0                         fe80::1\r\n"
     )
 
-    def test_show_mac_win10_dual_stack(self) -> None:
+    def test_show_mac_win10_dual_stack(self):
         af, key, data = self.parser.show_mac(IP4, self.ROUTE_PRINT_WIN10_DUAL)
         self.assertIsNotNone(data["default"][IP4])
         self.assertEqual(data["default"][IP4]["gw_ip"], "192.168.1.1")
@@ -1339,7 +1338,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         "      203.0.113.0    255.255.255.0         On-link      203.0.113.1      10\r\n"
     )
 
-    def test_show_mac_no_default_route(self) -> None:
+    def test_show_mac_no_default_route(self):
         af, key, data = self.parser.show_mac(IP4, self.ROUTE_PRINT_NO_DEFAULT)
         # Default route entry should be absent (None)
         self.assertIsNone(data["default"][IP4])
@@ -1359,7 +1358,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         "          0.0.0.0          0.0.0.0       10.0.0.1        10.0.0.50      20\r\n"
     )
 
-    def test_show_mac_hyperv(self) -> None:
+    def test_show_mac_hyperv(self):
         af, key, data = self.parser.show_mac(IP4, self.ROUTE_PRINT_HYPERV)
         self.assertIn("4", data)
         self.assertEqual(data["4"]["mac"], "00-15-5d-12-34-56")
@@ -1384,7 +1383,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         " 14    5  ::/0                         fe80::1\r\n"
     )
 
-    def test_show_mac_win11(self) -> None:
+    def test_show_mac_win11(self):
         af, key, data = self.parser.show_mac(IP4, self.ROUTE_PRINT_WIN11)
         self.assertIn("14", data)
         self.assertEqual(data["14"]["mac"], "aa-bb-cc-dd-ee-ff")
@@ -1404,7 +1403,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         "   Default Gateway . . . . . . . . . : 192.168.0.1\r\n"
     )
 
-    def test_show_gws_xp(self) -> None:
+    def test_show_gws_xp(self):
         af, key, data = self.parser.show_gws(IP4, self.IPCONFIG_XP)
         self.assertEqual(key, "gws")
         self.assertIn("aa-bb-cc-dd-ee-ff", data)
@@ -1419,7 +1418,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         "                                        fe80::1\r\n"
     )
 
-    def test_show_gws_win7_dual_stack(self) -> None:
+    def test_show_gws_win7_dual_stack(self):
         af, key, data = self.parser.show_gws(IP4, self.IPCONFIG_WIN7_DUAL)
         mac = "aa-bb-cc-dd-ee-ff"
         self.assertIn(mac, data)
@@ -1434,7 +1433,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         "   Default Gateway . . . . . . . . . :\r\n"
     )
 
-    def test_show_gws_no_gateway_skipped(self) -> None:
+    def test_show_gws_no_gateway_skipped(self):
         """Interface with no gateway should not appear in results (no valid IP)."""
         af, key, data = self.parser.show_gws(IP4, self.IPCONFIG_NO_GW)
         self.assertNotIn("00-15-5d-12-34-56", data)
@@ -1452,7 +1451,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         "   Default Gateway . . . . . . . . . : 172.16.0.1\r\n"
     )
 
-    def test_show_gws_multi_adapter(self) -> None:
+    def test_show_gws_multi_adapter(self):
         af, key, data = self.parser.show_gws(IP4, self.IPCONFIG_MULTI)
         self.assertIn("aa-bb-cc-dd-ee-ff", data)
         self.assertEqual(data["aa-bb-cc-dd-ee-ff"][IP4], "10.0.0.1")
@@ -1467,7 +1466,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         "   Default Gateway . . . . . . . . . : fe80::1\r\n"
     )
 
-    def test_show_gws_ipv6_only_gateway(self) -> None:
+    def test_show_gws_ipv6_only_gateway(self):
         af, key, data = self.parser.show_gws(IP4, self.IPCONFIG_IPV6_ONLY_GW)
         mac = "aa-bb-cc-dd-ee-ff"
         self.assertIn(mac, data)
@@ -1478,7 +1477,7 @@ class TestNetshParsersExtended(unittest.TestCase):
     # get_host_limit_from_route_infos – additional prefix lengths
     # -----------------------------------------------------------------------
 
-    def test_host_limit_ipv6_slash48(self) -> None:
+    def test_host_limit_ipv6_slash48(self):
         from aionetiface.nic.netifaces.windows.win_netsh import (
             get_host_limit_from_route_infos,
         )
@@ -1491,7 +1490,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         host_limit, _ = get_host_limit_from_route_infos("2001:db8:1::1", route_infos)
         self.assertEqual(host_limit, 48)
 
-    def test_host_limit_ipv6_slash56(self) -> None:
+    def test_host_limit_ipv6_slash56(self):
         from aionetiface.nic.netifaces.windows.win_netsh import (
             get_host_limit_from_route_infos,
         )
@@ -1506,7 +1505,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         )
         self.assertEqual(host_limit, 56)
 
-    def test_host_limit_ipv6_slash128(self) -> None:
+    def test_host_limit_ipv6_slash128(self):
         """Host route /128 is the most specific possible match."""
         from aionetiface.nic.netifaces.windows.win_netsh import (
             get_host_limit_from_route_infos,
@@ -1520,7 +1519,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         host_limit, _ = get_host_limit_from_route_infos("2001:db8:1:2::5", route_infos)
         self.assertEqual(host_limit, 128)
 
-    def test_host_limit_ipv4_slash30(self) -> None:
+    def test_host_limit_ipv4_slash30(self):
         """Point-to-point /30 link: two host bits."""
         from aionetiface.nic.netifaces.windows.win_netsh import (
             get_host_limit_from_route_infos,
@@ -1534,7 +1533,7 @@ class TestNetshParsersExtended(unittest.TestCase):
         self.assertEqual(host_limit, 30)
         self.assertEqual(netmask, "255.255.255.252")
 
-    def test_host_limit_no_match_returns_zero(self) -> None:
+    def test_host_limit_no_match_returns_zero(self):
         """IP not covered by any route → host_limit=0, netmask=None."""
         from aionetiface.nic.netifaces.windows.win_netsh import (
             get_host_limit_from_route_infos,
@@ -1559,7 +1558,7 @@ class TestNetiaceAddrToIPRBlocks(AsyncTestCase):
     covering IPv4 and IPv6, common prefix lengths, and cross-OS netmask formats.
     """
 
-    async def _to_ipr(self, af: Any, addr: str, netmask: str, nic_id: int = 0) -> Any:
+    async def _to_ipr(self, af, addr, netmask, nic_id=0):
         from aionetiface.nic.netifaces.netiface_extra import netiface_addr_to_ipr
 
         info = {"addr": addr, "netmask": netmask}
@@ -1567,7 +1566,7 @@ class TestNetiaceAddrToIPRBlocks(AsyncTestCase):
 
     # --- IPv4 block assignments ---
 
-    async def test_ipv4_block_slash24(self) -> None:
+    async def test_ipv4_block_slash24(self):
         """/24 block: 198.51.100.0/24 with 255 usable hosts."""
         ipr = await self._to_ipr(IP4, "198.51.100.0", "255.255.255.0")
         self.assertIsNotNone(ipr)
@@ -1576,7 +1575,7 @@ class TestNetiaceAddrToIPRBlocks(AsyncTestCase):
         self.assertEqual(ipr.subnet, 24)
         self.assertEqual(ipr.i_host, 0)
 
-    async def test_ipv4_block_slash25(self) -> None:
+    async def test_ipv4_block_slash25(self):
         """/25 block: 192.168.1.128/25 – upper half of a /24."""
         ipr = await self._to_ipr(IP4, "192.168.1.128", "255.255.255.128")
         self.assertIsNotNone(ipr)
@@ -1585,7 +1584,7 @@ class TestNetiaceAddrToIPRBlocks(AsyncTestCase):
         self.assertEqual(ipr.subnet, 25)
         self.assertEqual(ipr.i_host, 0)
 
-    async def test_ipv4_block_slash28(self) -> None:
+    async def test_ipv4_block_slash28(self):
         """/28 block: 203.0.113.16/28 – 14 usable hosts."""
         ipr = await self._to_ipr(IP4, "203.0.113.16", "255.255.255.240")
         self.assertIsNotNone(ipr)
@@ -1594,7 +1593,7 @@ class TestNetiaceAddrToIPRBlocks(AsyncTestCase):
         self.assertEqual(ipr.subnet, 28)
         self.assertEqual(ipr.i_host, 0)
 
-    async def test_ipv4_block_slash30(self) -> None:
+    async def test_ipv4_block_slash30(self):
         """/30 point-to-point link: 10.0.0.0/30 – 3 usable IPs."""
         ipr = await self._to_ipr(IP4, "10.0.0.0", "255.255.255.252")
         self.assertIsNotNone(ipr)
@@ -1603,7 +1602,7 @@ class TestNetiaceAddrToIPRBlocks(AsyncTestCase):
         self.assertEqual(ipr.subnet, 30)
         self.assertEqual(ipr.i_host, 0)
 
-    async def test_ipv4_block_slash16(self) -> None:
+    async def test_ipv4_block_slash16(self):
         """/16 block: 172.16.0.0/16 – 65535 usable hosts."""
         ipr = await self._to_ipr(IP4, "172.16.0.0", "255.255.0.0")
         self.assertIsNotNone(ipr)
@@ -1612,7 +1611,7 @@ class TestNetiaceAddrToIPRBlocks(AsyncTestCase):
         self.assertEqual(ipr.subnet, 16)
         self.assertEqual(ipr.i_host, 0)
 
-    async def test_ipv4_host_inside_block_is_single(self) -> None:
+    async def test_ipv4_host_inside_block_is_single(self):
         """A host IP inside a /24 subnet → collapsed to single-host range."""
         ipr = await self._to_ipr(IP4, "198.51.100.5", "255.255.255.0")
         self.assertIsNotNone(ipr)
@@ -1621,7 +1620,7 @@ class TestNetiaceAddrToIPRBlocks(AsyncTestCase):
 
     # --- IPv6 block assignments ---
 
-    async def test_ipv6_block_slash64_network_addr(self) -> None:
+    async def test_ipv6_block_slash64_network_addr(self):
         """/64 block: 2001:db8:: assigned directly (network address on interface)."""
         ipr = await self._to_ipr(IP6, "2001:db8::", "ffff:ffff:ffff:ffff::")
         self.assertIsNotNone(ipr)
@@ -1630,7 +1629,7 @@ class TestNetiaceAddrToIPRBlocks(AsyncTestCase):
         self.assertEqual(ipr.subnet, 64)
         self.assertEqual(ipr.i_host, 0)
 
-    async def test_ipv6_block_slash48(self) -> None:
+    async def test_ipv6_block_slash48(self):
         """/48 block: 2001:db8:: assigned as a /48 (router prefix delegation)."""
         ipr = await self._to_ipr(IP6, "2001:db8::", "ffff:ffff:ffff::")
         self.assertIsNotNone(ipr)
@@ -1638,7 +1637,7 @@ class TestNetiaceAddrToIPRBlocks(AsyncTestCase):
         self.assertEqual(ipr.subnet, 48)
         self.assertEqual(ipr.i_host, 0)
 
-    async def test_ipv6_block_slash56(self) -> None:
+    async def test_ipv6_block_slash56(self):
         """/56 block: 2001:db8:1:200:: – common ISP delegation size."""
         ipr = await self._to_ipr(IP6, "2001:db8:1:200::", "ffff:ffff:ffff:ff00::")
         self.assertIsNotNone(ipr)
@@ -1646,14 +1645,14 @@ class TestNetiaceAddrToIPRBlocks(AsyncTestCase):
         self.assertEqual(ipr.subnet, 56)
         self.assertEqual(ipr.i_host, 0)
 
-    async def test_ipv6_host_inside_slash64_is_single(self) -> None:
+    async def test_ipv6_host_inside_slash64_is_single(self):
         """A host inside a /64 → single-host IPRange with subnet=64."""
         ipr = await self._to_ipr(IP6, "2001:db8::1", "ffff:ffff:ffff:ffff::/64")
         self.assertIsNotNone(ipr)
         self.assertEqual(ipr.bitlen, 0)  # single host
         self.assertEqual(ipr.subnet, 64)
 
-    async def test_ipv6_link_local_host_inside_slash64(self) -> None:
+    async def test_ipv6_link_local_host_inside_slash64(self):
         """Link-local address in /64 → single-host, subnet=64."""
         ipr = await self._to_ipr(IP6, "fe80::1", "ffff:ffff:ffff:ffff::")
         self.assertIsNotNone(ipr)
@@ -1662,7 +1661,7 @@ class TestNetiaceAddrToIPRBlocks(AsyncTestCase):
 
     # --- Netmask format variations from different OSes ---
 
-    async def test_netmask_with_cidr_suffix_stripped(self) -> None:
+    async def test_netmask_with_cidr_suffix_stripped(self):
         """netifaces on some systems returns 'ffff:ffff:ffff:ffff::/64' – /N stripped."""
         ipr = await self._to_ipr(
             IP6, "2400:a842:d1b4:0:20c:29ff:fe57:d05c", "ffff:ffff:ffff:ffff::/64"
@@ -1670,21 +1669,21 @@ class TestNetiaceAddrToIPRBlocks(AsyncTestCase):
         self.assertIsNotNone(ipr)
         self.assertEqual(ipr.subnet, 64)
 
-    async def test_netmask_ipv4_with_peer_field(self) -> None:
+    async def test_netmask_ipv4_with_peer_field(self):
         """ppp/tun interfaces sometimes set addr == peer; treat as single host."""
         ipr = await self._to_ipr(IP4, "10.10.0.1", "255.255.255.255")
         self.assertIsNotNone(ipr)
         self.assertEqual(ipr.bitlen, 0)
         self.assertEqual(ipr.subnet, 32)
 
-    async def test_ipv4_block_slash27_first_ipr_is_correct(self) -> None:
+    async def test_ipv4_block_slash27_first_ipr_is_correct(self):
         """/27 block: ipr[0] is the first usable host (network+1)."""
         ipr = await self._to_ipr(IP4, "203.0.113.0", "255.255.255.224")
         self.assertIsNotNone(ipr)
         self.assertEqual(str(ipr[0]), "203.0.113.1")
         self.assertEqual(str(ipr[-1]), "203.0.113.31")
 
-    async def test_ipv6_block_slash64_first_ipr_is_correct(self) -> None:
+    async def test_ipv6_block_slash64_first_ipr_is_correct(self):
         """/64 block: ipr[0] is ::1, ipr[-1] is all-1s in lower 64 bits."""
         ipr = await self._to_ipr(IP6, "2001:db8::", "ffff:ffff:ffff:ffff::")
         self.assertIsNotNone(ipr)
@@ -1700,7 +1699,7 @@ class TestNetiaceAddrToIPRBlocks(AsyncTestCase):
 class TestGetAddrInfoParsingExtended(unittest.TestCase):
     """More real-world Get-NetIPAddress output samples."""
 
-    def _parse(self, out: str) -> Dict[Any, List[Dict[str, Any]]]:
+    def _parse(self, out):
         import re
         from aionetiface.net.net_utils import cidr_to_netmask
 
@@ -1736,7 +1735,7 @@ AddressFamily  : IPv4
 PrefixLength   : 8
 """
 
-    def test_multihomed_ipv4(self) -> None:
+    def test_multihomed_ipv4(self):
         result = self._parse(self.PS_MULTIHOMED)
         self.assertEqual(len(result[IP4]), 3)
         addrs = [a["addr"] for a in result[IP4]]
@@ -1765,7 +1764,7 @@ AddressFamily  : IPv6
 PrefixLength   : 64
 """
 
-    def test_dual_stack_with_privacy(self) -> None:
+    def test_dual_stack_with_privacy(self):
         result = self._parse(self.PS_DUAL_STACK)
         self.assertEqual(len(result[IP4]), 1)
         self.assertEqual(len(result[IP6]), 3)

@@ -8,7 +8,6 @@ import asyncio
 import struct
 import random
 from struct import pack
-from typing import Any, Callable, List, Optional, Tuple
 from ..utility.utils import async_wrap_errors, rm_done_tasks, timestamp, to_b
 
 
@@ -17,12 +16,12 @@ UDP_MAX_DICT_LEN = 1000
 
 class ACKUDP:
     """Mixin that adds reliable delivery over UDP via sequence numbers and acknowledgements."""
-    def __init__(self) -> None:
+    def __init__(self):
         self.seq = {}  # Waiting for acks.
         self.ack_send_tasks = []
 
     # Returns a sequence number if a message is an ack.
-    def is_ack(self, data: bytes, stream: Any) -> Optional[int]:
+    def is_ack(self, data, stream):
         """Return the sequence number from data if it is an ACK message, otherwise return None."""
         if len(data) >= 9:
             (seq,) = struct.unpack("!Q", data[0:8])
@@ -34,7 +33,7 @@ class ACKUDP:
 
     # Received message that needs to be acked.
     # Return its sequence number and valid ack response.
-    def is_ackable(self, data: bytes, stream: Any) -> List[Optional[Any]]:
+    def is_ackable(self, data, stream):
         """Return [seq, ack_response, payload] for a message that requires acknowledgement, or [None, None, None] if invalid."""
         ack = is_ack = seq = None
         if len(data) >= 9:
@@ -55,11 +54,11 @@ class ACKUDP:
     # this prevents the sender from getting into a loop.
     def handle_ack(
         self,
-        data: bytes,
-        f_is_ack: Callable[..., Any],
-        f_is_ackable: Callable[..., Any],
-        f_send: Callable[..., Any],
-    ) -> Tuple[int, Optional[bytes]]:
+        data,
+        f_is_ack,
+        f_is_ackable,
+        f_send,
+    ):
         """Process an incoming packet for ACK or ackable content and return a status code with the stripped payload."""
         self.ack_send_tasks = rm_done_tasks(self.ack_send_tasks)
         payload = recv_seq = ack_seq = ack = None
@@ -112,12 +111,12 @@ class ACKUDP:
     # busy-loop checks.
     async def ack_send(
         self,
-        data: bytes,
-        dest_tup: Tuple[Any, ...],
-        seq: Optional[int] = None,
-        sock_timeout: int = 0,
-        tries: int = 3,
-    ) -> Tuple[Any, Any]:
+        data,
+        dest_tup,
+        seq=None,
+        sock_timeout=0,
+        tries=3,
+    ):
         # Keep sending until max sends reached.
         # For acks we send max transmits as they're small messages.
         if seq is None:
@@ -184,11 +183,11 @@ class ACKUDP:
 
 class BaseACKProto(asyncio.Protocol):
     """Base asyncio.Protocol providing duplicate-message detection for UDP streams."""
-    def __init__(self, conf: Any) -> None:
+    def __init__(self, conf):
         self.conf = conf
 
     # Supports dropping duplicate messages.
-    def is_unique_msg(self, pipe: Any, data: bytes, client_tup: Tuple[Any, ...]) -> int:
+    def is_unique_msg(self, pipe, data, client_tup):
         """Return 1 if data has not been seen before from client_tup, or 0 if it is a duplicate."""
         # Reset seen msgs after dict fills.
         if len(self.msg_ids) > self.conf["max_msg_ids"]:

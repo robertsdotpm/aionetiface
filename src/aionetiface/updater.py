@@ -3,7 +3,6 @@ import asyncio
 import json
 import os
 import time
-from typing import Any, Dict, List, Tuple
 from .servers import INFRA, INFRA_BUF
 from .protocol.http.http_client_lib import WebCurl
 from .install import (
@@ -21,7 +20,7 @@ entries so this keeps existing servers in place.
 """
 
 
-def reconcile_lists(old_list: List[Any], new_list: List[Any]) -> List[Any]:
+def reconcile_lists(old_list, new_list):
     """Merge new_list into old_list preserving existing offsets, zeroing ports for removed entries, and appending additions."""
     def get_id(x):
         """Return the id field of the first element in a server group entry."""
@@ -65,7 +64,7 @@ def reconcile_lists(old_list: List[Any], new_list: List[Any]) -> List[Any]:
 # TODO: just use a different address format for these.
 
 
-def reconcile_infra(old_infra: Dict[str, Any], new_infra: Dict[str, Any]) -> None:
+def reconcile_infra(old_infra, new_infra):
     """Update new_infra in-place by reconciling MQTT and TURN server lists from old_infra to preserve offsets."""
     names = (
         "MQTT",
@@ -84,11 +83,11 @@ def reconcile_infra(old_infra: Dict[str, Any], new_infra: Dict[str, Any]) -> Non
 
 
 async def update_server_list(
-    nic: Any,
-    sys_clock: Any = time,
-    init_infra_buf: Any = INFRA_BUF,
-    init_infra: Any = INFRA,
-) -> Tuple[bool, Any, Any]:
+    nic,
+    sys_clock=time,
+    init_infra_buf=INFRA_BUF,
+    init_infra=INFRA,
+):
     """Check the age of the server list, fetch a fresh one if older than a month, save it, and return (update_req, buf, infra)."""
     copy_aionetiface_install_files_as_needed()
     install_root = get_aionetiface_install_root()

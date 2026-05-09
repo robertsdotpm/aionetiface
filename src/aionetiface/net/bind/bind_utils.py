@@ -1,13 +1,12 @@
 """Helper functions for socket binding."""
 import asyncio
 import platform
-from typing import Any, Optional, Tuple
 from ...utility.utils import ip_f, MAX_PORT, rand_rang, to_s
 from ...net.net_defs import IP4, IP6, IP_PRIVATE, TCP, VALID_ANY_ADDR
 from ..ip_range import IPR
 
 
-def ip6_patch_bind_ip(bind_ip: str, nic_id: Any) -> str:
+def ip6_patch_bind_ip(bind_ip, nic_id):
     """Append the interface scope ID to a link-local IPv6 address for proper binding."""
     # Add interface descriptor if it's link local.
     if nic_id is None:
@@ -26,7 +25,7 @@ def ip6_patch_bind_ip(bind_ip: str, nic_id: Any) -> str:
     return bind_ip
 
 
-def patch_connect_ip(af: int, ip: str, nic_id: Any, ipr: Optional[Any] = None) -> str:
+def patch_connect_ip(af, ip, nic_id, ipr=None):
     """
     When a daemon is bound to the any address you can't just
     use that address to connect to as it's not a valid addr.
@@ -47,8 +46,8 @@ def patch_connect_ip(af: int, ip: str, nic_id: Any, ipr: Optional[Any] = None) -
 
 
 async def get_high_port_socket(
-    route: Any, socket_factory: Any, sock_type: int = TCP
-) -> Tuple[Any, int]:
+    route, socket_factory, sock_type=TCP
+):
     """Bind a socket to a randomly chosen high-numbered port and return (socket, port)."""
     # Minimal config to pass socket factory.
     conf = {"broadcast": False, "linger": None, "sock_proto": 0, "reuse_addr": True}
@@ -78,7 +77,7 @@ But that's the API I wanted.
 """
 
 
-def bind_closure(self: Any, binder: Any) -> Any:
+def bind_closure(self, binder):
     """Return an async bind() method that resolves and stores the bind tuple on self."""
     async def bind(port=None, ips=None):
         if self.resolved:
@@ -121,7 +120,7 @@ def bind_closure(self: Any, binder: Any) -> Any:
 class BindRule:
     """Wraps a compact bind-rule list in named attributes for convenient access."""
 
-    def __init__(self, bind_rule: Any) -> None:
+    def __init__(self, bind_rule):
         self.platform = bind_rule[0]
         self.af = bind_rule[1]
         self.type = bind_rule[2]
@@ -132,8 +131,8 @@ class BindRule:
 
 # Return a BindRule if it matches the requirements.
 def match_bind_rule(
-    ip: str, af: int, plat: str, bind_rule: Any, rule_type: Any
-) -> Optional["BindRule"]:
+    ip, af, plat, bind_rule, rule_type
+):
     """Return a BindRule instance if the rule matches the given ip, af, platform, and type, else None."""
     bind_rule = BindRule(bind_rule)
 

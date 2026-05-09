@@ -2,14 +2,12 @@
 nc -4 -u aionetiface.net 7
 
 """
-
-from typing import Any
 from aionetiface import *
 from aionetiface.testing import AsyncTestCase
 
 
 class TestIPv6(AsyncTestCase):
-    async def test_ipv6(self) -> None:
+    async def test_ipv6(self):
         """
         i = await Interface()
         s = STUNClient(interface=i, proto=UDP, af=IP6)

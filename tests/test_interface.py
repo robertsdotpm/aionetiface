@@ -1,10 +1,9 @@
-from typing import Any
 from aionetiface import *
 from aionetiface.testing import AsyncTestCase
 
 
 class TestInterface(AsyncTestCase):
-    async def test_regular(self) -> None:
+    async def test_regular(self):
         global aionetiface_fds
         i = await Interface()
         print(i)
@@ -19,7 +18,7 @@ class TestInterface(AsyncTestCase):
 
         await asyncio.sleep(5)
 
-    async def test_fallback_zero_bind(self) -> None:
+    async def test_fallback_zero_bind(self):
         return
         # TODO: figure out how to test htis
 
@@ -49,7 +48,7 @@ class TestInterface(AsyncTestCase):
         assert route.ext_ips[0].is_public
 
     # Should find at least a valid iface on whatever OS.
-    async def test_default_interface(self) -> None:
+    async def test_default_interface(self):
         i = await Interface()
         self.assertTrue(i.name)
 
@@ -63,7 +62,7 @@ class TestInterface(AsyncTestCase):
         d_list = if_list_to_dict([i])
         if_list = dict_to_if_list(d_list, Interface)
 
-    async def test_invalid_interface_name(self) -> None:
+    async def test_invalid_interface_name(self):
         test_passes = False
         try:
             out = await Interface("meow")
@@ -73,12 +72,12 @@ class TestInterface(AsyncTestCase):
 
         self.assertTrue(test_passes)
 
-    async def test_nat_validation(self) -> None:
+    async def test_nat_validation(self):
         nat = nat_info()
         i = Interface(nat=nat)
         i.set_nat(nat)
 
-    async def test_fake_ext_route(self) -> None:
+    async def test_fake_ext_route(self):
         one_valid = False
         for af in VALID_AFS:
             try:
@@ -93,7 +92,7 @@ class TestInterface(AsyncTestCase):
 
         self.assertTrue(one_valid)
 
-    async def test_interface_start(self) -> None:
+    async def test_interface_start(self):
         start_worked = False
         i = await Interface()
         for af in i.supported():
@@ -102,7 +101,7 @@ class TestInterface(AsyncTestCase):
 
         self.assertTrue(start_worked)
 
-    async def test_load_interfaces(self) -> None:
+    async def test_load_interfaces(self):
         if_names = await list_interfaces()
         print(if_names)
         ifs = await load_interfaces(if_names, Interface, min_agree=1)

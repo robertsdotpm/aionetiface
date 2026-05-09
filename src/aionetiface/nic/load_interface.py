@@ -1,7 +1,6 @@
 """Loads and normalises NIC information from the OS."""
 import asyncio
 import socket
-from typing import Any, Optional
 from ..errors import InterfaceNotFound, InterfaceInvalidAF
 from ..net.net_defs import AF_ANY, DUEL_STACK, VALID_AFS, VALID_STACKS, IP4, IP6, UDP
 from ..protocol.stun.stun_defs import RFC5389
@@ -30,7 +29,7 @@ _infra_lock = asyncio.Lock()
 
 
 # Load mac, nic_no, and process name.
-def load_if_info(nic: Any) -> Any:
+def load_if_info(nic):
     """Resolve the interface name, index, type, and NIC number from the OS and store them on nic."""
     # Assume its an AF.
     if isinstance(nic.name, int):
@@ -103,8 +102,8 @@ def load_if_info(nic: Any) -> Any:
 
 
 async def load_interface(
-    nic: Any, netifaces: Optional[Any], min_agree: int, max_agree: int, timeout: int
-) -> Any:
+    nic, netifaces, min_agree, max_agree, timeout
+):
     """Fully resolve a NIC object by discovering its WAN IPs via STUN and setting its routes and stack type."""
     global INFRA_BUF
     global INFRA

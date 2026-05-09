@@ -2,7 +2,6 @@
 import asyncio
 import copy
 from functools import cmp_to_key
-from typing import Any, Dict, List, Optional, Tuple
 from ...net.net_defs import VALID_AFS
 from ...net.ip_range import IPRange
 from ..netifaces.netiface_extra import af_to_netiface, netiface_addr_to_ipr
@@ -18,7 +17,7 @@ consensus code is not needed.
 ROUTE_CONSENSUS = [1, 1]
 
 
-def rp_from_fixed(fixed: List[Any], interface: Any, af: int) -> Any:  # pragma: no cover
+def rp_from_fixed(fixed, interface, af):  # pragma: no cover
     """
     [
         [
@@ -50,7 +49,7 @@ def rp_from_fixed(fixed: List[Any], interface: Any, af: int) -> Any:  # pragma: 
     return RoutePool(routes)
 
 
-async def get_nic_iprs(af: int, interface: Any, netifaces: Any) -> List[Any]:
+async def get_nic_iprs(af, interface, netifaces):
     tasks = []
     netifaces_af = af_to_netiface(af)
     if_addresses = netifaces.ifaddresses(interface.name)
@@ -66,17 +65,17 @@ async def get_nic_iprs(af: int, interface: Any, netifaces: Any) -> List[Any]:
     return [r for r in results if r is not None and not isinstance(r, Exception)]
 
 
-def sort_routes(routes: List[Any]) -> List[Any]:
+def sort_routes(routes):
     """Return a deterministically ordered copy of routes sorted by external IP."""
     # Deterministically order routes list.
-    def cmp(r1: Any, r2: Any) -> int:
+    def cmp(r1, r2):
         """Return a numeric comparison value between two routes based on their first external IP."""
         return int(r1.ext_ips[0]) - int(r2.ext_ips[0])
 
     return sorted(routes, key=cmp_to_key(cmp))
 
 
-def get_route_by_src(src_ip: str, results: List[Tuple[str, Any]]) -> Optional[Any]:
+def get_route_by_src(src_ip, results):
     """Return the route from results whose source IP matches src_ip, or None if not found."""
     route = [y for x, y in results if x == src_ip]
     if len(route):
@@ -88,8 +87,8 @@ def get_route_by_src(src_ip: str, results: List[Tuple[str, Any]]) -> Optional[An
 
 
 def exclude_routes_by_src(
-    src_ips: List[str], results: List[Tuple[str, Any]]
-) -> List[Any]:
+    src_ips, results
+):
     """Return routes from results whose source IP is not present in src_ips."""
     new_list = []
     for src_ip, route in results:
@@ -105,7 +104,7 @@ def exclude_routes_by_src(
 
 
 # Combine all routes from interface into RoutePool.
-def interfaces_to_rp(interface_list: List[Any]) -> Dict[int, Any]:
+def interfaces_to_rp(interface_list):
     """Return an AF-keyed RoutePool dict built by merging routes from all interfaces."""
     rp = {}
     for af in VALID_AFS:
@@ -124,7 +123,7 @@ def interfaces_to_rp(interface_list: List[Any]) -> Dict[int, Any]:
 
 # Converts a Bind object to a Route.
 # Interface for bind object may be None if it's loopback.
-async def bind_to_route(bind_obj: Any) -> Any:
+async def bind_to_route(bind_obj):
     if not isinstance(bind_obj, Bind):
         raise TypeError("Invalid obj type passed to bind_to_route.")
 

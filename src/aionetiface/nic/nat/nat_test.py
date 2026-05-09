@@ -24,7 +24,6 @@ building in safe-guards against packet-loss, inconsistent results, misconfigurat
 """
 
 import asyncio
-from typing import Any, Dict, List, Optional, Tuple
 from ...utility.utils import (
     async_wrap_errors,
     ip_f,
@@ -81,14 +80,14 @@ NAT_TEST_SCHEMA = [
 
 
 async def nat_test_exec(
-    dest_addr: Tuple[str, int],
-    reply_addr: Tuple[str, int],
-    payload: int,
-    mode: int,
-    pipe: Any,
-    q: List[Any],
-    test_coro: Any,
-) -> Optional[int]:
+    dest_addr,
+    reply_addr,
+    payload,
+    mode,
+    pipe,
+    q,
+    test_coro,
+):
     stun_client = STUNClient(pipe.route.af, dest_addr, pipe.route.interface, mode=mode)
     if payload == STUN_CHANGE_NONE:
         reply = await stun_client.get_stun_reply(pipe)
@@ -108,13 +107,13 @@ async def nat_test_exec(
 
 
 async def nat_test_workers(
-    pipe: Any,
-    q: List[Any],
-    test_index: int,
-    test_coro: Any,
-    servers: List[Any],
-    test_no: int,
-) -> List[Any]:
+    pipe,
+    q,
+    test_index,
+    test_coro,
+    servers,
+    test_no,
+):
     # Make list of coroutines to do this NAT tests.
     workers = []
     for server_no in range(0, min(test_no, len(servers))):
@@ -172,7 +171,7 @@ can be reused when using the same bind tuples.
 """
 
 
-def non_symmetric_check(q_list: List[List[Any]]) -> bool:
+def non_symmetric_check(q_list):
     # Test 1 and 3.
     q1 = q_list[0]
     q3 = q_list[2]
@@ -197,7 +196,7 @@ assume that this means there's a firewall and return False.
 """
 
 
-def no_stun_resp_check(q_list: List[List[Any]]) -> bool:
+def no_stun_resp_check(q_list):
     for i in range(0, 4):
         if len(q_list[i]):
             return False
@@ -206,8 +205,8 @@ def no_stun_resp_check(q_list: List[List[Any]]) -> bool:
 
 
 async def fast_nat_test(
-    pipe: Any, test_no: int = NAT_TEST_NO, timeout: float = NAT_TEST_TIMEOUT
-) -> int:
+    pipe, test_no=NAT_TEST_NO, timeout=NAT_TEST_TIMEOUT
+):
     # Use a random portion of change servers for
     # the NAT test.
     serv_list = get_infra(pipe.route.af, UDP, "STUN(test_nat)", no=test_no)
@@ -292,12 +291,12 @@ async def fast_nat_test(
 
 
 async def nic_load_nat(
-    nic: Any,
-    nat_tests: int = 5,
-    delta_tests: int = 12,
-    servs: Optional[Any] = None,
-    timeout: int = 4,
-) -> Tuple[int, Dict[str, Any]]:
+    nic,
+    nat_tests=5,
+    delta_tests=12,
+    servs=None,
+    timeout=4,
+):
     # IPv6 only has no NAT!
     if IP4 not in nic.supported():
         return SYMMETRIC_NAT, delta_info(RANDOM_DELTA, 0)

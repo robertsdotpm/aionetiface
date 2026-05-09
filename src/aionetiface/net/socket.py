@@ -1,12 +1,11 @@
 """Thin wrappers and helpers around Python sockets."""
 import socket
 import struct
-from typing import Any, Optional
 from ..utility.utils import fstr, log, log_exception, to_b
 from .net_defs import IP4, IP6, TCP, NET_CONF, NOT_WINDOWS, IS_DARWIN, IS_BSD, NIC_BIND, LOOPBACK_BIND
 
 
-def apply_nic_pin_sockopts(sock: Any, route: Any) -> None:
+def apply_nic_pin_sockopts(sock, route):
     """Pin sock to route.interface so egress + bound source agree on multi-NIC hosts.
 
     Linux: SO_BINDTODEVICE for non-default interfaces only (root not
@@ -205,11 +204,11 @@ def apply_nic_pin_sockopts(sock: Any, route: Any) -> None:
 
 
 async def socket_factory(
-    route: Any,
-    dest_addr: Optional[Any] = None,
-    sock_type: int = TCP,
-    conf: Optional[Any] = None,
-) -> Optional[Any]:
+    route,
+    dest_addr=None,
+    sock_type=TCP,
+    conf=None,
+):
     """Create, configure, and bind a socket for the given route and optional destination, returning it or None on failure."""
     if conf is None:
         conf = NET_CONF

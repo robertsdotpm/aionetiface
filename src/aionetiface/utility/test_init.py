@@ -5,7 +5,6 @@ import os
 import unittest
 import socket
 import hashlib
-from typing import Any, List, Optional, Tuple
 
 from ..errors import *
 from ..settings import *
@@ -45,7 +44,7 @@ aionetiface_IFS = []
 if hasattr(unittest, "IsolatedAsyncioTestCase"):
 
     class PatchedAsyncTest(unittest.IsolatedAsyncioTestCase):  # type: ignore[misc]
-        def _setupAsyncioLoop(self) -> None:
+        def _setupAsyncioLoop(self):
             assert self._asyncioTestLoop is None
             loop = CustomEventLoop()
             asyncio.set_event_loop(loop)
@@ -60,7 +59,7 @@ else:
 
 
 # Basic echo client test.
-async def check_pipe(pipe: Any, dest_tup: Optional[Tuple[str, int]] = None) -> bool:
+async def check_pipe(pipe, dest_tup=None):
     """Send an echo request over the pipe and return True if the response matches."""
     # Sanity check.
     data = b"Meow"
@@ -100,7 +99,7 @@ async def check_pipe(pipe: Any, dest_tup: Optional[Tuple[str, int]] = None) -> b
 # The server may limit new subs from the same IP.
 # But if all test nodes use the same IDs the there will be collisons.
 # Hence generate a unique IQ deterministically.
-def node_name(x: Any, i: Any) -> bytes:
+def node_name(x, i):
     """Derive a deterministic 10-byte node identifier from a seed and the interface's MAC address."""
     assert i.resolved
     name_base = to_b(
@@ -119,11 +118,11 @@ def node_name(x: Any, i: Any) -> bytes:
 class FakeSTUNClient:
     def __init__(
         self,
-        dest: Optional[Any] = None,
-        proto: int = UDP,
-        mode: Any = RFC3489,
-        conf: Optional[Any] = None,
-    ) -> None:
+        dest=None,
+        proto=UDP,
+        mode=RFC3489,
+        conf=None,
+    ):
         if conf is None:
             conf = NET_CONF
         self.rip = "1.3.3.7"
@@ -133,20 +132,20 @@ class FakeSTUNClient:
         self.wan_ip = None
         self.interface = None
 
-    def rand_server(self) -> None:
+    def rand_server(self):
         return None
 
-    def set_mappings(self, mappings: List[Any]) -> None:
+    def set_mappings(self, mappings):
         self.mappings = mappings
         self.p = 0
 
-    def set_wan_ip(self, wan_ip: Optional[str]) -> None:
+    def set_wan_ip(self, wan_ip):
         self.wan_ip = wan_ip
 
-    async def get_wan_ip(self, pipe: Optional[Any] = None) -> Optional[str]:
+    async def get_wan_ip(self, pipe=None):
         return ip_norm(self.wan_ip)
 
-    async def get_mapping(self, pipe: Optional[Any] = None) -> List[Any]:
+    async def get_mapping(self, pipe=None):
         local, mapped = self.mappings[self.p]
         out = [local, mapped, self.sock]
         self.p = (self.p + 1) % len(self.mappings)
@@ -154,7 +153,7 @@ class FakeSTUNClient:
         return out
 
 
-async def duel_if_setup(netifaces: Any) -> Optional[Tuple[List[Any], int]]:
+async def duel_if_setup(netifaces):
     """Return two interfaces sharing a common address family, or None if unavailable."""
     # Load interface list
     if_names = await list_interfaces(netifaces)
@@ -171,21 +170,21 @@ async def duel_if_setup(netifaces: Any) -> Optional[Tuple[List[Any], int]]:
 
 
 class FakeNetifaces:
-    def __init__(self) -> None:
+    def __init__(self):
         self.addr_info = None
 
-    def set_addr_info(self, addr_info: Any) -> None:
+    def set_addr_info(self, addr_info):
         self.addr_info = addr_info
 
-    def ifaddresses(self, if_name: str) -> Any:
+    def ifaddresses(self, if_name):
         return self.addr_info
 
-    def get_nic_id(self, af: Optional[int], if_name: str) -> Any:
+    def get_nic_id(self, af, if_name):
         """Parity with Netifaces.get_nic_id; tests echo if_name back."""
         return if_name
 
 
-def get_cached_if() -> Optional[Any]:
+def get_cached_if():
     """Load and return a previously cached interface dict from disk, or None if absent."""
     install_path = get_aionetiface_install_root()
     nic_path = os.path.join(install_path, "if_info")

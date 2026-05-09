@@ -34,7 +34,6 @@ import subprocess
 import sys
 import unittest
 import warnings
-from typing import Any, List, Optional
 
 from .entrypoint import aionetiface_setup_event_loop
 

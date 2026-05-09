@@ -89,7 +89,6 @@ at least it only has to be done once.
 import copy
 import pprint
 from functools import total_ordering
-from typing import Any, Dict, List, Optional
 from ...net.ip_range import IPRange, ipr_norm
 from ...net.net_defs import IPA_TYPES, VALID_AFS, IP4, IP6
 from ...net.bind.bind import Bind
@@ -102,12 +101,12 @@ class Route(Bind):
 
     def __init__(
         self,
-        af: int,
-        nic_ips: List[Any],
-        ext_ips: List[Any],
-        interface: Optional[Any] = None,
-        ext_check: int = 1,
-    ) -> None:
+        af,
+        nic_ips,
+        ext_ips,
+        interface=None,
+        ext_check=1,
+    ):
         if af not in VALID_AFS:
             raise ValueError(fstr("af {0} is not a supported address family", (repr(af),)))
         if not isinstance(nic_ips, list):
@@ -147,25 +146,25 @@ class Route(Bind):
         self.interface = interface
         self.route_pool = self.route_offset = self.host_offset = None
 
-    def __await__(self) -> Any:
+    def __await__(self):
         return self.bind().__await__()
 
-    def set_link_locals(self, link_locals: List[Any]) -> None:
+    def set_link_locals(self, link_locals):
         """Store the list of link-local IPRange objects associated with this route."""
         self.link_locals = link_locals
 
-    async def Address(self, dest: Any, port: int) -> Any:
+    async def Address(self, dest, port):
         """Return a (dest, port) tuple, satisfying the Address interface for route-based connections."""
         return (dest, port)
 
     # TODO: document this? You probably don't want to use this.
-    async def rebind(self, port: int = 0, ips: Optional[List[Any]] = None) -> "Route":
+    async def rebind(self, port=0, ips=None):
         """Return a deep copy of this route rebound to an optionally different port and IP list."""
         route = copy.deepcopy(self)
         await route.bind(port=port, ips=ips)
         return route
 
-    def nic(self) -> str:
+    def nic(self):
         """
         Return the normalised string of the first NIC (local) IP for this route.
 
@@ -176,18 +175,18 @@ class Route(Bind):
         """
         return ipr_norm(self.nic_ips[0])
 
-    def ext(self) -> str:
+    def ext(self):
         """Return the normalised string of the first external (WAN) IP for this route."""
         return ipr_norm(self.ext_ips[0])
 
-    def link_local(self) -> str:
+    def link_local(self):
         """Return the normalised string of the first link-local IP, raising if none are present."""
         if not self.link_locals:
             raise ValueError("Route has no link-local addresses.")
         return ipr_norm(self.link_locals[0])
 
     # Test if a given IPRange is in the nic_ips list.
-    def has_nic_ip(self, ipr: Any) -> bool:
+    def has_nic_ip(self, ipr):
         """Return True if ipr matches any entry in this route's nic_ips list."""
         for nic_ipr in self.nic_ips:
             if nic_ipr == ipr:
@@ -195,22 +194,22 @@ class Route(Bind):
 
         return False
 
-    def set_offsets(self, route_offset: int, host_offset: Optional[int] = None) -> None:
+    def set_offsets(self, route_offset, host_offset=None):
         """Set the route and host iteration offsets used when cycling through the route pool."""
         self.route_offset = route_offset
         self.host_offset = host_offset
 
-    def link_route_pool(self, route_pool: Any) -> None:
+    def link_route_pool(self, route_pool):
         """Associate this route with a RoutePool so that alt() and related operations are available."""
         self.route_pool = route_pool
 
-    def _check_extended(self) -> None:
+    def _check_extended(self):
         """Raise an exception if this route has not been linked to a RoutePool."""
         if self.route_pool is None:
             raise AssertionError("e = route_pool not linked.")
 
     @staticmethod
-    def _convert_other(other: Any) -> Any:
+    def _convert_other(other):
         """Coerce other to an IPRange for use in Route comparison operators."""
         if isinstance(other, Route):
             if len(other.ext_ips):
@@ -235,7 +234,7 @@ class Route(Bind):
             "Route._convert_other: unsupported type for comparison."
         )
 
-    def bad_len(self, other: Any) -> bool:
+    def bad_len(self, other):
         """Return True if either this route or other has zero length, making comparison meaningless."""
         if not len(self) or not len(other):
             return True
@@ -243,7 +242,7 @@ class Route(Bind):
 
     # Get a list of N routes that don't use this WAN IP.
     # Incrementally adjusts route offset so its efficent.
-    def alt(self, limit: int, exclusions: Optional[List[Any]] = None) -> List["Route"]:
+    def alt(self, limit, exclusions=None):
         """Return up to limit routes from the pool that are not equal to self and not in exclusions."""
         # Init storage vars.
         # Check the class has been mapped to a RoutePool.
@@ -271,7 +270,7 @@ class Route(Bind):
 
         return routes
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self):
         """Serialise this route to a plain dict containing AF, NIC IPs, external IPs, and link-locals."""
         nic_ips = []
         ext_ips = []
@@ -293,7 +292,7 @@ class Route(Bind):
         }
 
     @staticmethod
-    def from_dict(d: Dict[str, Any]) -> "Route":
+    def from_dict(d):
         """Reconstruct a Route from a dict previously produced by to_dict."""
         nic_ips = []
         ext_ips = []
@@ -315,17 +314,17 @@ class Route(Bind):
         return route
 
     # Pickle.
-    def __getstate__(self) -> Any:
+    def __getstate__(self):
         return self.to_dict()
 
     # Unpickle.
-    def __setstate__(self, state: Any) -> None:
+    def __setstate__(self, state):
         o = self.from_dict(state)
         self.__dict__ = o.__dict__
 
     # Route != [Route, ...] = [Route, ...]
     # (max len = len(right operand))
-    def __ne__(self, other: Any) -> Any:
+    def __ne__(self, other):
         if self is other:
             return False
 
@@ -342,7 +341,7 @@ class Route(Bind):
     # Return first route that doesn't use this same WAN IP.
     # Incrementally adjusts route offset so its efficent.
     # not Route = route_info (with different WAN to left operand.)
-    def __invert__(self) -> Optional["Route"]:
+    def __invert__(self):
         self._check_extended()
         for route in self.route_pool:
             # If route has same external addr then skip.
@@ -353,35 +352,35 @@ class Route(Bind):
 
         return None
 
-    def __len__(self) -> int:
+    def __len__(self):
         if len(self.ext_ips) == 0:
             return 0
         return len(self.ext_ips[0])
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return fstr("Route.from_dict({0})", (str(self),))
 
-    def __str__(self) -> str:
+    def __str__(self):
         return pprint.pformat(self.to_dict())
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other):
         other = Route._convert_other(other)
         if self.bad_len(other):
             return False
 
         return self.ext_ips[0] == other
 
-    def __contains__(self, other: Any) -> bool:
+    def __contains__(self, other):
         return self == other
 
-    def __lt__(self, other: Any) -> bool:
+    def __lt__(self, other):
         other = self._convert_other(other)
         if self.bad_len(other):
             return False
 
         return self.ext_ips[0] < other
 
-    def __deepcopy__(self, memo: Any) -> "Route":
+    def __deepcopy__(self, memo):
         # Will fall back to the __deepcopy__ of IPRange.
         nic_ips = [copy.deepcopy(nic_ip) for nic_ip in self.nic_ips]
         ext_ips = [copy.deepcopy(ext_ips) for ext_ips in self.ext_ips]

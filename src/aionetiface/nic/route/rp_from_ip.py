@@ -18,8 +18,6 @@ accepted inputs:
             - otherwise reuse existing link locals
         - limit wan ips to only the defined set of wan ips
 """
-
-from typing import Any, Dict, List
 from ...utility.utils import find_intersect
 from ...net.net_defs import IP4, IP6
 from ...net.ip_range import IPR
@@ -27,7 +25,7 @@ from .route import Route
 from .route_pool import RoutePool
 
 
-def sort_iprs(ipr_list: List[Any]) -> Any:
+def sort_iprs(ipr_list):
     """Return a (public, private) tuple of IPR lists split from ipr_list."""
     # Sort by public / private.
     pub_iprs = []
@@ -42,7 +40,7 @@ def sort_iprs(ipr_list: List[Any]) -> Any:
     return pub_iprs, priv_iprs
 
 
-def v6_route_pool_from_ips(ipr_list: List[Any], nic: Any) -> List[Any]:
+def v6_route_pool_from_ips(ipr_list, nic):
     """Return a list of IPv6 Route objects built from the given IPR list and NIC."""
     # Sort by public / private.
     pub_iprs, priv_iprs = sort_iprs(ipr_list)
@@ -85,7 +83,7 @@ def v6_route_pool_from_ips(ipr_list: List[Any], nic: Any) -> List[Any]:
     return routes
 
 
-def v4_route_pool_from_ips(ipr_list: List[Any], nic: Any) -> List[Any]:
+def v4_route_pool_from_ips(ipr_list, nic):
     """Return a list of IPv4 Route objects built from the given IPR list and NIC."""
     # Sort by public / private.
     pub_iprs, priv_iprs = sort_iprs(ipr_list)
@@ -110,7 +108,7 @@ def v4_route_pool_from_ips(ipr_list: List[Any], nic: Any) -> List[Any]:
     return routes
 
 
-def route_pool_from_ips(ip_list: List[str], nic: Any) -> Dict[int, Any]:
+def route_pool_from_ips(ip_list, nic):
     """Return an AF-keyed RoutePool dict derived from ip_list filtered against the given NIC."""
     # Classify IPs by version.
     ipr_list = {IP4: [], IP6: []}
@@ -141,7 +139,7 @@ def route_pool_from_ips(ip_list: List[str], nic: Any) -> Dict[int, Any]:
     return rp
 
 
-def sort_ips_by_nic(ip_list: List[str], nic_list: List[Any]) -> Dict[Any, List[str]]:
+def sort_ips_by_nic(ip_list, nic_list):
     """Return a dict mapping each NIC id to the subset of ip_list addresses it owns."""
     by_nic = {}
     for nic in nic_list:

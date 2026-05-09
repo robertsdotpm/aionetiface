@@ -6,13 +6,12 @@ import sys
 if sys.platform == "win32":
     pass
 import ipaddress
-from typing import Any, Dict, List, Optional
 from ....utility.utils import to_s
 from ....utility.cmd_tools import cmd
 from ....net.net_utils import AF_INET, AF_INET6
 
 
-async def nt_ipv6_routes(no: int) -> List[Any]:  # pragma: no cover
+async def nt_ipv6_routes(no):  # pragma: no cover
     """Return all IPv6 route entries from 'route print' whose interface number matches no."""
     out = await cmd("route print")
     route_infos = re.findall(r"([0-9]+)\s+([0-9]+)\s+([^\s=]*)\s+([^\s=]*)[\r\n]+", out)
@@ -26,7 +25,7 @@ async def nt_ipv6_routes(no: int) -> List[Any]:  # pragma: no cover
     return ret
 
 
-async def nt_ipv6_find_cidr(no: int, gw_ip: str) -> Optional[int]:  # pragma: no cover
+async def nt_ipv6_find_cidr(no, gw_ip):  # pragma: no cover
     """Find the CIDR prefix length for the IPv6 route on interface no that uses gw_ip as its gateway."""
     route_infos = await nt_ipv6_routes(no)
     for route_info in route_infos:
@@ -40,8 +39,8 @@ async def nt_ipv6_find_cidr(no: int, gw_ip: str) -> Optional[int]:  # pragma: no
 
 
 async def nt_ipconfig(
-    desc: Optional[str] = None, ipv4: Optional[str] = None, ipv6: Optional[str] = None
-) -> Optional[Dict[str, Any]]:  # pragma: no cover
+    desc=None, ipv4=None, ipv6=None
+):  # pragma: no cover
     """Parse 'ipconfig /all' and return the first adapter info dict matching the given description or IP."""
     all_none = desc is None and ipv4 is None and ipv6 is None
     out = await cmd("ipconfig /all")
@@ -128,8 +127,8 @@ use in IPv6 scope_ids and MAC addr.
 
 
 async def nt_route_print(
-    desc: Optional[str],
-) -> Optional[Dict[str, Any]]:  # pragma: no cover
+    desc,
+):  # pragma: no cover
     """Parse PowerShell 'route print' and return the NIC entry whose description contains desc."""
     out = await cmd('powershell "route print"')
     nic_infos = re.findall(r"([0-9]+)[.]+(?:([^.]*)\s)?[.]+([^\r\n]+)[\r\n]*", out)

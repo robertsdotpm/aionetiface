@@ -4,7 +4,6 @@ import sys
 import asyncio
 import multiprocessing
 import signal as signal_mod
-from typing import Any, List, Optional
 from .error_logger import log, log_exception
 from .async_helpers import get_running_loop
 
@@ -21,7 +20,7 @@ __all__ = [
 ]
 
 
-async def cancel_task(task: Optional[Any]) -> None:
+async def cancel_task(task):
     """Cancel a single asyncio task and await its completion, ignoring errors."""
     if task is None or task.done():
         return
@@ -32,7 +31,7 @@ async def cancel_task(task: Optional[Any]) -> None:
         pass
 
 
-async def cancel_tasks(tasks: List[Any]) -> None:
+async def cancel_tasks(tasks):
     """Cancel all live tasks in the list and await them together."""
     live = [t for t in tasks if not t.done()]
     for t in live:
@@ -41,12 +40,12 @@ async def cancel_tasks(tasks: List[Any]) -> None:
         await asyncio.gather(*live, return_exceptions=True)
 
 
-def rm_done_tasks(tasks: List[Any]) -> List[Any]:
+def rm_done_tasks(tasks):
     """Return a new list containing only tasks that have not yet completed."""
     return [task for task in tasks if not task.done()]
 
 
-async def gather_or_cancel(tasks: List[Any], timeout: float) -> Optional[List[Any]]:
+async def gather_or_cancel(tasks, timeout):
     """Wait for all tasks within timeout; cancel all if the timeout expires."""
     group = asyncio.gather(*tasks, return_exceptions=True)
     try:
@@ -64,11 +63,11 @@ async def gather_or_cancel(tasks: List[Any], timeout: float) -> Optional[List[An
         return []
 
 
-def handle_exceptions(loop: Any, context: Any) -> None:
+def handle_exceptions(loop, context):
     """No-op asyncio exception handler — silences stray teardown errors."""
 
 
-def cancel_all_tasks(loop: Any) -> None:
+def cancel_all_tasks(loop):
     """Cancel every pending task on loop and wait for cancellations to drain."""
     try:
         to_cancel = asyncio.all_tasks(loop)
@@ -108,7 +107,7 @@ def cancel_all_tasks(loop: Any) -> None:
             )
 
 
-async def shutdown_executor_with_timeout(executor: Any, timeout: int = 3) -> None:
+async def shutdown_executor_with_timeout(executor, timeout=3):
     """Shut down a concurrent.futures.Executor with a timeout."""
     loop = get_running_loop()
     shutdown_future = loop.run_in_executor(None, executor.shutdown, True)
@@ -118,7 +117,7 @@ async def shutdown_executor_with_timeout(executor: Any, timeout: int = 3) -> Non
         log("Warning: executor shutdown timed out")
 
 
-async def shutdown_proc_pool(proc_pool: Any) -> None:
+async def shutdown_proc_pool(proc_pool):
     """Shut down a punch worker pool (ThreadPoolExecutor or ProcessPoolExecutor).
 
     p2pd's tcp_punch plugin uses ThreadPoolExecutor now (Windows Python

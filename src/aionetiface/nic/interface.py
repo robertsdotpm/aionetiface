@@ -37,7 +37,6 @@ failures under repeated launches to 100% success after the fixed-gateway
 import copy
 import pprint
 import socket
-from typing import Any, Dict, Iterator, List, Optional
 from ..utility.utils import async_test, fstr
 from ..net.net_defs import DUEL_STACK, IP4, IP6, UNKNOWN_STACK, VALID_STACKS
 from ..net.address import Address
@@ -64,12 +63,12 @@ class Interface:
 
     def __init__(
         self,
-        name: Optional[Any] = None,
-        stack: int = DUEL_STACK,
-        nat: Optional[Dict[str, Any]] = None,
-        netifaces: Optional[Any] = None,
-        timeout: int = 4,
-    ) -> None:
+        name=None,
+        stack=DUEL_STACK,
+        nat=None,
+        netifaces=None,
+        timeout=4,
+    ):
         super().__init__()
         if name == "default":
             use_default_interface(self)
@@ -108,11 +107,11 @@ class Interface:
 
     async def start(
         self,
-        netifaces: Optional[Any] = None,
-        min_agree: int = 2,
-        max_agree: int = 5,
-        timeout: int = 4,
-    ) -> "Interface":
+        netifaces=None,
+        min_agree=2,
+        max_agree=5,
+        timeout=4,
+    ):
         """Resolve this interface's routes and external IPs by running STUN and NIC discovery."""
         # Declared in load_interface.py.
         return await load_interface(
@@ -124,8 +123,8 @@ class Interface:
         )
 
     async def load_nat(
-        self, nat_tests: int = 5, delta_tests: int = 12, timeout: int = 4
-    ) -> Dict[str, Any]:
+        self, nat_tests=5, delta_tests=12, timeout=4
+    ):
         """Run NAT type and port-delta tests for this interface and store the results, returning the nat dict."""
         # Try main decentralized NAT test approach.
         nat_type, delta = await nic_load_nat(
@@ -137,7 +136,7 @@ class Interface:
         nat = nat_info(nat_type, delta)
         return self.set_nat(nat)
 
-    def set_nat(self, nat: Dict[str, Any]) -> Dict[str, Any]:
+    def set_nat(self, nat):
         """Validate and store a new NAT info dict on this interface, returning it."""
         if not isinstance(nat, dict):
             raise TypeError("nat must be a dict")
@@ -146,7 +145,7 @@ class Interface:
         self.nat = nat
         return nat
 
-    def get_nic_id(self, af: Optional[int] = None) -> Any:
+    def get_nic_id(self, af=None):
         """Return the kernel-level interface index for af.
 
         Defers to the netifaces backend's get_nic_id when present
@@ -184,7 +183,7 @@ class Interface:
                     return addr.rsplit("%", 1)[1]
         return self.name
 
-    def nic(self, af: int) -> Optional[str]:
+    def nic(self, af):
         """Return the NIC IP string for the primary route on this interface for the given address family."""
         # Sanity check.
         if self.resolved:
@@ -193,7 +192,7 @@ class Interface:
         if self.rp and len(self.rp[af].routes):
             return self.route(af).nic()
 
-    def route(self, af: Optional[int] = None, bind_port: int = 0) -> Any:
+    def route(self, af=None, bind_port=0):
         """Return a deep copy of the primary Route for the given address family, raising if none exists."""
         if not self.resolved:
             if af is None:
@@ -212,11 +211,11 @@ class Interface:
 
         raise LookupError(fstr("No route for {0} found.", (af,)))
 
-    def is_default_patch(self, af: int, gws: Optional[Any] = None) -> bool:
+    def is_default_patch(self, af, gws=None):
         """Stub that always returns True, used to mark an interface as the default without a real check."""
         return True
 
-    def is_default(self, af: int, gws: Optional[Any] = None) -> bool:
+    def is_default(self, af, gws=None):
         """
         Return True if this interface is the default route for address family af.
 
@@ -226,7 +225,7 @@ class Interface:
         """
         return is_nic_default(self, af, gws)
 
-    def supported(self, skip_resolve: int = 0) -> List[int]:
+    def supported(self, skip_resolve=0):
         """Return the sorted list of address families (IP4/IP6) that this interface supports."""
         if not skip_resolve:
             if not self.resolved:
@@ -239,55 +238,55 @@ class Interface:
             return sorted([IP4, IP6])
         return sorted([self.stack])
 
-    def what_afs(self) -> List[int]:
+    def what_afs(self):
         """Return the address families available on this resolved interface."""
         if not self.resolved:
             raise ValueError("interface is not resolved")
         return self.supported()
 
-    def __await__(self) -> Any:
+    def __await__(self):
         return self.start(timeout=self.timeout).__await__()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self):
         """Serialise this interface to a plain dict suitable for JSON storage or pickling."""
         return nic_to_dict(self)
 
     @staticmethod
-    def get_netifaces() -> Optional[Any]:
+    def get_netifaces():
         """Return the netifaces module or shim used for interface discovery, or None to use the default."""
         return None
 
     @staticmethod
-    def list() -> List[str]:
+    def list():
         """Return the list of all network interface names known to netifaces."""
         return Interface.get_netifaces().interfaces()
 
     @staticmethod
-    def from_dict(d: Dict[str, Any]) -> "Interface":
+    def from_dict(d):
         """Reconstruct an Interface instance from a dict previously produced by to_dict."""
         return nic_from_dict(d, Interface)
 
     # Make this interface printable because it's useful.
-    def __str__(self) -> str:
+    def __str__(self):
         return pprint.pformat(self.to_dict())
 
     # Show a representation of this object.
-    def __repr__(self) -> str:
+    def __repr__(self):
         nic_info = str(self)
         return "Interface.from_dict(%s)" % (nic_info)
 
     # Pickle.
-    def __getstate__(self) -> Dict[str, Any]:
+    def __getstate__(self):
         return self.to_dict()
 
     # Unpickle.
-    def __setstate__(self, state: Dict[str, Any]) -> None:
+    def __setstate__(self, state):
         o = self.from_dict(state)
         self.__dict__ = o.__dict__
 
     # Make all nic IPs across route pools a generator.
     # Return both the nic_ipr and route they belong to.
-    def __iter__(self) -> Iterator[Any]:
+    def __iter__(self):
         seen = set()
         for af in (IP4, IP6):
             for route in self.rp[af]:
@@ -300,7 +299,7 @@ class Interface:
 
 if __name__ == "__main__":  # pragma: no cover
 
-    async def demo_interface() -> None:
+    async def demo_interface():
         """Resolve the default interface and print the result of an address lookup for google.com."""
         nic = Interface("default")
         d = await Address("google.com", 80, nic)

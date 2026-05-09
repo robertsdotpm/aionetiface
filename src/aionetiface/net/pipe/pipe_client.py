@@ -1,7 +1,6 @@
 """Outbound pipe (TCP/UDP client) implementation."""
 import asyncio
 import re
-from typing import Any, Optional, Tuple
 from ...utility.utils import fstr, log, log_exception, run_handler
 from ...protocol.ack_udp import ACKUDP
 from ..net_defs import NET_CONF, SUB_ALL, UDP, RUDP, TCP, IP6
@@ -20,8 +19,8 @@ class PipeClient(ACKUDP):
     """Pull-style client that queues incoming messages into per-subscription asyncio Queues."""
 
     def __init__(
-        self, pipe_events: Any, loop: Optional[Any] = None, conf: Optional[Any] = None
-    ) -> None:
+        self, pipe_events, loop=None, conf=None
+    ):
         super().__init__()
         self.conf = conf if conf is not None else NET_CONF
         self.dest = None
@@ -45,7 +44,7 @@ class PipeClient(ACKUDP):
     (3) TCP and UDP servers won't have a dest.
     """
 
-    def set_dest_tup(self, dest_tup: Optional[Tuple[Any, ...]]) -> None:
+    def set_dest_tup(self, dest_tup):
         """Normalise and store the remote destination tuple for outbound sends."""
         dest_tup = client_tup_norm(dest_tup)
         self.dest_tup = dest_tup
@@ -57,8 +56,8 @@ class PipeClient(ACKUDP):
     """
 
     def set_handle(
-        self, handle: Any, client_tup: Optional[Tuple[Any, ...]] = None
-    ) -> None:
+        self, handle, client_tup=None
+    ):
         """Store the transport handle, indexed by client_tup for TCP or as a single handle for UDP."""
         if client_tup is not None:
             client_tup = client_tup_norm(client_tup)
@@ -66,7 +65,7 @@ class PipeClient(ACKUDP):
         else:
             self.handle = handle
 
-    def hash_sub(self, sub: Any) -> int:
+    def hash_sub(self, sub):
         """Compute a stable integer hash for a subscription tuple (msg_pattern, client_tup)."""
         h = hash(sub[0])
         if sub[1] is not None:
@@ -84,7 +83,7 @@ class PipeClient(ACKUDP):
     # Subscribe to a certain message and host type.
     # sub = [b_msg_pattern, b_addr_pattern]
     # optional: 3rd field in sub = example match
-    def subscribe(self, sub: Any, handler: Optional[Any] = None) -> int:
+    def subscribe(self, sub, handler=None):
         """Register a subscription for messages matching sub, optionally routing them to handler."""
         b_msg_p, client_tup = sub
         if client_tup is not None:
@@ -104,7 +103,7 @@ class PipeClient(ACKUDP):
         return offset
 
     # Remove a subscription.
-    def unsubscribe(self, sub: Any) -> "PipeClient":
+    def unsubscribe(self, sub):
         """Remove the subscription matching sub and return self."""
         offset = self.hash_sub(sub)
         if offset in self.subs:
@@ -120,7 +119,7 @@ class PipeClient(ACKUDP):
     call https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.remove_reader and on queue empty add it back.
     """
 
-    def add_msg(self, data: bytes, client_tup: Tuple[Any, ...]) -> None:
+    def add_msg(self, data, client_tup):
         """Route an incoming message to any matching subscription queues or handlers."""
         # No subscriptions.
         if not len(self.subs):
@@ -195,8 +194,8 @@ class PipeClient(ACKUDP):
 
     # Async wait for a message that matches a pattern in a queue.
     async def recv(
-        self, sub: Optional[Any] = None, timeout: int = 2, full: bool = False
-    ) -> Optional[bytes]:
+        self, sub=None, timeout=2, full=False
+    ):
         """Block until a message matching sub arrives, then return its data (or full tuple if full=True)."""
         if sub is None:
             sub = SUB_ALL
@@ -234,7 +233,7 @@ class PipeClient(ACKUDP):
         except (OSError, ConnectionError, asyncio.TimeoutError):
             return None
 
-    async def recv_n(self, n: int, sub: Optional[Any] = None) -> bytes:
+    async def recv_n(self, n, sub=None):
         """Receive and concatenate messages until at least n bytes have been accumulated."""
         if sub is None:
             sub = SUB_ALL
@@ -249,7 +248,7 @@ class PipeClient(ACKUDP):
 
     # Async send for TCP and UDP cons.
     # Listen servers also supported.
-    async def send(self, data: bytes, dest_tup: Optional[Tuple[Any, ...]]) -> int:
+    async def send(self, data, dest_tup):
         """Send data to dest_tup over the underlying TCP or UDP transport and return 1 on success."""
         dest_tup = client_tup_norm(dest_tup)
         try:

@@ -1,14 +1,13 @@
-from typing import Any
 from aionetiface import *
 from aionetiface.testing import AsyncTestCase
 
 
 class TestIPRange(AsyncTestCase):
-    async def test_private_for_single_host_v6(self) -> None:
+    async def test_private_for_single_host_v6(self):
         ipr = IPRange("::1", bitlen=0)
         self.assertTrue(ipr.is_private)
 
-    async def test_ip_range_iter(self) -> None:
+    async def test_ip_range_iter(self):
         ipr = IPRange("192.168.0.0", bitlen=16)
 
         # Test iterating the range.
@@ -18,7 +17,7 @@ class TestIPRange(AsyncTestCase):
             if i >= 2:
                 break
 
-    async def test_single_v4_no_params(self) -> None:
+    async def test_single_v4_no_params(self):
         ip = "10.0.0.1"
         ipr = IPRange(ip)
         self.assertEqual(len(ipr), 1)
@@ -27,7 +26,7 @@ class TestIPRange(AsyncTestCase):
         self.assertTrue(ipr.is_private)
         self.assertFalse(ipr.is_public)
 
-    async def test_single_v4_addr_any_no_params(self) -> None:
+    async def test_single_v4_addr_any_no_params(self):
         ip = "0.0.0.0"
         ipr = IPRange(ip)
         self.assertEqual(str(ipr[0]), ip)
@@ -35,14 +34,14 @@ class TestIPRange(AsyncTestCase):
         self.assertTrue(ipr.is_public)
         self.assertFalse(ipr.is_private)
 
-    async def test_single_v6_addr_any_no_params(self) -> None:
+    async def test_single_v6_addr_any_no_params(self):
         ip = "::"
         ipr = IPRange(ip)
         self.assertEqual(str(ipr[0]), ip)
         self.assertEqual(len(ipr), 1)
         self.assertEqual(ipr.bitlen, 0)
 
-    async def test_single_v6_link_local(self) -> None:
+    async def test_single_v6_link_local(self):
         ip = "fe80::ae1f:6bff:fe94:531a"
         ipr = IPRange(ip)
         self.assertEqual(str(ipr[0]), ip)
@@ -51,7 +50,7 @@ class TestIPRange(AsyncTestCase):
         self.assertTrue(ipr.is_private)
         self.assertFalse(ipr.is_public)
 
-    async def test_single_v4_broadcast(self) -> None:
+    async def test_single_v4_broadcast(self):
         ip = "255.255.255.255"
         ipr = IPRange(ip)
         self.assertEqual(str(ipr[0]), ip)
@@ -60,7 +59,7 @@ class TestIPRange(AsyncTestCase):
         self.assertTrue(ipr.is_private)
         self.assertFalse(ipr.is_public)
 
-    async def test_block_v6_public(self) -> None:
+    async def test_block_v6_public(self):
         ip = "2402:1f00:8101:83f::"
         bitlen = 64
         ipr = IPRange(ip, netmask=None, bitlen=bitlen)
@@ -91,14 +90,14 @@ class TestIPRange(AsyncTestCase):
         self.assertTrue(ipr.is_public)
         self.assertFalse(ipr.is_private)
 
-    async def test_block_v4_public(self) -> None:
+    async def test_block_v4_public(self):
         ipr = IPRange("8.8.8.0", bitlen=8)
         self.assertEqual(str(ipr[0]), "8.8.8.1")
         ipr = IPRange("8.8.8.4", bitlen=8)
         self.assertEqual(str(ipr[-1]), "8.8.8.255")
         self.assertEqual(str(ipr[256]), "8.8.8.1")
 
-    async def test_loopback_ips(self) -> None:
+    async def test_loopback_ips(self):
         v4_lb = "127.0.0.1"
         v6_lb = "::1"
         ipr = IPRange(v4_lb)
@@ -110,14 +109,14 @@ class TestIPRange(AsyncTestCase):
         self.assertEqual(str(ipr[0]), v6_lb)
         self.assertEqual(str(ipr[3]), v6_lb)
 
-    async def test_black_hole_ips(self) -> None:
+    async def test_black_hole_ips(self):
         for ip in BLACK_HOLE_IPS.values():
             ipr = IPRange(ip)
             self.assertTrue(ipr.is_public)
             self.assertFalse(ipr.is_private)
             self.assertEqual(ip_norm(str(ipr[0])), ip)
 
-    async def test_misc_ipr(self) -> None:
+    async def test_misc_ipr(self):
         ipr = IPRange("192.168.0.0", netmask="255.255.0.0")
         n = 0
         for needle in reversed(ipr):

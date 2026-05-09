@@ -4,7 +4,6 @@ theres no actual nic_no stuff this is for simplied programs.
 """
 
 import socket
-from typing import Any, Dict
 from ..net.net_defs import IP4, IP6
 from ..net.net_utils import ip_norm
 from ..net.ip_range import IPR
@@ -14,7 +13,7 @@ from .interface_utils import get_interface_stack
 from .nat.nat_utils import nat_info
 
 
-def get_default_routes(nic: Any) -> Dict[int, Any]:
+def get_default_routes(nic):
     """Probe the OS routing table via UDP connect and return a dict of {af: Route} for reachable families."""
     dests = {IP4: "8.8.8.8", IP6: "2001:4860:4860::8888"}
 
@@ -38,7 +37,7 @@ def get_default_routes(nic: Any) -> Dict[int, Any]:
     return routes
 
 
-def use_default_interface(nic: Any) -> None:
+def use_default_interface(nic):
     """Populate nic with OS-derived default routes so it acts as a generic default interface."""
     nic.name = "default"
     nic.timeout = 4

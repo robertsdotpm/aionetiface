@@ -1,13 +1,12 @@
 """Factory helpers for building concurrent async patterns."""
 import asyncio
 from collections import defaultdict
-from typing import Any, List, Optional
 from .utils import fstr, log
 
 
 async def concurrent_first_agree_or_best(
-    min_agree: int, tasks: List[Any], timeout: float, wait_all: bool = False
-) -> Optional[Any]:
+    min_agree, tasks, timeout, wait_all=False
+):
     """Run tasks concurrently and return the first result agreed upon by min_agree tasks."""
     results = defaultdict(int)
     log(
@@ -64,7 +63,7 @@ async def concurrent_first_agree_or_best(
     return winner
 
 
-async def repeat_every(n: float, coro_func: Any, *args: Any, **kwargs: Any) -> None:
+async def repeat_every(n, coro_func, *args, **kwargs):
     """Call coro_func with args/kwargs every n seconds indefinitely."""
     while True:
         await coro_func(*args, **kwargs)

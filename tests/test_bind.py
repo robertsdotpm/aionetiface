@@ -8,15 +8,13 @@ todo: older python versions on windows have %name added to the ipv6 bind tup out
 that varies based on the python version. Need to normalize that in the binder function
 without breaking it.
 """
-
-from typing import Any
 from aionetiface import *
 from aionetiface.testing import AsyncTestCase
 from port_helpers import xdist_port_base
 
 
 class TestBind(AsyncTestCase):
-    async def test_binder(self) -> None:
+    async def test_binder(self):
         vectors = [
             ["Windows", [IP4, "127.0.0.1", 80, None], ("127.0.0.1", 80)],
             ["Windows", [IP4, "localhost", 80, None], ("127.0.0.1", 80)],
@@ -86,7 +84,7 @@ class TestBind(AsyncTestCase):
 
         assert failed == 0
 
-    async def test_bind_closure(self) -> None:
+    async def test_bind_closure(self):
         pass
 
         i = await Interface()
@@ -127,12 +125,12 @@ class TestBind(AsyncTestCase):
 
         # out = (await bind_closure(b)(80, ""))._bind_tups
 
-    async def test_bind(self) -> None:
+    async def test_bind(self):
         i = await Interface()
         af = i.stack if i.stack != DUEL_STACK else IP4
         b = Bind(i, af)
 
-    async def test_ip_val_v6_bind_types(self) -> None:
+    async def test_ip_val_v6_bind_types(self):
         i = await Interface()
         try:
             # Test global tuples set.
@@ -156,7 +154,7 @@ class TestBind(AsyncTestCase):
         except (OSError, ValueError, AttributeError):
             return
 
-    async def test_ip_val_v4_bind_types(self) -> None:
+    async def test_ip_val_v4_bind_types(self):
         i = await Interface()
 
         # Test nic bind occurs.
@@ -166,14 +164,14 @@ class TestBind(AsyncTestCase):
             await b.bind()
             self.assertEqual(b.bind_tup(flag=NIC_BIND)[0], ip)
 
-    async def test_route_v4_bind_types(self) -> None:
+    async def test_route_v4_bind_types(self):
         i = await Interface()
         r = i.route(IP4)
         b = await r.bind()
         tup = b.bind_tup(flag=NIC_BIND)
         self.assertTrue(tup[0])
 
-    async def test_route_v6_bind_types(self) -> None:
+    async def test_route_v6_bind_types(self):
         i = await Interface()
 
         try:
@@ -189,11 +187,11 @@ class TestBind(AsyncTestCase):
             return
 
     # TODO: netifaces is pulling invalid net masks for some IPs?
-    async def test_bind_assumptions(self) -> None:
+    async def test_bind_assumptions(self):
         ip = "139.99.209.1"
         # socket.socket(IP4, TCP)
 
-    async def test_bind_start_v4_all_addr(self) -> None:
+    async def test_bind_start_v4_all_addr(self):
         af = IP4
         try:
             i = await Interface(af)
@@ -209,7 +207,7 @@ class TestBind(AsyncTestCase):
         if s is not None:
             s.close()
 
-    async def test_bind_start_v6_all_addr(self) -> None:
+    async def test_bind_start_v6_all_addr(self):
         i = await Interface()
         try:
             af = IP6

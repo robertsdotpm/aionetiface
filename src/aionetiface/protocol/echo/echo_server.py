@@ -1,6 +1,5 @@
 """Simple echo server used for connectivity testing."""
 import asyncio
-from typing import Any, Tuple
 from ...net.daemon import Daemon
 from ...utility.utils import async_wrap_errors, get_running_loop
 from ...utility.fstr import fstr
@@ -9,10 +8,10 @@ from ...net.asyncio.async_run import async_run
 
 class EchoServer(Daemon):
     """Daemon that echoes every received message back to its sender."""
-    def __init__(self) -> None:
+    def __init__(self):
         super().__init__()
 
-    async def msg_cb(self, msg: bytes, client_tup: Tuple[Any, ...], pipe: Any) -> None:
+    async def msg_cb(self, msg, client_tup, pipe):
         await async_wrap_errors(pipe.send(msg, client_tup))
 
 

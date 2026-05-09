@@ -21,7 +21,6 @@ import collections
 import contextlib
 import functools
 import threading
-from typing import Optional
 
 from ._utils import LockStack
 
@@ -53,7 +52,7 @@ class ReaderWriterLock(object):
         self._current_thread = current_thread_functor
 
     @property
-    def has_pending_writers(self) -> bool:
+    def has_pending_writers(self):
         """Check if there pending writers
 
         Returns:
@@ -61,7 +60,7 @@ class ReaderWriterLock(object):
         """
         return bool(self._pending_writers)
 
-    def is_writer(self, check_pending: bool = True) -> bool:
+    def is_writer(self, check_pending=True):
         """Check if caller is a writer (optionally pending writer).
 
         Args:
@@ -79,7 +78,7 @@ class ReaderWriterLock(object):
         else:
             return False
 
-    def is_reader(self) -> bool:
+    def is_reader(self):
         """Check if caller is a reader.
 
         Returns:
@@ -89,7 +88,7 @@ class ReaderWriterLock(object):
         return me in self._readers
 
     @property
-    def owner(self) -> Optional[str]:
+    def owner(self):
         """Caller ownership (if any) of the lock
 
         Returns:
@@ -383,7 +382,7 @@ def write_locked(*args, **kwargs):
 
 
 @contextlib.contextmanager
-def try_lock(lock: threading.Lock):
+def try_lock(lock):
     """Context manager that attempts to acquire a lock without a timeout, and
     releases it on exit (if acquired).
 

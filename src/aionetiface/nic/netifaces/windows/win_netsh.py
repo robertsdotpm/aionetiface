@@ -4,8 +4,6 @@ import sys
 
 if sys.platform == "win32":
     import winreg
-
-from typing import Any, Dict, List
 from ....net.net_defs import IP4, IP6
 from ....net.net_utils import ip_strip_if, toggle_host_bits
 from ....net.ip_range import IPRange
@@ -20,7 +18,7 @@ class NetshParse:
     # netsh interface ipv6 show interfaces
     # if_index:
     @staticmethod
-    def show_interfaces(af: int, msg: str) -> List[Any]:
+    def show_interfaces(af, msg):
         """Returns a list of parsed interface records indexed by interface index."""
         p = r"([0-9]+)\s+([0-9]+)\s+([0-9]+)\s+([a-z0-9]+)\s+([^\r\n]+)"
         out = re.findall(p, msg)
@@ -42,7 +40,7 @@ class NetshParse:
     # netsh interface ipv6 show addresses
     # if_index: ...
     @staticmethod
-    def show_addresses(af: int, msg: str) -> List[Any]:
+    def show_addresses(af, msg):
         """Returns a list of parsed address records grouped by interface index."""
         msg = re.sub(r"%[0-9]+", "", msg)
 
@@ -90,7 +88,7 @@ class NetshParse:
     # netsh interface ipv6 show route
     # Routes also show subnet for interface addresses.
     @staticmethod
-    def show_route(af: int, msg: str) -> List[Any]:
+    def show_route(af, msg):
         """Returns a list of parsed route records grouped by interface index."""
         p = r"([a-zA-Z0-9]+)\s+([a-zA-Z0-9]+)\s+([0-9]+)\s+([a-zA-Z0-9.:%\/]+)\s+([0-9]+)\s+([^\r\n]+)"
         out = re.findall(p, msg)
@@ -116,7 +114,7 @@ class NetshParse:
     # Also has ipv6 results.
     # if_index: ... if_name, mac
     @staticmethod
-    def show_mac(af: int, msg: str) -> List[Any]:
+    def show_mac(af, msg):
         """Returns a list of parsed MAC address and default gateway records by interface index."""
         p = r"([0-9]+)\s*[.]{2,}([0-9a-fA-F ]+)[ .]+([^\r\n]+)[\r\n]"
         out = re.findall(p, msg)
@@ -146,7 +144,7 @@ class NetshParse:
     # ipconfig /all
     # mac: {ip4: ..., IP6: ...}
     @staticmethod
-    def show_gws(af: int, msg: str) -> List[Any]:
+    def show_gws(af, msg):
         """Returns a list of parsed gateway addresses keyed by MAC address."""
         p = r"[pP]hysical[ ]+[aA]ddress[^:]+:([^\r\n]+)[\r\n][\s\S]+?[dD]efault[ ]+[gG]ateway[^:]+:((?:\s*[a-fA-F0-9:.%]+[\r\n]?)(?:\s*[a-fA-F0-9:.%]+[\r\n])?)"
         sections = msg.split("\r\n\r\n")
@@ -179,7 +177,7 @@ class NetshParse:
         return [af, "gws", results]
 
 
-async def do_netsh_cmds() -> Dict[str, Any]:
+async def do_netsh_cmds():
     parser = NetshParse()
     cmd_vectors = [
         [parser.show_interfaces, {IP4: "interfaces", IP6: "interfaces"}],
@@ -251,7 +249,7 @@ Examples of an interface name 'Intel ... ethernet v10'.
 """
 
 
-def win_con_name_lookup() -> Dict[str, Any]:
+def win_con_name_lookup():
     """Returns a mapping of connection names to their GUID and interface description from the Windows registry."""
     root_key = winreg.OpenKey(
         winreg.HKEY_LOCAL_MACHINE,
@@ -324,8 +322,8 @@ def win_con_name_lookup() -> Dict[str, Any]:
 
 
 def get_host_limit_from_route_infos(
-    needle_ip: str, route_infos: List[Dict[str, Any]], af: Any = None
-) -> List[Any]:
+    needle_ip, route_infos, af=None
+):
     """Returns the most specific CIDR prefix length and netmask matching the given IP from a list of route infos."""
     from ....net.net_utils import af_bitlen
     netmask = None
@@ -354,7 +352,7 @@ def get_host_limit_from_route_infos(
     return [host_limit, netmask]
 
 
-async def if_infos_from_netsh() -> List[Dict[str, Any]]:
+async def if_infos_from_netsh():
     con_table = win_con_name_lookup()
     out = await do_netsh_cmds()
 
