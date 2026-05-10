@@ -36,7 +36,10 @@ STATUS_RETRY = 1
 
 def create_task(coro, loop=None):
     """Schedule coro as a task on the given (or current) event loop."""
-    loop = loop or asyncio.get_event_loop()
+    if loop is None:
+        loop = get_running_loop()
+    if loop is None:
+        loop = asyncio.get_event_loop()
     return loop.create_task(coro)
 
 
@@ -240,7 +243,7 @@ def async_to_sync(
         """Run f with no arguments synchronously on loop and return the result."""
         return loop.run_until_complete(f())
 
-        return closure
+    return closure
 
 
 # ---------------------------------------------------------------------------
