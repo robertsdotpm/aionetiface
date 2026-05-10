@@ -319,6 +319,7 @@ class NTPClient:
         route = await self.interface.route(self.af).bind()
 
         # create the socket
+        pipe = None
         try:
             pipe = await Pipe(UDP, dest, route).connect()
 
@@ -336,7 +337,6 @@ class NTPClient:
 
             # build the destination timestamp
             dest_timestamp = system_to_ntp_time(time.time())
-            await pipe.close()
         except asyncio.TimeoutError:
             raise NTPException("No response received from host")
         except asyncio.CancelledError:
@@ -344,6 +344,12 @@ class NTPClient:
         except Exception:
             log_exception()
             return None
+        finally:
+            if pipe is not None:
+                try:
+                    await pipe.close()
+                except OSError:
+                    pass
 
         # construct corresponding statistics
         if response_packet is None:
