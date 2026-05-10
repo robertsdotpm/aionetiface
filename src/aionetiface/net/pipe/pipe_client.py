@@ -26,7 +26,7 @@ class PipeClient(ACKUDP):
         self.conf = conf if conf is not None else NET_CONF
         self.dest = None
         self.dest_tup = None
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = loop
 
         # [Bool(msg)] = Queue.
         # Lets convert this to [b"msg pattern", b"host pattern"] = [Queue]
