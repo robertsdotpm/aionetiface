@@ -152,7 +152,7 @@ async def update_server_list(
 
     # Update the saved server file.
     # Only update it if needed.
-    if update_req:
+    if update_req and infra_buf is not None:
         # Write to a temp file.
         tmp_path = servers_path + ".tmp"
         with open(tmp_path, "w", encoding="utf-8") as fp:
