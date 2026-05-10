@@ -118,8 +118,8 @@ class TCPClientProtocol(asyncio.StreamReaderProtocol):
 
         # Cleanup client futures entry.
         p_client_entry = self.client_events.p_client_entry
-        client_future = self.pipe_events.client_futures[p_client_entry]
-        if client_future.done():
+        client_future = self.pipe_events.client_futures.get(p_client_entry)
+        if client_future is not None and client_future.done():
             del self.pipe_events.client_futures[p_client_entry]
 
         # Run disconnect handlers if any set.
