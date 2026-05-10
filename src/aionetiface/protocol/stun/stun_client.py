@@ -118,10 +118,9 @@ class STUNClient:
         pipe = await self._get_dest_pipe(pipe)
         try:
             return await get_stun_reply(self.mode, self.dest, self.dest, pipe, attrs)
-        except Exception:
+        finally:
             if caller_pipe is None and pipe is not None:
                 await pipe.close()
-            raise
 
     # Use a different port for the reply.
     async def get_change_port_reply(
@@ -145,14 +144,19 @@ class STUNClient:
         )
 
         # Flag to make the port change request.
+        caller_pipe = pipe
         pipe = await self._get_dest_pipe(pipe)
-        return await get_stun_reply(
-            self.mode,
-            self.dest,
-            reply_addr,
-            pipe,
-            [[STUNAttrs.ChangeRequest, b"\0\0\0\2"]],
-        )
+        try:
+            return await get_stun_reply(
+                self.mode,
+                self.dest,
+                reply_addr,
+                pipe,
+                [[STUNAttrs.ChangeRequest, b"\0\0\0\2"]],
+            )
+        finally:
+            if caller_pipe is None and pipe is not None:
+                await pipe.close()
 
     # Use a different IP and port for the reply.
     async def get_change_tup_reply(
@@ -165,10 +169,15 @@ class STUNClient:
             raise ErrorFeatureDeprecated(error)
 
         # Flag to make the tup change request.
+        caller_pipe = pipe
         pipe = await self._get_dest_pipe(pipe)
-        return await get_stun_reply(
-            self.mode, self.dest, ctup, pipe, [[STUNAttrs.ChangeRequest, b"\0\0\0\6"]]
-        )
+        try:
+            return await get_stun_reply(
+                self.mode, self.dest, ctup, pipe, [[STUNAttrs.ChangeRequest, b"\0\0\0\6"]]
+            )
+        finally:
+            if caller_pipe is None and pipe is not None:
+                await pipe.close()
 
     # Return only your remote IP.
     async def get_wan_ip(self, pipe=None):
