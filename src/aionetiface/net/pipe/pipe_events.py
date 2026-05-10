@@ -416,7 +416,7 @@ class PipeEvents(BaseACKProto):
         the close code may end up missing them.
         """
         if self.sock:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             if hasattr(loop, "await_fd_close"):
                 on_close = loop.await_fd_close(self.sock)
             else:
