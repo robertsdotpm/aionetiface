@@ -51,6 +51,8 @@ def rp_from_fixed(fixed, interface, af):  # pragma: no cover
 
 async def get_nic_iprs(af, interface, netifaces):
     tasks = []
+    if netifaces is None:
+        return []
     netifaces_af = af_to_netiface(af)
     if_addresses = netifaces.ifaddresses(interface.name)
     if netifaces_af in if_addresses:
