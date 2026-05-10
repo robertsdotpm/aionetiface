@@ -32,7 +32,7 @@ RFC5389 = 2
 RFC8489 = 3
 
 
-def _get_const_name(cls, val, type_):
+def get_const_name(cls, val, type_):
     """Return the attribute name in cls whose value equals val and whose type matches type_, or an empty string."""
     for attr_name in dir(cls):
         attr = getattr(cls, attr_name)
@@ -63,7 +63,7 @@ class STUNMsgTypes:
     ConnectionBind = b"\x00\x0b"  # RFC6062
     ConnectionAttempt = b"\x00\x0c"  # RFC6062
 
-    get = classmethod(lambda cls, val, type_=int: _get_const_name(cls, val, type_))
+    get = classmethod(lambda cls, val, type_=int: get_const_name(cls, val, type_))
 
 
 class STUNAttrs:
@@ -112,7 +112,7 @@ class STUNAttrs:
     UnknownAddress2 = b"\x80\x2b"
     UnknownAddress3 = b"\x80\x2c"
 
-    get = classmethod(lambda cls, val, type_=bytes: _get_const_name(cls, val, type_))
+    get = classmethod(lambda cls, val, type_=bytes: get_const_name(cls, val, type_))
 
 
 class STUNMsgCodes:
@@ -122,7 +122,7 @@ class STUNMsgCodes:
     SuccessResp = b"\x01\x00"
     ErrorResp = b"\x01\x10"
 
-    get = classmethod(lambda cls, val, type_=int: _get_const_name(cls, val, type_))
+    get = classmethod(lambda cls, val, type_=int: get_const_name(cls, val, type_))
 
 
 class STUNAddrTup:
@@ -342,7 +342,7 @@ class STUNMsg:
         self.write_attr(STUNAttrs.Realm, realm)
         self.write_attr(STUNAttrs.Nonce, nonce)
 
-    def _hmac(self, key, msg):
+    def hmac_sha1(self, key, msg):
         """Return the HMAC-SHA1 digest of msg using key."""
         hashed = hmac.new(key, msg, hashlib.sha1)
         return hashed.digest()
@@ -352,7 +352,7 @@ class STUNMsg:
         self.msg_len += 24
         msg_hmac = self.pack()
         self.msg_len -= 24
-        self.write_attr(STUNAttrs.MessageIntegrity, self._hmac(key, msg_hmac))
+        self.write_attr(STUNAttrs.MessageIntegrity, self.hmac_sha1(key, msg_hmac))
 
     def eof(self):
         """Return True if the attribute cursor has reached the end of the message body."""

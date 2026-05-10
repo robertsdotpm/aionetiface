@@ -67,13 +67,13 @@ class AsyncIOInteractiveConsole(code.InteractiveConsole):
             err = str(exc)
             if "EOF" in err or "expected an indented block" in err:
                 return True  # Need more input.
-            return self._run_as_async(source, filename)
+            return self.run_as_async(source, filename)
         if code_obj is None:
             return True  # Incomplete input.
         self.runcode(code_obj)
         return False
 
-    def _run_as_async(self, source, filename):
+    def run_as_async(self, source, filename):
         """Wrap source in an async def, run it on the loop, merge locals back."""
         import textwrap
         ns = "_repl_ns_a7c2"

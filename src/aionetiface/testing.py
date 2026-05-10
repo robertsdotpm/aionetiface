@@ -413,7 +413,7 @@ _SUPPRESSED_TEST_EXCS = (
 )
 
 
-def _quiet_exception_handler(loop, context):
+def quiet_exception_handler(loop, context):
     exc = context.get("exception")
     if exc is not None and isinstance(exc, _SUPPRESSED_TEST_EXCS):
         return
@@ -442,17 +442,17 @@ allow_windows_firewall("python-tests")
 # We patch both the re-export and the original in asyncio.events because
 # internal asyncio code (e.g. asyncio.Runner in 3.11+) imports from the
 # submodule directly.
-_orig_new_event_loop = asyncio.events.new_event_loop
+orig_new_event_loop = asyncio.events.new_event_loop
 
 
-def _new_event_loop_quiet():
-    loop = _orig_new_event_loop()
-    loop.set_exception_handler(_quiet_exception_handler)
+def new_event_loop_quiet():
+    loop = orig_new_event_loop()
+    loop.set_exception_handler(quiet_exception_handler)
     return loop
 
 
-asyncio.new_event_loop = _new_event_loop_quiet
-asyncio.events.new_event_loop = _new_event_loop_quiet
+asyncio.new_event_loop = new_event_loop_quiet
+asyncio.events.new_event_loop = new_event_loop_quiet
 
 # Suppress ResourceWarning spam from sockets and event loops that are not
 # explicitly closed before GC fires (expected in async tests on teardown).

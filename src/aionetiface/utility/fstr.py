@@ -28,7 +28,7 @@ class fstr2(object):
     instead.  This class is retained only for backward compatibility with
     any existing callers.
 
-    Security note: _clean_and_eval() calls eval() against the caller's local
+    Security note: clean_and_eval() calls eval() against the caller's local
     and global namespaces.  Never pass untrusted input to this class.
 
     Attributes:
@@ -51,7 +51,7 @@ class fstr2(object):
         self._string = s
         self.f_locals = self.original_caller.f_locals
         self.f_globals = self.original_caller.f_globals
-        self.text = self._find_and_replace(s)
+        self.text = self.find_and_replace(s)
 
     @property
     def original_caller(self):
@@ -68,11 +68,11 @@ class fstr2(object):
                 break
         return frames[-2]
 
-    def _find_and_replace(self, s):
+    def find_and_replace(self, s):
         """Evaluates and returns all occurrences of `regex` in `s`"""
-        return re.sub(self._regex, self._clean_and_eval, s)
+        return re.sub(self._regex, self.clean_and_eval, s)
 
-    def _clean_and_eval(self, m):
+    def clean_and_eval(self, m):
         """Remove surrounding braces and whitespace from regex match `m`,
         evaluate, and return the result as a string.
 

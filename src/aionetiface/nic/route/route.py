@@ -203,13 +203,13 @@ class Route(Bind):
         """Associate this route with a RoutePool so that alt() and related operations are available."""
         self.route_pool = route_pool
 
-    def _check_extended(self):
+    def check_extended(self):
         """Raise an exception if this route has not been linked to a RoutePool."""
         if self.route_pool is None:
             raise AssertionError("e = route_pool not linked.")
 
     @staticmethod
-    def _convert_other(other):
+    def convert_other(other):
         """Coerce other to an IPRange for use in Route comparison operators."""
         if isinstance(other, Route):
             if len(other.ext_ips):
@@ -231,7 +231,7 @@ class Route(Bind):
             return ipr
 
         raise NotImplementedError(
-            "Route._convert_other: unsupported type for comparison."
+            "Route.convert_other: unsupported type for comparison."
         )
 
     def bad_len(self, other):
@@ -246,7 +246,7 @@ class Route(Bind):
         """Return up to limit routes from the pool that are not equal to self and not in exclusions."""
         # Init storage vars.
         # Check the class has been mapped to a RoutePool.
-        self._check_extended()
+        self.check_extended()
         routes = []
         n = 0
 
@@ -342,7 +342,7 @@ class Route(Bind):
     # Incrementally adjusts route offset so its efficent.
     # not Route = route_info (with different WAN to left operand.)
     def __invert__(self):
-        self._check_extended()
+        self.check_extended()
         for route in self.route_pool:
             # If route has same external addr then skip.
             if route == self:
@@ -364,7 +364,7 @@ class Route(Bind):
         return pprint.pformat(self.to_dict())
 
     def __eq__(self, other):
-        other = Route._convert_other(other)
+        other = Route.convert_other(other)
         if self.bad_len(other):
             return False
 
@@ -374,7 +374,7 @@ class Route(Bind):
         return self == other
 
     def __lt__(self, other):
-        other = self._convert_other(other)
+        other = self.convert_other(other)
         if self.bad_len(other):
             return False
 

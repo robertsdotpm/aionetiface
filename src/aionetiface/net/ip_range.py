@@ -308,7 +308,7 @@ class IPRange:
     def __rsub__(self, n):
         return self - n
 
-    def _convert_other(self, other):
+    def convert_other(self, other):
         """Coerce other to an IPRange for comparison operations."""
         if isinstance(other, (int, bytes, str)):
             ipa = ipaddress.ip_address(other)
@@ -322,11 +322,11 @@ class IPRange:
         )
 
     def __eq__(self, other):
-        other = self._convert_other(other)
+        other = self.convert_other(other)
         return range_intersects(self.r, other.r)
 
     def __lt__(self, other):
-        other = self._convert_other(other)
+        other = self.convert_other(other)
 
         # Compare highest values in range.
         return self.r[1] < other.r[1]

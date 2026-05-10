@@ -82,7 +82,7 @@ class STUNClient:
         self.conf = conf
 
     # Boilerplate to get a pipe to the STUN server.
-    async def _get_dest_pipe(self, unknown):
+    async def get_dest_pipe(self, unknown):
         """Return an open Pipe to the STUN server, reusing an existing Pipe/Route or opening a new one."""
         # Already open pipe.
         if isinstance(unknown, Pipe):
@@ -115,7 +115,7 @@ class STUNClient:
         if attrs is None:
             attrs = []
         caller_pipe = pipe
-        pipe = await self._get_dest_pipe(pipe)
+        pipe = await self.get_dest_pipe(pipe)
         try:
             return await get_stun_reply(self.mode, self.dest, self.dest, pipe, attrs)
         finally:
@@ -145,7 +145,7 @@ class STUNClient:
 
         # Flag to make the port change request.
         caller_pipe = pipe
-        pipe = await self._get_dest_pipe(pipe)
+        pipe = await self.get_dest_pipe(pipe)
         try:
             return await get_stun_reply(
                 self.mode,
@@ -170,7 +170,7 @@ class STUNClient:
 
         # Flag to make the tup change request.
         caller_pipe = pipe
-        pipe = await self._get_dest_pipe(pipe)
+        pipe = await self.get_dest_pipe(pipe)
         try:
             return await get_stun_reply(
                 self.mode, self.dest, ctup, pipe, [[STUNAttrs.ChangeRequest, b"\0\0\0\6"]]
@@ -183,7 +183,7 @@ class STUNClient:
     async def get_wan_ip(self, pipe=None):
         """Return the normalised WAN IP string reported by the STUN server, or None on failure."""
         caller_pipe = pipe
-        pipe = await self._get_dest_pipe(pipe)
+        pipe = await self.get_dest_pipe(pipe)
         try:
             reply = await get_stun_reply(self.mode, self.dest, self.dest, pipe)
 
@@ -203,7 +203,7 @@ class STUNClient:
     ):
         """Return (local_port, mapped_port, pipe) for this connection, leaving the pipe open for hole-punching."""
         caller_supplied_pipe = pipe is not None
-        pipe = await self._get_dest_pipe(pipe)
+        pipe = await self.get_dest_pipe(pipe)
         try:
             reply = await get_stun_reply(self.mode, self.dest, self.dest, pipe)
 

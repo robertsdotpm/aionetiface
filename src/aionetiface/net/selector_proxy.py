@@ -39,7 +39,7 @@ def close_pair(
         buffers.pop(s, None)
 
 
-def _connect_reverse(
+def connect_reverse(
     destination, sock_proto,
 ):
     """Open the worker's reverse leg back to main. TCP -> create_connection,
@@ -57,7 +57,7 @@ def _connect_reverse(
     return s
 
 
-def _read_chunk(sock, sock_proto):
+def read_chunk(sock, sock_proto):
     """Read a chunk from sock. TCP: stream bytes (b"" == graceful close).
     UDP: one datagram (b"" is a real zero-length datagram, not a close).
     Raises BlockingIOError if no data available (selector mis-fired).
@@ -69,7 +69,7 @@ def _read_chunk(sock, sock_proto):
     return sock.recv(RECV_CHUNK)
 
 
-def _enqueue(
+def enqueue(
     buffers, peer, data, sock_proto,
 ):
     """Enqueue data for transmission to peer. TCP concatenates into a byte
@@ -82,14 +82,14 @@ def _enqueue(
     buffers[peer].append(data)
 
 
-def _has_pending(buf, sock_proto):
+def has_pending(buf, sock_proto):
     """True if there's anything buffered for this socket to write."""
     if sock_proto == socket.SOCK_STREAM:
         return bool(buf)
     return bool(buf)  # list truthy iff non-empty
 
 
-def _write_chunk(
+def write_chunk(
     sock, buffers, sock_proto,
 ):
     """Drain one chunk / one datagram from buffers[sock] to sock. Updates
@@ -156,7 +156,7 @@ def selector_proxy(
     own_socket_r = socket_r is None
     try:
         if socket_r is None:
-            socket_r = _connect_reverse(destination, sock_proto)
+            socket_r = connect_reverse(destination, sock_proto)
 
         socket_p.setblocking(False)
         socket_r.setblocking(False)
@@ -164,7 +164,7 @@ def selector_proxy(
         peers = {socket_p: socket_r, socket_r: socket_p}
         # buffers[s] is bytes for TCP (concatenated stream) or
         # list-of-bytes for UDP (queue of pending datagrams). The
-        # _enqueue / _write_chunk / _has_pending helpers normalise
+        # enqueue / write_chunk / has_pending helpers normalise
         # the difference so the main loop body stays branchless.
         if sock_proto == socket.SOCK_STREAM:
             buffers = {socket_p: b"", socket_r: b""}  # type: Dict[Any, Any]
@@ -212,7 +212,7 @@ def selector_proxy(
                     sock_label = "P" if sock is socket_p else "R"
                     print("[SP-EV] EVENT_READ sock={0}".format(sock_label))
                     try:
-                        data = _read_chunk(sock, sock_proto)
+                        data = read_chunk(sock, sock_proto)
                         if sock_proto == socket.SOCK_STREAM and not data:
                             # TCP graceful close on recv()->b"". UDP
                             # has no equivalent -- a zero-byte datagram
@@ -228,7 +228,7 @@ def selector_proxy(
                         # prior ICMP-unreachable streak is irrelevant now.
                         if sock_proto == socket.SOCK_DGRAM:
                             udp_econnrefused_streak[sock] = 0
-                        _enqueue(buffers, peer, data, sock_proto)
+                        enqueue(buffers, peer, data, sock_proto)
                         # Tell selector we want EVENT_WRITE for the peer.
                         selector.modify(
                             peer,
@@ -273,7 +273,7 @@ def selector_proxy(
 
                 # ---- WRITE LOGIC ----
                 if mask & selectors.EVENT_WRITE:
-                    if not _has_pending(buffers.get(sock), sock_proto):
+                    if not has_pending(buffers.get(sock), sock_proto):
                         selector.modify(
                             sock,
                             selector.get_key(sock).events & ~selectors.EVENT_WRITE,
@@ -281,8 +281,8 @@ def selector_proxy(
                         continue
 
                     try:
-                        _write_chunk(sock, buffers, sock_proto)
-                        if not _has_pending(buffers.get(sock), sock_proto):
+                        write_chunk(sock, buffers, sock_proto)
+                        if not has_pending(buffers.get(sock), sock_proto):
                             selector.modify(
                                 sock,
                                 selector.get_key(sock).events & ~selectors.EVENT_WRITE,

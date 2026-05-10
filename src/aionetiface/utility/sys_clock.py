@@ -106,7 +106,7 @@ class SysClock:
         self.ntp = ntp
         self.offset = 0
         # Whether time() is backed by real NTP or fell back to system clock.
-        self._ntp_loaded = bool(ntp)
+        self.ntp_loaded = bool(ntp)
         # When set ("host" or "host:port"), start() probes only this address
         # instead of the get_infra() pool.  Used to point peers at a LAN NTP
         # source for tight cross-machine sync (internet pool RTT 50-100 ms
@@ -176,7 +176,7 @@ class SysClock:
             # __init__ set start_time before the probes ran, so leaving
             # it would over-count elapsed by the probe duration.
             self.start_time = monotonic_at_sample
-            self._ntp_loaded = True
+            self.ntp_loaded = True
             log(fstr(
                 "SysClock.start: ntp={0} wall={1} delta={2}s rtt={3}ms "
                 "({4} samples agreed)",
@@ -205,7 +205,7 @@ class SysClock:
             "wall-clock explicitly."
         )
 
-    def _use_system_clock(self):
+    def use_system_clock(self):
         """Seed self.ntp from the local system clock.
 
         Only used when the caller passes ntp=time.time() into
@@ -215,7 +215,7 @@ class SysClock:
         masking real cross-machine clock-drift bugs.
         """
         self.ntp = time.time()
-        self._ntp_loaded = False  # signal that this is not NTP-accurate
+        self.ntp_loaded = False  # signal that this is not NTP-accurate
 
     def __await__(self):
         return self.start().__await__()
@@ -231,7 +231,7 @@ class SysClock:
         """
         if not self.ntp:
             # start() was never called — seed from system clock right now.
-            self._use_system_clock()
+            self.use_system_clock()
 
         elapsed = max(time.monotonic() - self.start_time, 0)
         return self.ntp + elapsed + self.offset
