@@ -407,6 +407,7 @@ class PipeEvents(BaseACKProto):
     async def close(self, force=False, keep_clients=False):
         if not self.is_running:
             return
+        self.is_running = False
 
         """
         If this is a transport for a TCP server its important to close
@@ -466,10 +467,9 @@ class PipeEvents(BaseACKProto):
         await cancel_task(self.tcp_server_task)
         await cancel_tasks(self.tasks)
 
-        # No longer running.
+        # No longer running (is_running was already set False at entry).
         self.transport = None
         self.sock = None
-        self.is_running = False
         self.tcp_server = None
         self.tcp_server_task = None
         self.tcp_clients = []
