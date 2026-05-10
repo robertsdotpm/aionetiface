@@ -341,6 +341,8 @@ class FakeInterfaceFactory(object):
         try:
             if_names = await list_interfaces()
             real_ifs = await load_interfaces(if_names, Interface, skip_nat=skip_nat)
+        except asyncio.CancelledError:
+            raise
         except Exception:
             real_ifs = []
 

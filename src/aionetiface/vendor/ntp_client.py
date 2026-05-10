@@ -339,6 +339,8 @@ class NTPClient:
             await pipe.close()
         except asyncio.TimeoutError:
             raise NTPException("No response received from host")
+        except asyncio.CancelledError:
+            raise
         except Exception:
             log_exception()
             return None
