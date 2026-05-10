@@ -350,7 +350,9 @@ async def get_n_stun_clients(
                     # a single bad candidate cannot crash the whole worker.
                     try:
                         result = t.result()
-                    except (asyncio.CancelledError, Exception):
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception:
                         result = None
                     if result is not None:
                         winner = result
@@ -369,7 +371,9 @@ async def get_n_stun_clients(
                         if result is not None:
                             winner = result
                             break
-                    except (Exception, asyncio.CancelledError):
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception:
                         pass
         return winner
 
