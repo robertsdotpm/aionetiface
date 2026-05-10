@@ -4,6 +4,7 @@ import re
 from ...utility.utils import fstr, log, log_exception, run_handler
 from ...protocol.ack_udp import ACKUDP
 from ..net_defs import NET_CONF, SUB_ALL, UDP, RUDP, TCP, IP6
+from .pipe_defs import TYPE_UDP_CON
 from .pipe_utils import client_tup_norm, norm_client_tup
 
 
@@ -271,6 +272,13 @@ class PipeClient(ACKUDP):
                 UDP,
                 RUDP,
             ):
+                # For a connected UDP socket the transport raises ValueError if
+                # the addr argument doesn't exactly match self._address.  Passing
+                # None lets the kernel use the connected peer instead.
+                if self.pipe_events.endpoint_type == TYPE_UDP_CON:
+                    handle.sendto(data, None)
+                    return 1
+
                 """
                 When you bind to IPv6 you specify the 4 tup. The 4 tup must be
                 provided for dest (ip, port, 0, scope_id) but the last two can be
@@ -314,7 +322,7 @@ class PipeClient(ACKUDP):
                 return 1
 
             return 0
-        except (OSError, ConnectionError):
+        except (OSError, ConnectionError, ValueError):
             log(fstr(" send error {0}", (self.handle,)))
             log_exception()
             return 0
