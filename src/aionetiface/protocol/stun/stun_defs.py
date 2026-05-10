@@ -161,6 +161,14 @@ class STUNAddrTup:
         (or vice versa) so callers MUST honour the in-attribute family.
         See get_attr_family() / decode().
         """
+        min_len = 8 if af == IP4 else 20
+        if len(attr_data) < min_len:
+            raise ValueError(
+                "STUN address attribute too short: need {} bytes, got {}".format(
+                    min_len, len(attr_data)
+                )
+            )
+
         port_buf = attr_data[2:4]
         if af == IP4:
             ip_buf = attr_data[4:8]
