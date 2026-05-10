@@ -496,6 +496,8 @@ class PipeEvents(BaseACKProto):
         self, data, dest_tup=None
     ):
         """Send data to dest_tup (or the stored destination) via the stream."""
+        if not self.is_running or self.stream is None:
+            return 0
         dest_tup = dest_tup or self.stream.dest_tup
         return await self.stream.send(data, dest_tup)
 
