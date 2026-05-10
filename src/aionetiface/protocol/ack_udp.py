@@ -92,8 +92,12 @@ class ACKUDP:
                     ack = None
 
         # Keep dicts from taking up too much memory.
+        # Only prune completed entries — wiping the whole dict races any
+        # concurrent ack_send worker waiting on self.seq[seq].wait().
         if len(self.seq) > UDP_MAX_DICT_LEN:
-            self.seq = {}
+            done_keys = [k for k, e in self.seq.items() if e.is_set()]
+            for k in done_keys:
+                del self.seq[k]
 
         # The TURN client implements a custom is_ackable that wraps an ACK
         # in a channel message which allows the server to deliver the message.
@@ -155,6 +159,8 @@ class ACKUDP:
                 try:
                     # Will return instantly on receiving a related ACK.
                     # Otherwise it suspends for other code to execute.
+                    if seq not in self.seq:
+                        break
                     await asyncio.wait_for(self.seq[seq].wait(), 3)
 
                     # No timeout error = success.
