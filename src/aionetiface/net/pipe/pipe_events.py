@@ -411,6 +411,15 @@ class PipeEvents(BaseACKProto):
             return
         self.is_running = False
 
+        # Unblock any recv() calls waiting on subscription queues.
+        # Without this, they would wait the full recv_timeout before returning None.
+        if self.stream is not None:
+            for sub_entry in list(self.stream.subs.values()):
+                try:
+                    sub_entry[1].put_nowait([None, None])
+                except Exception:
+                    pass
+
         """
         If this is a transport for a TCP server its important to close
         it first before closing tcp_clients. Otherwise, new clients may

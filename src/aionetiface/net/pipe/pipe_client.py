@@ -222,6 +222,10 @@ class PipeClient(ACKUDP):
             _, q, handler = self.subs[offset]
             ret = await asyncio.wait_for(q.get(), recv_timeout)
 
+            # [None, None] is the close sentinel injected by PipeEvents.close().
+            if ret[1] is None:
+                return None
+
             # Run handler if one is set.
             if handler is not None:
                 run_handler(self.pipe_events, handler, ret[0], ret[1])
