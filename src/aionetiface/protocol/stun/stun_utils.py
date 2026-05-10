@@ -79,7 +79,10 @@ async def get_stun_reply(
 
     # Send the req and get a matching reply.
     send_buf = msg.pack()
-    recv_buf = await send_recv_loop(dest_addr, pipe, send_buf, sub)
+    try:
+        recv_buf = await send_recv_loop(dest_addr, pipe, send_buf, sub)
+    finally:
+        pipe.unsubscribe(sub)
     if recv_buf is None:
         raise ErrorNoReply("STUN recv loop got no reply.")
 
