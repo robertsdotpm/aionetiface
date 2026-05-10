@@ -151,6 +151,8 @@ class PipeEvents(BaseACKProto):
         data=None,
     ):
         """Invoke every handler in handlers with client_tup and data, scheduling coroutines as tasks."""
+        if not self.is_running:
+            return
         # Run any registered call backs on msg.
         self.handler_tasks = rm_done_tasks(self.handler_tasks)
         for handler in handlers:
