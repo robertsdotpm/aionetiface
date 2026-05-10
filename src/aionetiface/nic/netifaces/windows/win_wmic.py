@@ -247,6 +247,8 @@ async def get_ipv6_from_netsh():
     """
     try:
         out = await cmd("netsh interface ipv6 show address")
+    except asyncio.CancelledError:
+        raise
     except Exception:
         return {}
 
