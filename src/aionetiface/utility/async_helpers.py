@@ -178,13 +178,14 @@ async def async_retry(gen, count, timeout=4):
             if status != STATUS_RETRY:
                 return None
 
+        except asyncio.CancelledError:
+            raise
         except asyncio.TimeoutError:
             pass
 
-        finally:
-            iteration += 1
-            if count in (iteration, retries):
-                break
+        iteration += 1
+        if count in (iteration, retries):
+            break
 
     raise asyncio.TimeoutError("async_retry: retry limit reached")
 
@@ -386,7 +387,9 @@ def run_in_executor2(f):
     @functools.wraps(f)
     def inner(*args, **kwargs):
         """Schedule f as a task if async, or run it in the executor if sync."""
-        loop = asyncio.get_event_loop()
+        loop = get_running_loop()
+        if loop is None:
+            loop = asyncio.get_event_loop()
         if inspect.iscoroutinefunction(f):
             return loop.create_task(f(*args, **kwargs))
         return submit_to_executor(lambda: f(*args, **kwargs), loop)
