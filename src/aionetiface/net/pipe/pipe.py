@@ -20,6 +20,7 @@ https://bugs.python.org/issue34795
 """
 
 import asyncio
+import ssl
 import sys
 from ...utility.utils import (
     log,
@@ -104,13 +105,10 @@ class Pipe:
         except asyncio.CancelledError:
             self.cleanup_on_error()
             raise
-        except (
-            OSError,
-            ConnectionError,
-            asyncio.TimeoutError,
-            RuntimeError,
-        ):
-            # defensive cleanup
+        except Exception:
+            # defensive cleanup for OSError, ConnectionError, TimeoutError,
+            # RuntimeError, NameError, AttributeError and anything else that
+            # setup_pipe_events() or tcp_client_connect_if_needed() may raise
             self.cleanup_on_error()
             raise
 
