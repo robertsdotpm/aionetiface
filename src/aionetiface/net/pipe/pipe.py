@@ -101,6 +101,9 @@ class Pipe:
 
             await self.setup_pipe_events(msg_cb, up_cb)
             self._opened = True
+        except asyncio.CancelledError:
+            self.cleanup_on_error()
+            raise
         except (
             OSError,
             ConnectionError,
