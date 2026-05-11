@@ -217,6 +217,35 @@ def selector_proxy(
                             # TCP graceful close on recv()->b"". UDP
                             # has no equivalent -- a zero-byte datagram
                             # is real data, not a close signal.
+                            #
+                            # Before tearing down the pair, drain any
+                            # pending bytes queued for the peer side.
+                            # close_pair will close peer immediately,
+                            # which discards anything still in its
+                            # write buffer -- and on cross-NAT runs
+                            # the peer's FIN frequently arrives in the
+                            # same wakeup as the final data segment,
+                            # so close_pair was dropping the last 13
+                            # bytes (the DONE marker) before the app
+                            # got to read them. Blocking-drain to the
+                            # local loopback peer is safe (no flow
+                            # control beyond the kernel's recv buf).
+                            pending_for_peer = buffers.get(peer)
+                            if pending_for_peer:
+                                try:
+                                    peer.setblocking(True)
+                                    peer.sendall(pending_for_peer)
+                                    print(
+                                        "[SP-EV] drained {0} bytes "
+                                        "to peer before close_pair"
+                                        .format(len(pending_for_peer))
+                                    )
+                                except OSError as exc:
+                                    print(
+                                        "[SP-EV] drain-on-EOF failed: "
+                                        "{0}".format(repr(exc))
+                                    )
+                                buffers[peer] = b""
                             close_pair(sock, peers, selector, buffers)
                             if socket_p not in peers:
                                 break
