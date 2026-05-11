@@ -456,10 +456,53 @@ async def load_interfaces(
     ))
     results = await asyncio.gather(*[load_one(n) for n in if_names])
     loaded = [nic for nic in results if nic is not None]
-    log("[IFLOAD-SWEEP] done dur={0:.2f}s loaded={1}/{2}".format(
-        time.time() - sweep_t0, len(loaded), len(if_names),
+
+    # MAC-based dedup: defence in depth.  The Windows netifaces shim's
+    # .interfaces() historically yielded both the friendly name and
+    # the adapter description for one physical NIC (fixed at source);
+    # users can also pass --nic <name> --nic <description> by hand
+    # and hit the same alias.  Either way we end up running the full
+    # nic.start + load_nat pipeline twice on what the kernel sees as
+    # one interface, wasting 4-10 s of startup and producing two
+    # Interface objects whose downstream NAT predictions are
+    # identical.  Drop duplicates by MAC, keeping the first instance.
+    # MACs are populated by nic.start; NICs that failed to start are
+    # already filtered out above.  Defensive: a missing MAC (None /
+    # "") never dedups, so VLAN sub-interfaces and bridges keep their
+    # individual entries.
+    mac_to_kept_name = {}
+    deduped = []
+    for nic in loaded:
+        mac = getattr(nic, "mac", None)
+        nic_name = to_s(getattr(nic, "name", "?"))
+        if mac and mac in mac_to_kept_name:
+            kept = mac_to_kept_name[mac]
+            # Loud warn -- caller likely passed two --nic flags for the
+            # same physical NIC, or the netifaces backend leaked an
+            # alias.  Either way the user should know we collapsed
+            # them; silently dropping was the bug that hid the
+            # Windows enumeration regression for months.
+            msg = (
+                "[IFLOAD-SWEEP] DUPLICATE NIC: name={0!r} maps to the "
+                "same MAC ({1}) as already-loaded name={2!r}; "
+                "dropping the duplicate.  This is usually one of: "
+                "(a) --nic passed twice with friendly name + "
+                "description for one Windows adapter; "
+                "(b) two host-only / NAT virtual adapters sharing a "
+                "MAC; (c) a netifaces shim emitting aliases.  Check "
+                "your --nic args / Network Connections panel."
+            ).format(nic_name, mac, kept)
+            log(msg)
+            print(msg, flush=True)
+            continue
+        if mac:
+            mac_to_kept_name[mac] = nic_name
+        deduped.append(nic)
+
+    log("[IFLOAD-SWEEP] done dur={0:.2f}s loaded={1}/{2} unique={3}".format(
+        time.time() - sweep_t0, len(loaded), len(if_names), len(deduped),
     ))
-    return loaded
+    return deduped
 
 
 def get_nic_for_af(nic_list):

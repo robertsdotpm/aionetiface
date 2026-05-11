@@ -752,18 +752,27 @@ class Netifaces:
     def interfaces(self):
         """Returns a sorted list of all detected interface names.
 
-        Each interface contributes its friendly name and, when
-        available, its adapter description -- both are valid lookup
-        keys so callers filtering by --nic can use either form.
+        ONE entry per physical NIC.  The dual-name indexing (friendly
+        name AND adapter description) only applies to lookup -- see
+        by_name_index registration at the top of __init__ -- because
+        we want --nic to match either string.  Enumeration must NOT
+        emit both, otherwise load_interfaces() instantiates a fresh
+        Interface and runs the full NAT-LOAD pipeline on the SAME
+        physical NIC twice, costing 4-10 s of startup on every
+        Windows host with adapters whose friendly name differs from
+        their description (i.e. all of them on modern Windows).
+
+        Canonical name is the friendly name when present, falling
+        back to description.  This matches what the user typed in
+        Network Connections and what historical p2pd code expected.
         """
         ifs = []
         seen = set()
         for _, if_info in self.by_guid_index.items():
-            for key in ("name", "description"):
-                v = if_info.get(key)
-                if v and v not in seen:
-                    ifs.append(v)
-                    seen.add(v)
+            canonical = if_info.get("name") or if_info.get("description")
+            if canonical and canonical not in seen:
+                ifs.append(canonical)
+                seen.add(canonical)
 
         ifs = sorted(ifs)
         return ifs
