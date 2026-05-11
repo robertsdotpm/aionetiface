@@ -182,8 +182,22 @@ class Connection(object):
 
     def process_frame(self, frame):
         """One captured frame -> at most one segment fed to the state."""
+        # On DLT_EN10MB datalinks we ALSO want the Ethernet source MAC so
+        # we can learn the peer's MAC from any inbound IPv4 packet they
+        # send us, not just from ARP -- the simul-open path (XP bypass)
+        # never issues a request/reply pair because both ends are already
+        # talking via a NAT-derived 4-tuple, so a SYN that arrives here
+        # is the first sighting of the peer's L2 address.  Without this
+        # we'd emit our SYN-ACK/ACK with dst_mac=BROADCAST which the
+        # peer's stack typically tolerates but some link-layer paths
+        # (Linux veth carrier checks, certain offload paths) silently
+        # discard.
+        src_mac_from_eth = None
         try:
-            ethertype, ip_payload = eth.strip_link_layer(self.datalink, frame)
+            if self.datalink == 1:  # DLT_EN10MB
+                _, src_mac_from_eth, ethertype, ip_payload = eth.parse_eth_frame(frame)
+            else:
+                ethertype, ip_payload = eth.strip_link_layer(self.datalink, frame)
         except ValueError:
             return
         if ethertype == eth.ETH_TYPE_ARP:
@@ -206,6 +220,14 @@ class Connection(object):
         dst_ip = iphdr.dst_str
         if dst_ip != self.local_ip:
             return
+        # Learn peer MAC from this TCP frame's L2 header (DLT_EN10MB only).
+        # Skips zero / broadcast sources (some pcap stacks inject those as
+        # the L2 source for unknown peers; treating those as authoritative
+        # would poison the cache).
+        if src_mac_from_eth is not None and src_mac_from_eth not in (
+            eth.MAC_ZERO, eth.MAC_BROADCAST,
+        ):
+            self.arp_cache.put(src_ip, src_mac_from_eth)
         # Filter to our connection.  For a connected state, use the
         # FourTuple; for LISTEN, accept whichever peer sends to our
         # local port.
