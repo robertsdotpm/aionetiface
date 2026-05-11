@@ -594,9 +594,9 @@ async def if_infos_from_iphlpapi():
             n = int(raw_prefix)
         except (TypeError, ValueError):
             log(fstr(
-                "win_iphlpapi: unparseable prefix {0!r} for af={1}; "
+                "win_iphlpapi: unparseable prefix {0} for af={1}; "
                 "defaulting to /{2}",
-                (raw_prefix, af, max_bits),
+                (repr(raw_prefix), af, max_bits),
             ))
             return max_bits
         if n < 0 or n > max_bits:

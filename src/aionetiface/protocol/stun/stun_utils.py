@@ -72,11 +72,6 @@ async def get_stun_reply(
     for attr in attrs:
         attr_code, attr_data = attr
         msg.write_attr(attr_code, attr_data)
-    # RFC 8489 §14.7 TRANSACTION_TRANSMIT_COUNTER: marks the first (and only)
-    # transmission so firewalls can distinguish a compliant client from a
-    # DDoS amplification tool that never retransmits the same TXID.
-    msg.write_transaction_counter(1)
-
     # Subscribe to replies that match the req tran ID.
     sub = (re.escape(msg.txn_id), reply_addr)
     pipe.subscribe(sub)
