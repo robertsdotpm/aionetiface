@@ -469,3 +469,215 @@ def resolve_next_hop_mac(
         # other off-LAN destinations should hit the same gateway entry.
         arp_cache.put(gw, mac)
     return mac
+
+
+# --- Local NIC MAC resolution ----------------------------------------------
+#
+# The pcap stack writes frames directly onto the wire without going through
+# the kernel's L2 framing, so it must supply its own source MAC.  The kernel
+# normally fills this in transparently when an application calls send() on a
+# regular socket; userspace pcap injection bypasses that path.  Frames with
+# src_mac=00:00:00:00:00:00 are silently dropped by:
+#   - MAC-learning bridges / switches (the source slot won't be learned, so
+#     replies have nowhere to return),
+#   - egress filters on consumer routers,
+#   - VMware vSwitches with promiscuous-mode restrictions,
+# all without any error returned to the injecting process.  So we resolve
+# the local NIC's MAC up-front and stash it on the Connection.
+#
+# We resolve by local IP rather than by interface name because the
+# Connection constructor already takes local_ip and the caller may not
+# know the OS-level interface name -- on Windows in particular the pcap
+# device name (\Device\NPF_{GUID}) is unrelated to the friendly name
+# `ipconfig` uses.
+
+
+def linux_local_mac(local_ip):
+    """Find the MAC of the NIC carrying local_ip on Linux.
+
+    Strategy: enumerate /sys/class/net/, check each iface's
+    /sys/class/net/<iface>/address.  Cross-reference against the iface's
+    IPs which we read from getifaddrs-equivalent via /proc/net/fib_trie
+    or, simpler, iterate `ip -o addr show` and parse.
+
+    To keep this dependency-free, we walk /sys/class/net and run
+    `ip -o -4 addr show dev <iface>` per candidate.  On boxes without
+    iproute2 (older embedded), we fall back to `ifconfig`.
+    """
+    try:
+        ifaces = os.listdir("/sys/class/net")
+    except (OSError, IOError):
+        ifaces = []
+    for iface in ifaces:
+        addr_path = "/sys/class/net/" + iface + "/address"
+        try:
+            with open(addr_path, "r") as fh:
+                mac_str = fh.read().strip()
+        except (OSError, IOError):
+            continue
+        # Check if this iface carries local_ip.  Try iproute2 first.
+        text = run_text(["ip", "-o", "-4", "addr", "show", "dev", iface])
+        if not text:
+            text = run_text(["ifconfig", iface])
+        if not text:
+            continue
+        if local_ip not in text:
+            continue
+        mac = parse_mac_loose(mac_str)
+        if mac is not None and mac != eth.MAC_ZERO:
+            return mac
+    return None
+
+
+def windows_local_mac(local_ip):
+    """Find the MAC of the NIC carrying local_ip on Windows (incl. XP).
+
+    Parses `ipconfig /all` output, which has been stable since Win 2000.
+    Each adapter section has a 'Physical Address' line followed by one or
+    more 'IP Address' / 'IPv4 Address' lines.  We pair them by section.
+
+    Example fragment from XP:
+        Ethernet adapter Local Area Connection:
+              Connection-specific DNS Suffix  . :
+              Physical Address. . . . . . . . . : 00-0C-29-AB-CD-EF
+              Dhcp Enabled. . . . . . . . . . . : Yes
+              ...
+              IP Address. . . . . . . . . . . . : 10.0.1.132
+              Subnet Mask . . . . . . . . . . . : 255.255.255.0
+              ...
+    """
+    text = run_text(["ipconfig", "/all"])
+    if not text:
+        return None
+    current_mac = None
+    sections = []
+    section_macs = []
+    section_ips = []
+    cur_ips = []
+    cur_mac = None
+    in_section = False
+    for raw in text.splitlines():
+        line = raw.rstrip()
+        # Section header: a non-indented line ending with a colon.
+        if line and not line.startswith(" ") and not line.startswith("\t") and line.endswith(":"):
+            # Flush previous section.
+            if in_section:
+                section_macs.append(cur_mac)
+                section_ips.append(cur_ips)
+            cur_mac = None
+            cur_ips = []
+            in_section = True
+            continue
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if "Physical Address" in stripped:
+            # Value after ':'.
+            if ":" in stripped:
+                val = stripped.split(":", 1)[1].strip().strip(".").strip()
+                mac = parse_mac_loose(val)
+                if mac is not None:
+                    cur_mac = mac
+            continue
+        # Match IPv4 lines.  XP uses 'IP Address', Vista+ uses 'IPv4 Address'.
+        # The value can have a trailing '(Preferred)' annotation on Vista+.
+        if ("IP Address" in stripped) or ("IPv4 Address" in stripped):
+            if ":" in stripped:
+                val = stripped.split(":", 1)[1].strip()
+                # Take the first whitespace-separated token.
+                token = val.split()[0] if val else ""
+                # Strip trailing punctuation.
+                token = token.strip("().,")
+                if ip_to_int(token) is not None:
+                    cur_ips.append(token)
+            continue
+    # Flush trailing section.
+    if in_section:
+        section_macs.append(cur_mac)
+        section_ips.append(cur_ips)
+    # Find a section that contains local_ip and has a MAC.
+    for mac, ips in zip(section_macs, section_ips):
+        if mac is None:
+            continue
+        if local_ip in ips:
+            return mac
+    return None
+
+
+def unix_local_mac(local_ip):
+    """Find the MAC of the NIC carrying local_ip on macOS / *BSD.
+
+    Parses `ifconfig` output.  Each adapter block starts at column 0
+    with the iface name + flags; indented lines underneath include
+    'ether <MAC>' and 'inet <IP>'.
+    """
+    text = run_text(["ifconfig"])
+    if not text:
+        return None
+    section_mac = None
+    section_ips = []
+    macs = []
+    ip_lists = []
+    started = False
+    for raw in text.splitlines():
+        if not raw:
+            continue
+        if not raw.startswith(" ") and not raw.startswith("\t"):
+            # New section starts.
+            if started:
+                macs.append(section_mac)
+                ip_lists.append(section_ips)
+            section_mac = None
+            section_ips = []
+            started = True
+            continue
+        stripped = raw.strip()
+        # ether aa:bb:cc:dd:ee:ff
+        if stripped.startswith("ether ") or stripped.startswith("lladdr "):
+            parts = stripped.split()
+            if len(parts) >= 2:
+                mac = parse_mac_loose(parts[1])
+                if mac is not None:
+                    section_mac = mac
+            continue
+        # inet 10.0.1.132 netmask ...
+        if stripped.startswith("inet "):
+            parts = stripped.split()
+            if len(parts) >= 2 and ip_to_int(parts[1]) is not None:
+                section_ips.append(parts[1])
+            continue
+    if started:
+        macs.append(section_mac)
+        ip_lists.append(section_ips)
+    for mac, ips in zip(macs, ip_lists):
+        if mac is None:
+            continue
+        if local_ip in ips:
+            return mac
+    return None
+
+
+def resolve_local_mac(local_ip):
+    """Return the MAC of the local NIC that owns `local_ip`, or None.
+
+    Cross-platform.  Read-only (subprocess calls and /sys reads only,
+    no probes, no interface mutation).  None means "give up, caller can
+    fall back to MAC_ZERO and hope the L2 path tolerates it".
+    """
+    if local_ip is None:
+        return None
+    try:
+        if is_linux():
+            return linux_local_mac(local_ip)
+        if is_windows():
+            return windows_local_mac(local_ip)
+        if is_darwin() or is_bsd():
+            return unix_local_mac(local_ip)
+    except Exception as exc:
+        # Defensive: any helper failure must NOT prevent the Connection
+        # from at least attempting to inject (with MAC_ZERO src_mac as
+        # fallback).
+        print(fstr(
+            "pcap next_hop: resolve_local_mac error {0}", (exc,)))
+        return None
+    return None

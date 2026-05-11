@@ -33,7 +33,7 @@ import asyncio
 import socket as stdlib_socket
 
 from ..ip import eth, ipv4
-from ..ip.next_hop import resolve_next_hop_mac
+from ..ip.next_hop import resolve_next_hop_mac, resolve_local_mac
 from . import segment as tcp_segment
 from .state import TcpState, ESTABLISHED, CLOSED
 from .simul_open import FourTuple, match_inbound
@@ -79,6 +79,29 @@ class Connection(object):
             eth.parse_mac(local_mac) if isinstance(local_mac, str)
             else local_mac
         )
+        # If the caller didn't supply our NIC's MAC, resolve it from the
+        # host OS once.  Frames with src_mac=00 are silently dropped on
+        # most paths (MAC-learning switches, consumer-router egress
+        # filters, some vSwitch policies), so the kernel-provided value
+        # is load-bearing -- the pcap path bypasses the kernel's normal
+        # L2 framing so we have to fill this in ourselves.
+        if self.local_mac is None and local_ip is not None:
+            try:
+                resolved = resolve_local_mac(local_ip)
+            except Exception as exc:
+                print(fstr(
+                    "pcap conn: resolve_local_mac error {0}", (exc,)))
+                resolved = None
+            if resolved is not None:
+                self.local_mac = resolved
+                print(fstr(
+                    "pcap conn: local MAC for {0} resolved to {1}",
+                    (local_ip, eth.format_mac(resolved))))
+            else:
+                print(fstr(
+                    "pcap conn: local MAC for {0} not resolved; "
+                    "using MAC_ZERO (frames may be dropped)",
+                    (local_ip,)))
         # Optional dotted-quad subnet mask for the NIC behind local_ip.
         # When supplied, the next-hop resolver can distinguish same-LAN
         # destinations (resolve dst_ip MAC directly) from off-LAN ones
