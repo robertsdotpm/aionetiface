@@ -362,9 +362,6 @@ class Connection(object):
             if self.datalink == 1:  # DLT_EN10MB
                 dst_mac = self.resolve_dst_mac(dst_ip)
                 src_mac = self.local_mac or eth.MAC_ZERO
-                print(fstr(
-                    "pcap conn: emit frame src_mac={0} dst_mac={1} dst_ip={2}",
-                    (eth.format_mac(src_mac), eth.format_mac(dst_mac), dst_ip)))
                 frame = eth.wrap_link_layer(
                     self.datalink, eth.ETH_TYPE_IPV4,
                     dst_mac, src_mac, ip_bytes)
