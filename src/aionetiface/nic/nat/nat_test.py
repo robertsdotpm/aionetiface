@@ -361,9 +361,12 @@ async def nic_load_nat(
     print("[NAT-LOAD] nic_load_nat: gather done nat_type={0} delta={1}".format(
         nat_type, delta,
     ), flush=True)
-    if None in [nat_type, delta]:
-        print("[NAT-LOAD] nic_load_nat: -> raise ErrorCantLoadNATInfo (None in result)", flush=True)
+    if nat_type is None:
+        print("[NAT-LOAD] nic_load_nat: -> raise ErrorCantLoadNATInfo (nat_type is None)", flush=True)
         raise ErrorCantLoadNATInfo("Unable to load nat.")
+    if delta is None:
+        print("[NAT-LOAD] nic_load_nat: delta_test timed out; falling back to RANDOM_DELTA", flush=True)
+        delta = delta_info(RANDOM_DELTA, 0)
 
     print("[NAT-LOAD] nic_load_nat: -> success nat_type={0} delta_type={1}".format(
         nat_type, delta.get("type") if isinstance(delta, dict) else delta,
