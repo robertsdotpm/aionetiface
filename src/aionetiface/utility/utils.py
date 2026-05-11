@@ -594,21 +594,9 @@ def intersect_range(a, b):
 def field_wrap(n, field):
     """
     Wrap integer n so that it falls within [field[0], field[1]].
-
-    Iterates until a stable value within the field is found.
     """
     start_range, stop_range = field
-    stop_range += 1
-    y = x = n % stop_range
-    while True:
-        if x < start_range:
-            x += start_range
-            y = x % stop_range
-            if x != y:
-                x = y
-        if x == y:
-            break
-    return x
+    return start_range + (n % (stop_range - start_range + 1))
 
 
 def field_dist(x, y, field):
