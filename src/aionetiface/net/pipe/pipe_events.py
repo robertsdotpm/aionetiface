@@ -29,6 +29,7 @@ from ...utility.utils import (
     rm_done_tasks,
     cancel_task,
     cancel_tasks,
+    get_running_loop,
 )
 from ..net_defs import NET_CONF, SUB_ALL, IP4, IP6
 from ...protocol.ack_udp import BaseACKProto
@@ -427,7 +428,7 @@ class PipeEvents(BaseACKProto):
         the close code may end up missing them.
         """
         if self.sock:
-            loop = asyncio.get_event_loop()
+            loop = get_running_loop()
             if hasattr(loop, "await_fd_close"):
                 on_close = loop.await_fd_close(self.sock)
             else:
