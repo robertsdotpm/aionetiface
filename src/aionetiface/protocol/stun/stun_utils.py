@@ -105,7 +105,12 @@ async def stun_reply_to_ret_dic(reply):
         ret["cip"] = reply.ctup[0]
         ret["cport"] = reply.ctup[1]
     else:
-        return None
+        # ctup (ChangedAddress) is only present in RFC3489 responses from
+        # servers that support change-address requests.  RFC5389-only servers
+        # omit it, but the mapped address (rtup) is still valid and sufficient
+        # for OPEN_INTERNET / full-cone detection (test_one/test_two).
+        ret["cip"] = None
+        ret["cport"] = None
 
     if hasattr(reply, "rtup"):
         ret["rip"] = reply.rtup[0]
