@@ -276,11 +276,15 @@ class PipeClient(ACKUDP):
                 UDP,
                 RUDP,
             ):
-                # For a connected UDP socket the transport raises ValueError if
-                # the addr argument doesn't exactly match self._address.  Passing
-                # None lets the kernel use the connected peer instead.
+                # TYPE_UDP_CON means the Pipe was created with a non-None
+                # dest (see pipe.py); it does NOT mean the OS socket was
+                # connected via socket.connect().  These are multiplexed
+                # (overloaded) UDP sockets that are never truly OS-connected.
+                # Always pass dest_tup — passing None causes TypeError in the
+                # asyncio transport because _address is None on unconnected
+                # sockets.
                 if self.pipe_events.endpoint_type == TYPE_UDP_CON:
-                    handle.sendto(data, None)
+                    handle.sendto(data, dest_tup)
                     return 1
 
                 """
