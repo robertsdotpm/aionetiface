@@ -62,11 +62,16 @@ class WindowsFactory(LibpcapFactory):
     platform_name = "windows/wpcap"
 
     def load_lib(self):
-        # Npcap-in-WinPcap-compat mode often installs a stub wpcap.dll
-        # that needs Packet.dll on the same path -- so we tell Windows
-        # to search both via SetDllDirectoryW when an Npcap folder is
-        # picked.  Best-effort: failure here just means the bare
-        # ctypes.WinDLL call has to find its dependencies on its own.
+        # wpcap.dll exports its symbols with the __cdecl calling
+        # convention (libpcap convention) on every Win32 build we've
+        # tested.  ctypes.WinDLL implies __stdcall and corrupts the
+        # stack on argument-laden calls like pcap_findalldevs ->
+        # "Procedure probably called with too many arguments
+        # (8 bytes in excess)".  We must use ctypes.CDLL.
+        #
+        # We still call SetDllDirectoryW via WinDLL("kernel32") before
+        # CDLL() so that wpcap.dll's Packet.dll dependency resolves
+        # from the same folder when the Npcap candidate path wins.
         last_err = None
         for candidate in WINDOWS_WPCAP_CANDIDATES:
             try:
@@ -81,7 +86,7 @@ class WindowsFactory(LibpcapFactory):
                             kernel32.SetDllDirectoryW(ctypes.c_wchar_p(parent))
                         except OSError:
                             pass
-                lib = ctypes.WinDLL(candidate, use_errno=True)
+                lib = ctypes.CDLL(candidate, use_errno=True)
                 bind_symbols(lib)
                 self.library_path_label = candidate
                 print("pcap/windows: loaded {0}".format(candidate))
