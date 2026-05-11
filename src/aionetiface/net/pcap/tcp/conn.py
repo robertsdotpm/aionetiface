@@ -33,6 +33,7 @@ import asyncio
 import socket as stdlib_socket
 
 from ..ip import eth, ipv4
+from ..ip.next_hop import resolve_next_hop_mac
 from . import segment as tcp_segment
 from .state import TcpState, ESTABLISHED, CLOSED
 from .simul_open import FourTuple, match_inbound
@@ -71,13 +72,21 @@ class Connection(object):
     """
 
     def __init__(self, backend, local_ip, local_mac=None, loop=None,
-                 reader=None):
+                 reader=None, local_subnet=None):
         self.backend = backend
         self.local_ip = local_ip
         self.local_mac = (
             eth.parse_mac(local_mac) if isinstance(local_mac, str)
             else local_mac
         )
+        # Optional dotted-quad subnet mask for the NIC behind local_ip.
+        # When supplied, the next-hop resolver can distinguish same-LAN
+        # destinations (resolve dst_ip MAC directly) from off-LAN ones
+        # (resolve default-gateway MAC).  When None, the resolver falls
+        # back to the OS-route default-gateway path for any destination
+        # not already in the inbound-learned ArpCache, which is correct
+        # for cross-NAT flows but slightly wasteful for same-LAN.
+        self.local_subnet = local_subnet
         self.loop = loop or asyncio.get_event_loop()
         self.reader = reader  # optional pre-created PcapReader
         self.owns_reader = reader is None
@@ -87,6 +96,12 @@ class Connection(object):
         self.peer_mac = None
         self.arp_cache = eth.ArpCache()
         self.datalink = backend.datalink()
+        # Cache the OS next-hop MAC the first time flush_outbox needs
+        # it -- avoids re-spawning `arp -a` / re-reading /proc on every
+        # outbound segment.  None means "not resolved yet"; the empty
+        # bytes sentinel b"" means "tried and failed, fall back to
+        # broadcast next time too".
+        self.next_hop_mac_cache = None
 
         self.read_waiters = []  # asyncio.Future objects waiting on data
         self.established_event = asyncio.Event()
@@ -248,6 +263,63 @@ class Connection(object):
                 self.local_ip, self.state.local_port,
                 src_ip, seg.src_port)
 
+    def resolve_dst_mac(self, dst_ip):
+        """Pick the L2 destination MAC for an outbound IPv4 frame.
+
+        Priority:
+            1. peer_mac explicitly set by the caller (start_active
+               passed remote_mac=) -- absolute trust, the caller knows
+               better than we do.
+            2. ArpCache hit on dst_ip from inbound-frame learning --
+               this covers the same-L2 path (linux veth tests, two
+               hosts on one switch) where the peer MAC arrives on the
+               wire before we ever transmit.
+            3. OS next-hop resolution via resolve_next_hop_mac --
+               reads the host's existing ARP cache + route table.
+               This is the cross-NAT case: there is no peer MAC
+               anywhere on our wire, so we have to send to the gateway
+               MAC and let the gateway do its NAT-and-forward job.
+            4. Broadcast as a last-ditch fallback, matching the
+               pre-fix behaviour.  Some same-LAN-flooded paths still
+               deliver in this mode.
+
+        The OS-next-hop result is cached on the Connection so we don't
+        re-spawn `arp -a` on every outbound segment.  The cache is
+        invalidated on close (Connection goes away with the instance).
+        """
+        if self.peer_mac is not None:
+            return self.peer_mac
+        learned = self.arp_cache.get(dst_ip)
+        if learned is not None and learned not in (eth.MAC_ZERO, eth.MAC_BROADCAST):
+            return learned
+        if self.next_hop_mac_cache is None:
+            try:
+                resolved = resolve_next_hop_mac(
+                    dst_ip,
+                    local_ip=self.local_ip,
+                    local_subnet=self.local_subnet,
+                    arp_cache=self.arp_cache,
+                )
+            except Exception as exc:
+                # Helper is read-only and defensive but we still don't
+                # want a parse failure to nuke the whole TCP flow.
+                print(fstr(
+                    "pcap conn: resolve_next_hop_mac error {0}", (exc,)))
+                resolved = None
+            if resolved is None:
+                # Sentinel: we've tried and failed once, don't retry on
+                # every flush.  A future inbound frame may populate the
+                # ArpCache and short-circuit branch (2) above.
+                self.next_hop_mac_cache = b""
+            else:
+                self.next_hop_mac_cache = resolved
+                print(fstr(
+                    "pcap conn: next-hop MAC for {0} resolved to {1}",
+                    (dst_ip, eth.format_mac(resolved))))
+        if self.next_hop_mac_cache and self.next_hop_mac_cache != b"":
+            return self.next_hop_mac_cache
+        return eth.MAC_BROADCAST
+
     def flush_outbox(self):
         """Wrap each queued TcpSegment in IP+link headers and inject."""
         if self.state is None:
@@ -265,7 +337,7 @@ class Connection(object):
                 self.local_ip, dst_ip, ipv4.PROTO_TCP, tcp_bytes)
             # Link layer.
             if self.datalink == 1:  # DLT_EN10MB
-                dst_mac = self.peer_mac or self.arp_cache.get(dst_ip) or eth.MAC_BROADCAST
+                dst_mac = self.resolve_dst_mac(dst_ip)
                 src_mac = self.local_mac or eth.MAC_ZERO
                 frame = eth.wrap_link_layer(
                     self.datalink, eth.ETH_TYPE_IPV4,
