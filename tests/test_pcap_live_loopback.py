@@ -41,7 +41,16 @@ from aionetiface.net.pcap import get_backend, PcapUnavailableError, PcapError
 from aionetiface.net.pcap.tcp.conn import Connection
 
 
-LOOPBACK_IP = "127.0.0.1"
+# We deliberately do NOT use 127.0.0.1 here.  When we inject a SYN
+# whose src+dst are both 127.0.0.1 with no real kernel listening socket
+# on the dst port, the host kernel sees an unsolicited SYN to its own
+# loopback address and replies with a RST -- which our userspace stack
+# correctly honours, killing the test.  TEST-NET-2 (RFC 5737) addresses
+# 198.51.100.0/24 are guaranteed not to be configured anywhere, so the
+# kernel ignores them: no RST is generated and our pcap captures see
+# only what we sent.
+LOOPBACK_SRC_IP = "198.51.100.10"
+LOOPBACK_DST_IP = "198.51.100.20"
 
 
 def loopback_iface_name():
@@ -112,10 +121,10 @@ class TestLiveLoopback(AsyncTestCase):
 
     async def test_three_way_handshake(self):
         port_a, port_b = self.pick_ports()
-        listener = Connection(self.backend_a, LOOPBACK_IP)
-        connector = Connection(self.backend_b, LOOPBACK_IP)
+        listener = Connection(self.backend_a, LOOPBACK_SRC_IP)
+        connector = Connection(self.backend_b, LOOPBACK_SRC_IP)
         self.conns.extend([listener, connector])
-        await listener.start_listen(port_a, remote_ip=LOOPBACK_IP, remote_port=port_b)
+        await listener.start_listen(port_a, remote_ip=LOOPBACK_SRC_IP, remote_port=port_b)
         # Tight BPF on the listener to drop unrelated loopback noise.
         try:
             self.backend_a.set_filter(
@@ -129,7 +138,7 @@ class TestLiveLoopback(AsyncTestCase):
             pass
         await asyncio.sleep(0.1)  # let listener's driver start
         await connector.start_active(
-            remote_ip=LOOPBACK_IP, remote_port=port_a,
+            remote_ip=LOOPBACK_SRC_IP, remote_port=port_a,
             local_port=port_b, simul=False)
         try:
             await self.drive_handshake_normal(listener, connector)
@@ -155,8 +164,8 @@ class TestLiveLoopback(AsyncTestCase):
 
     async def test_simul_open(self):
         port_a, port_b = self.pick_ports()
-        a = Connection(self.backend_a, LOOPBACK_IP)
-        b = Connection(self.backend_b, LOOPBACK_IP)
+        a = Connection(self.backend_a, LOOPBACK_SRC_IP)
+        b = Connection(self.backend_b, LOOPBACK_SRC_IP)
         self.conns.extend([a, b])
         try:
             self.backend_a.set_filter(
@@ -170,10 +179,10 @@ class TestLiveLoopback(AsyncTestCase):
         # SYN_RECEIVED, and end up in ESTABLISHED.
         await asyncio.gather(
             a.start_active(
-                remote_ip=LOOPBACK_IP, remote_port=port_b,
+                remote_ip=LOOPBACK_SRC_IP, remote_port=port_b,
                 local_port=port_a, simul=True),
             b.start_active(
-                remote_ip=LOOPBACK_IP, remote_port=port_a,
+                remote_ip=LOOPBACK_SRC_IP, remote_port=port_a,
                 local_port=port_b, simul=True),
         )
         try:
