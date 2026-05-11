@@ -46,6 +46,7 @@ from ...net.pipe.pipe import Pipe
 from .nat_defs import (
     BLOCKED_NAT,
     FULL_CONE,
+    NA_DELTA,
     OPEN_INTERNET,
     RANDOM_DELTA,
     RESTRICT_NAT,
@@ -297,9 +298,11 @@ async def nic_load_nat(
     servs=None,
     timeout=4,
 ):
-    # IPv6 only has no NAT!
+    # IPv6-only NICs have no NAT — treat as open internet with no delta.
+    # Returning SYMMETRIC_NAT here was wrong: it caused pair_has_symmetric
+    # to exclude all IPv6-only pairs from punch plugins.
     if IP4 not in nic.supported():
-        return SYMMETRIC_NAT, delta_info(RANDOM_DELTA, 0)
+        return OPEN_INTERNET, delta_info(NA_DELTA, 0)
     af = IP4
 
     # Copy random STUN servers to use.

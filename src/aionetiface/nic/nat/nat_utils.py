@@ -179,14 +179,15 @@ async def delta_test(
                 src_port = random.randrange(4000, MAX_PORT)
 
             # Get the mapping using STUN.
-            async def result_wrapper(src_port):
+            async def result_wrapper(src_port, stun_idx=i):
                 """Run one STUN mapping probe from src_port and return [local, mapped, socket] or None."""
                 # Make sure port isn't in the reserved range.
                 if src_port < 4000 and src_port != 0:
                     raise ValueError("src less than 4k in mapping behavior.")
 
-                # Avoid relying on any one server.
-                stun_client = random.choice(stun_clients)
+                # Round-robin across servers so each probe hits a distinct
+                # server; random.choice with replacement left ~36% unsampled.
+                stun_client = stun_clients[stun_idx % len(stun_clients)]
 
                 # Get mapping using specific source port.
                 route = None
