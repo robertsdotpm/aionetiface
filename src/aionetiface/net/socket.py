@@ -142,13 +142,20 @@ def apply_nic_pin_sockopts(sock, route):
                             )
                         )
                     except OSError as exc:
-                        log(
-                            "apply_nic_pin_sockopts: linux SO_BINDTODEVICE "
-                            "failed name={0} af={1}: {2} ({3}) -- continuing "
-                            "with unpinned socket".format(
-                                pin_name, route.af, type(exc).__name__, repr(exc),
+                        # name="default" is the documented sentinel used by
+                        # loopback binds (per-node 127.X.Y.Z aliases, 127.0.0.1,
+                        # ::1) -- SO_BINDTODEVICE is expected to fail with
+                        # ENODEV so the socket continues unpinned and the
+                        # kernel can route via lo. Suppress the log in that
+                        # case; surface real pin failures only.
+                        if pin_name != "default":
+                            log(
+                                "apply_nic_pin_sockopts: linux SO_BINDTODEVICE "
+                                "failed name={0} af={1}: {2} ({3}) -- continuing "
+                                "with unpinned socket".format(
+                                    pin_name, route.af, type(exc).__name__, repr(exc),
+                                )
                             )
-                        )
         else:
             try:
                 if_index = int(iface_id)
