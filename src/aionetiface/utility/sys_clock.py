@@ -30,6 +30,67 @@ NTP_RETRY = 2
 NTP_TIMEOUT = 2
 
 
+def marzullo_intersection(intervals):
+    """Find the smallest interval that intersects the maximum number of input intervals.
+
+    Each input interval is a (lo, hi) tuple representing the uncertainty
+    bounds on a single NTP probe (typically [corrected_ntp - rtt/2,
+    corrected_ntp + rtt/2]). Marzullo's algorithm returns the
+    "truth-clique" interval: the time-range over which the largest set
+    of probes agree. Center is the best estimate; half-width is the
+    bounded uncertainty on that estimate.
+
+    Returns (lo, hi) or None for an empty input.
+
+    See M. Marzullo, "Maintaining the Time in a Distributed System",
+    Stanford PhD thesis 1983; also RFC 5905 5.3 (NTP intersection).
+    """
+    if not intervals:
+        return None
+
+    # Event list: open at lo (+1), close at hi (-1).  At equal time the
+    # +1 must fire before -1 so a zero-width interval (lo == hi) still
+    # registers as a sample.
+    events = []
+    for lo, hi in intervals:
+        events.append((lo, +1))
+        events.append((hi, -1))
+    events.sort(key=lambda e: (e[0], -e[1]))
+
+    count = 0
+    max_count = 0
+    best_lo = None
+    best_hi = None
+    cur_lo = None
+    for t, delta in events:
+        count += delta
+        if delta > 0:
+            # Opening edge.  New peak resets the current best.
+            if count > max_count:
+                max_count = count
+                cur_lo = t
+                best_lo = None
+                best_hi = None
+            elif count == max_count and cur_lo is None:
+                cur_lo = t
+        else:
+            # Closing edge.  If we held the peak from cur_lo until now,
+            # this is a candidate truth interval; keep the narrowest.
+            if cur_lo is not None and count == max_count - 1:
+                if best_lo is None or (t - cur_lo) < (best_hi - best_lo):
+                    best_lo = cur_lo
+                    best_hi = t
+                cur_lo = None
+
+    if best_lo is None:
+        # Single-sample edge case where the sweep doesn't close into a
+        # truth region; fall back to the union of all intervals.
+        all_los = [lo for lo, _ in intervals]
+        all_his = [hi for _, hi in intervals]
+        return (min(all_los), max(all_his))
+    return (best_lo, best_hi)
+
+
 async def get_ntp(
     af, interface, server=None, retry=NTP_RETRY
 ):
@@ -107,6 +168,13 @@ class SysClock:
         self.offset = 0
         # Whether time() is backed by real NTP or fell back to system clock.
         self.ntp_loaded = bool(ntp)
+        # Half-width of the Marzullo truth-clique interval; the bounded
+        # uncertainty on self.ntp at start_time.  0.0 means "unknown"
+        # (wall-clock seed, or single-sample fallback).  Downstream
+        # consumers (e.g. tcp_punch bucket sizing) can read this to
+        # tighten/widen their tolerance dynamically instead of relying
+        # on a static MAX_CLOCK_ERROR constant.
+        self.uncertainty = 0.0
         # When set ("host" or "host:port"), start() probes only this address
         # instead of the get_infra() pool.  Used to point peers at a LAN NTP
         # source for tight cross-machine sync (internet pool RTT 50-100 ms
@@ -162,27 +230,43 @@ class SysClock:
             (len(probes), len(successes), int(wall_at_call)),
         ))
         if successes:
-            # Pick the lowest-RTT probe -- that's the sample with the
-            # smallest one-way uncertainty, so its corrected NTP is the
-            # most accurate.  Taking the first-arriving sample (old
-            # behaviour) was racy: two peers each grabbed whichever NTP
-            # server happened to answer fastest from their network path,
-            # ending up with seeds that disagreed by 30-100 ms.
-            corrected_ntp, best_rtt, monotonic_at_sample = min(
-                successes, key=lambda r: r[1],
-            )
+            # Marzullo intersection across ALL successful probes.  Each
+            # sample defines a [ntp - rtt/2, ntp + rtt/2] candidate
+            # interval (RFC 5905 5.3); the algorithm finds the smallest
+            # range that intersects the largest set of those intervals.
+            # Center is the best NTP estimate; half-width is the bounded
+            # uncertainty.  Replaces the old min(rtt) selector which
+            # discarded N-1 of N healthy samples and offered no
+            # uncertainty bound to downstream consumers.
+            ref_mono = max(r[2] for r in successes)
+            intervals = []
+            for ntp_i, rtt_i, mono_i in successes:
+                # Project each sample's NTP value to the common reference
+                # monotonic moment so all intervals share a coordinate
+                # system.  Without this an early sample and a late
+                # sample would not overlap even though both observed
+                # the same true network time.
+                projected = ntp_i + (ref_mono - mono_i)
+                half = rtt_i / 2.0
+                intervals.append((projected - half, projected + half))
+
+            truth_lo, truth_hi = marzullo_intersection(intervals)
+            corrected_ntp = (truth_lo + truth_hi) / 2.0
+            uncertainty = (truth_hi - truth_lo) / 2.0
+
             self.ntp = corrected_ntp
-            # Re-pair start_time with the moment the sample was taken.
-            # __init__ set start_time before the probes ran, so leaving
-            # it would over-count elapsed by the probe duration.
-            self.start_time = monotonic_at_sample
+            self.uncertainty = uncertainty
+            # Re-pair start_time with the reference moment so time()
+            # later adds only the real elapsed since that moment.
+            self.start_time = ref_mono
             self.ntp_loaded = True
             log(fstr(
-                "SysClock.start: ntp={0} wall={1} delta={2}s rtt={3}ms "
-                "({4} samples agreed)",
+                "SysClock.start: ntp={0} wall={1} delta={2}s "
+                "uncertainty={3}ms ({4} samples; Marzullo)",
                 (
                     int(self.ntp), int(wall_at_call),
-                    int(wall_at_call - self.ntp), int(best_rtt * 1000),
+                    int(wall_at_call - self.ntp),
+                    int(uncertainty * 1000),
                     len(successes),
                 ),
             ))
