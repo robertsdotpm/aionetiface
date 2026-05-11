@@ -109,6 +109,7 @@ class STUNAttrs:
     Software = b"\x80\x22"  # RFC5389
     AlternateServer = b"\x80\x23"  # RFC5389
     Fingerprint = b"\x80\x28"  # RFC5389
+    TransactionTransmitCounter = b"\x80\x25"  # RFC8489 §14.7
     UnknownAddress2 = b"\x80\x2b"
     UnknownAddress3 = b"\x80\x2c"
 
@@ -361,6 +362,10 @@ class STUNMsg:
         msg_hmac = self.pack()
         self.msg_len -= 24
         self.write_attr(STUNAttrs.MessageIntegrity, self.hmac_sha1(key, msg_hmac))
+
+    def write_transaction_counter(self, req_count=1):
+        """Append RFC 8489 §14.7 TRANSACTION_TRANSMIT_COUNTER to signal compliant client behaviour."""
+        self.write_attr(STUNAttrs.TransactionTransmitCounter, pack("!BBBB", 0, req_count & 0xFF, 0, 0))
 
     def eof(self):
         """Return True if the attribute cursor has reached the end of the message body."""
