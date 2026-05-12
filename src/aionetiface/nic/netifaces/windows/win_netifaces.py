@@ -64,6 +64,36 @@ import asyncio
 import re
 import platform
 from ....net.net_defs import IP4, IP6, VALID_AFS
+
+
+def is_loopback_iface(if_info):
+    """True iff every IP on this adapter is a loopback address.
+
+    Windows surfaces a "Loopback Pseudo-Interface 1" via netsh / WMIC /
+    iphlpapi the same way it surfaces a real NIC.  Its only IPs are
+    127.0.0.1 and ::1.  An interface is treated as loopback iff it has
+    at least one address and every address is in 127.0.0.0/8 or equals
+    ::1 -- a real adapter that happens to alias 127.x is impossible on
+    Windows, so the check is unambiguous.
+
+    Returns False for an interface with zero addresses (disabled NICs
+    still appear in the index; those get filtered at a different layer
+    so don't shadow them here).
+    """
+    addrs = if_info.get("addr") or {}
+    saw_any = False
+    for af in (IP4, IP6):
+        for entry in addrs.get(af, []):
+            ip = entry.get("addr") if isinstance(entry, dict) else None
+            if not ip:
+                continue
+            saw_any = True
+            ip_only = ip.split("/")[0]
+            if af == IP4 and not ip_only.startswith("127."):
+                return False
+            if af == IP6 and ip_only != "::1":
+                return False
+    return saw_any
 from ....net.net_utils import cidr_to_netmask, v_to_af, ip_strip_if, ip_strip_cidr, af_bitlen
 from ....net.ip_range import IPRange
 from ....utility.utils import fstr, log, log_exception, to_n, ip_f
@@ -765,14 +795,32 @@ class Netifaces:
         Canonical name is the friendly name when present, falling
         back to description.  This matches what the user typed in
         Network Connections and what historical warpgate code expected.
+
+        Loopback adapters (Windows' "Loopback Pseudo-Interface 1" and
+        similar) are filtered here.  They still live in by_name_index
+        so explicit lookups work, but they MUST NOT appear in default
+        enumeration -- callers run the full IFLOAD/STUN/NAT pipeline on
+        every returned name, and a loopback-bound STUN probe times out
+        4 s per server because the kernel refuses to route loopback-
+        sourced packets to a public destination.  test_all_phases
+        cold-start surfaced this on Vista: every outbound dial was
+        bound to 127.0.0.1 and silently timed out.
         """
         ifs = []
         seen = set()
         for _, if_info in self.by_guid_index.items():
             canonical = if_info.get("name") or if_info.get("description")
-            if canonical and canonical not in seen:
-                ifs.append(canonical)
-                seen.add(canonical)
+            if not canonical or canonical in seen:
+                continue
+            if is_loopback_iface(if_info):
+                log(fstr(
+                    "win_netifaces.interfaces: skipping loopback adapter "
+                    "name={0}",
+                    (canonical,),
+                ))
+                continue
+            ifs.append(canonical)
+            seen.add(canonical)
 
         ifs = sorted(ifs)
         return ifs
