@@ -213,9 +213,6 @@ async def fast_nat_test(
     serv_list = get_infra(pipe.route.af, UDP, "STUN(test_nat)", no=test_no)
     test_servers = serv_list
 
-    print("[NAT-LOAD] fast_nat_test: enter test_no={0} timeout={1} servers={2}".format(
-        test_no, timeout, len(test_servers),
-    ), flush=True)
 
     # Store STUN request results here.
     # n = index of test e.g. [0] = test 1.
@@ -268,26 +265,15 @@ async def fast_nat_test(
             for task in asyncio.as_completed(workers, timeout=timeout):
                 ret = await task
                 if ret is not None:
-                    print("[NAT-LOAD] fast_nat_test: early-exit ret={0} q_lens={1}".format(
-                        ret, [len(q_list[i]) for i in range(4)],
-                    ), flush=True)
                     return ret
         except asyncio.TimeoutError:
-            print("[NAT-LOAD] fast_nat_test: sub-test timed out q_lens={0}".format(
-                [len(q_list[i]) for i in range(4)],
-            ), flush=True)
             continue
 
     # All tests timed out.
     # Determine return value.
-    print("[NAT-LOAD] fast_nat_test: all sub-tests done q_lens={0} fallback={1}".format(
-        [len(q_list[i]) for i in range(4)], q_list[-1],
-    ), flush=True)
     if no_stun_resp_check(q_list):
-        print("[NAT-LOAD] fast_nat_test: -> BLOCKED_NAT (no STUN replies)", flush=True)
         return BLOCKED_NAT
     # Symmetric NAT or RESTRICT_PORT_NAT.
-    print("[NAT-LOAD] fast_nat_test: -> q_list[-1]={0}".format(q_list[-1]), flush=True)
     return q_list[-1]
 
 
@@ -309,9 +295,6 @@ async def nic_load_nat(
     test_no = max(nat_tests, delta_tests)
     stun_clients = get_stun_clients(af, test_no, nic, RFC5389, proto=UDP, servs=servs)
 
-    print("[NAT-LOAD] nic_load_nat: enter nic={0} af={1} nat_tests={2} delta_tests={3} timeout={4}".format(
-        getattr(nic, "name", "?"), af, nat_tests, delta_tests, timeout,
-    ), flush=True)
 
     # Pipe is used for NAT tests using multiplexing.
     # Same socket, different dests, TXID ordered.
@@ -320,9 +303,6 @@ async def nic_load_nat(
         pipe = Pipe(UDP, None, route)
         await pipe.connect()
     except (OSError, ConnectionError) as e:
-        print("[NAT-LOAD] nic_load_nat: pipe open failed: {0} {1}".format(
-            type(e).__name__, e,
-        ), flush=True)
         raise ErrorCantLoadNATInfo("Unable to start pipe for load nat.")
 
     # Run delta test.
@@ -358,19 +338,11 @@ async def nic_load_nat(
         "nic_load_nat: nic={0} af={1} nat_type={2} delta={3}",
         (nic.name, af, nat_type, delta),
     ))
-    print("[NAT-LOAD] nic_load_nat: gather done nat_type={0} delta={1}".format(
-        nat_type, delta,
-    ), flush=True)
     if nat_type is None:
-        print("[NAT-LOAD] nic_load_nat: -> raise ErrorCantLoadNATInfo (nat_type is None)", flush=True)
         raise ErrorCantLoadNATInfo("Unable to load nat.")
     if delta is None:
-        print("[NAT-LOAD] nic_load_nat: delta_test timed out; falling back to RANDOM_DELTA", flush=True)
         delta = delta_info(RANDOM_DELTA, 0)
 
-    print("[NAT-LOAD] nic_load_nat: -> success nat_type={0} delta_type={1}".format(
-        nat_type, delta.get("type") if isinstance(delta, dict) else delta,
-    ), flush=True)
     return nat_type, delta
 
 

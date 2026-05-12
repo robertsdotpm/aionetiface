@@ -38,13 +38,12 @@ class BsdFactory(LibpcapFactory):
                 lib = ctypes.CDLL(candidate, use_errno=True)
                 bind_symbols(lib)
                 self.library_path_label = candidate
-                print("pcap/bsd: loaded {0}".format(candidate))
                 return lib
             except OSError as exc:
                 last_err = exc
                 continue
         if last_err is not None:
-            print("pcap/bsd: no libpcap candidate loaded; last error: {0}".format(last_err))
+            pass
         return None
 
 

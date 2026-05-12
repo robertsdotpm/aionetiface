@@ -179,7 +179,6 @@ def get_backend(platform=None):
     without touching ctypes, then call get_backend() only when you
     actually intend to use pcap."""
     mod_name = pick_module_name(platform)
-    print("aionetiface.pcap: loading backend {0}".format(mod_name))
     try:
         import importlib
         mod = importlib.import_module(mod_name)

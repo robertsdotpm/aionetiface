@@ -165,16 +165,6 @@ class Daemon:
     # On message received (placeholder.)
     async def msg_cb(self, msg, client_tup, pipe):
         """Default message handler that echoes received data back to the sender."""
-        print("Specify your own msg_cb in a child class.")
-        print(
-            fstr(
-                "{0} {1}",
-                (
-                    msg,
-                    client_tup,
-                ),
-            )
-        )
         await pipe.send(msg, client_tup)
 
     # On connection success (placeholder.)
@@ -415,7 +405,6 @@ async def daemon_rewrite_workspace():
     nic = await Interface("wlx00c0cab5760d")
     async with Daemon() as serv:
         await serv.listen_local(TCP, 1337, nic)
-        print(serv.pipes)
         while True:
             await asyncio.sleep(1)
 

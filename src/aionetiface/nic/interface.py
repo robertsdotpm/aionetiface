@@ -303,6 +303,5 @@ if __name__ == "__main__":  # pragma: no cover
         """Resolve the default interface and print the result of an address lookup for google.com."""
         nic = Interface("default")
         d = await Address("google.com", 80, nic)
-        print(d)
 
     async_test(demo_interface)

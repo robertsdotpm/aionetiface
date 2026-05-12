@@ -29,11 +29,6 @@ class Signing:
 
 if __name__ == "__main__":
     kp = Signing.keypair()
-    print(kp.private_key)
-    print(kp.compact_public_key)
 
     msg = b"my test msg."
     sig = kp.private_key.sign(msg, sigencode=util.sigencode_string)
-    print(len(sig))
-    print(kp.public_key.verify(sig, msg, sigdecode=util.sigdecode_string))
-    print(len(kp.compact_public_key))

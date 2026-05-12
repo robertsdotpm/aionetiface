@@ -111,7 +111,6 @@ def write_chunk(
     datagram = queue.pop(0)
     try:
         sock.send(datagram)
-        print("[SP-WRITE-UDP] sent {0} bytes".format(len(datagram)))
     except BlockingIOError:
         # Kernel buffer full; put it back at the head and let the
         # selector re-fire EVENT_WRITE.
@@ -119,7 +118,6 @@ def write_chunk(
     except (ConnectionResetError, OSError) as exc:
         # Windows WSAECONNRESET from a connected UDP socket when ICMP
         # unreachable comes back.  Put the datagram back and retry.
-        print("[SP-WRITE-UDP] OSError on send ({0}), re-queuing".format(repr(exc)))
         queue.insert(0, datagram)
     buffers[sock] = queue
 
@@ -195,9 +193,7 @@ def selector_proxy(
             if not events:
                 select_idle += 1
                 if select_idle % 6 == 0:
-                    print("[SP-IDLE] idle_ticks={0} sp={1}".format(
-                        select_idle, socket_p.getsockname(),
-                    ))
+                    pass
                 continue
 
             for key, mask in events:
@@ -210,7 +206,6 @@ def selector_proxy(
                 # ---- READ LOGIC ----
                 if mask & selectors.EVENT_READ:
                     sock_label = "P" if sock is socket_p else "R"
-                    print("[SP-EV] EVENT_READ sock={0}".format(sock_label))
                     try:
                         data = read_chunk(sock, sock_proto)
                         if sock_proto == socket.SOCK_STREAM and not data:
@@ -235,24 +230,13 @@ def selector_proxy(
                                 try:
                                     peer.setblocking(True)
                                     peer.sendall(pending_for_peer)
-                                    print(
-                                        "[SP-EV] drained {0} bytes "
-                                        "to peer before close_pair"
-                                        .format(len(pending_for_peer))
-                                    )
                                 except OSError as exc:
-                                    print(
-                                        "[SP-EV] drain-on-EOF failed: "
-                                        "{0}".format(repr(exc))
-                                    )
+                                    pass
                                 buffers[peer] = b""
                             close_pair(sock, peers, selector, buffers)
                             if socket_p not in peers:
                                 break
                             continue
-                        print("[SP-EV] read {0} bytes from {1}".format(
-                            len(data), sock_label,
-                        ))
                         # Real data arrived -- the peer is reachable, so any
                         # prior ICMP-unreachable streak is irrelevant now.
                         if sock_proto == socket.SOCK_DGRAM:
@@ -270,9 +254,6 @@ def selector_proxy(
                         # UDP "connection reset" surfaces on Windows/Linux
                         # when an ICMP unreachable comes back from a
                         # previous send().  For TCP it's a real close.
-                        print("[SP-EV] ConnRst/OSErr on {0}: {1}".format(
-                            sock_label, repr(exc)[:60],
-                        ))
                         if sock_proto == socket.SOCK_DGRAM:
                             # Linux re-surfaces ICMP-unreachable on every
                             # recv until the peer becomes reachable again
@@ -283,14 +264,6 @@ def selector_proxy(
                             # peer-gone patterns, not transient blips.
                             udp_econnrefused_streak[sock] += 1
                             if udp_econnrefused_streak[sock] >= UDP_ECONNREFUSED_LIMIT:
-                                print(
-                                    "[SP-EV] UDP peer unreachable: "
-                                    "{0} ECONNREFUSED in a row on {1}, "
-                                    "closing pair".format(
-                                        udp_econnrefused_streak[sock],
-                                        sock_label,
-                                    )
-                                )
                                 close_pair(sock, peers, selector, buffers)
                                 if socket_p not in peers:
                                     break
@@ -317,7 +290,6 @@ def selector_proxy(
                                 selector.get_key(sock).events & ~selectors.EVENT_WRITE,
                             )
                     except (BrokenPipeError, OSError) as exc:
-                        print("[SP-WRITE] close_pair from write OSError: {0}".format(repr(exc)))
                         close_pair(sock, peers, selector, buffers)
                         if socket_p not in peers:
                             break

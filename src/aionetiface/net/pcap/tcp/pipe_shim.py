@@ -77,7 +77,7 @@ except ImportError:
         return template.format(*args)
 
     def log(msg):
-        print(msg)
+        pass
 
 from ...net_defs import SUB_ALL, TCP
 

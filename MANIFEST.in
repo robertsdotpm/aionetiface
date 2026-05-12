@@ -6,7 +6,8 @@ include src/aionetiface/net/asyncio/create_udp_fallback.py
 graft examples
 graft docs
 graft tests
-graft notes
+prune notes
+exclude todo.txt
 global-exclude __pycache__
 global-exclude *.pyc
 global-exclude *.pyo

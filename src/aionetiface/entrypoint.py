@@ -179,7 +179,6 @@ def aionetiface_setup_event_loop():
 async def entrypoint_test():
     """Run aionetiface setup and print the netifaces instance to stdout."""
     out = await aionetiface_setup_netifaces()
-    print(out)
 
 
 if __name__ == "__main__":  # pragma: no cover

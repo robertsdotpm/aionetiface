@@ -211,15 +211,12 @@ class TcpState(object):
         self.snd_una = self.iss
         self.emit(FLAG_SYN)
         self.state = SYN_SENT
-        print("tcp_state: open_active local={0}:{1} remote={2}:{3} iss={4} -> SYN_SENT".format(
-            self.local_ip, self.local_port, self.remote_ip, self.remote_port, self.iss))
 
     def open_listen(self):
         """Server side -- enter LISTEN waiting for a SYN."""
         if self.state != CLOSED:
             raise ValueError("open_listen in non-CLOSED state {0}".format(self.state))
         self.state = LISTEN
-        print("tcp_state: listen local={0}:{1}".format(self.local_ip, self.local_port))
 
     def open_simul(self, remote_ip, remote_port):
         """Force the simultaneous-open path: we know the peer is going
@@ -335,7 +332,6 @@ class TcpState(object):
         self.aborted = True
         self.abort_reason = "peer RST in state {0}".format(self.state)
         self.state = CLOSED
-        print("tcp_state: RST received; aborting (was {0})".format(self.abort_reason))
         return True
 
     def on_segment_listen(self, seg, src_ip):
@@ -358,8 +354,6 @@ class TcpState(object):
         # Reply SYN+ACK and advance.
         self.emit(FLAG_SYN | FLAG_ACK)
         self.state = SYN_RECEIVED
-        print("tcp_state: LISTEN got SYN -> SYN_RECEIVED peer={0}:{1}".format(
-            src_ip, seg.src_port))
         return True
 
     def on_segment_syn_sent(self, seg, src_ip):
@@ -388,7 +382,6 @@ class TcpState(object):
             )
             self.outbox.append(ack_seg)
             self.state = ESTABLISHED
-            print("tcp_state: SYN_SENT got SYN+ACK -> ESTABLISHED")
             self.flush_send()
             return True
         # SIMUL-OPEN: SYN without ACK and the four-tuple matches our
@@ -407,7 +400,6 @@ class TcpState(object):
         # advance again for it.
         self.outbox.append(ack_seg)
         self.state = SYN_RECEIVED
-        print("tcp_state: SIMUL-OPEN: SYN_SENT got bare SYN -> SYN_RECEIVED, sent SYN+ACK")
         return True
 
     def on_segment_syn_received(self, seg, src_ip):
@@ -435,7 +427,6 @@ class TcpState(object):
         self.snd_una = seg.ack
         self.snd_wnd = seg.window
         self.state = ESTABLISHED
-        print("tcp_state: SYN_RECEIVED got ACK -> ESTABLISHED")
         # Process any payload that rode on the final ACK.
         if seg.payload:
             self.read_buf.extend(seg.payload)
@@ -501,16 +492,12 @@ class TcpState(object):
         if self.state == FIN_WAIT_1 and self.fin_acked():
             if self.fin_received:
                 self.state = TIME_WAIT
-                print("tcp_state: FIN_WAIT_1 -> TIME_WAIT (both FINs acked)")
             else:
                 self.state = FIN_WAIT_2
-                print("tcp_state: FIN_WAIT_1 -> FIN_WAIT_2")
         if self.state == CLOSING and self.fin_acked():
             self.state = TIME_WAIT
-            print("tcp_state: CLOSING -> TIME_WAIT")
         if self.state == LAST_ACK and self.fin_acked():
             self.state = CLOSED
-            print("tcp_state: LAST_ACK -> CLOSED")
 
         # Anything new to send from the buffer?
         if self.state == ESTABLISHED:
@@ -527,17 +514,14 @@ class TcpState(object):
         self.emit_pure_ack()
         if self.state == ESTABLISHED:
             self.state = CLOSE_WAIT
-            print("tcp_state: ESTABLISHED got FIN -> CLOSE_WAIT")
         elif self.state == FIN_WAIT_1:
             # If our FIN hasn't been ACKed yet, we go to CLOSING.
             if self.fin_acked():
                 self.state = TIME_WAIT
             else:
                 self.state = CLOSING
-                print("tcp_state: FIN_WAIT_1 got FIN -> CLOSING")
         elif self.state == FIN_WAIT_2:
             self.state = TIME_WAIT
-            print("tcp_state: FIN_WAIT_2 got FIN -> TIME_WAIT")
 
     def emit_pure_ack(self):
         """Push a zero-payload ACK with current rcv_nxt."""

@@ -140,4 +140,3 @@ async def workspace_one():
         qualify,
     )
 
-    print(out)

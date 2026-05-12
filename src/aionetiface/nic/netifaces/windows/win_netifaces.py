@@ -781,8 +781,6 @@ class Netifaces:
 async def workspace():
     netifaces = Netifaces()
     await netifaces.start()
-    print(netifaces.interfaces())
-    print(netifaces.by_guid_index)
 
 
 if __name__ == "__main__":

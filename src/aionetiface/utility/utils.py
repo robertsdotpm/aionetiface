@@ -780,12 +780,6 @@ def what_exception():
         except AttributeError:
             pass
 
-    print("--- Exception Detected ---")
-    print("Type: {0}".format(exc_type.__name__ if exc_type else "None"))
-    print("File: {0}".format(fname))
-    print("Line: {0}".format(lineno))
-    print("\nFull Traceback:")
-    print(traceback.format_exc())
 
 
 def my_except_hook(exctype, value, tb):
@@ -852,5 +846,3 @@ if __name__ == "__main__":  # pragma: no cover
     assert range_intersects([1, 2], [2, 2])
     assert range_intersects([1, 2], [1, 2])
     assert range_intersects([1, 10], [5, 20])
-    print("os_id() ->", os_id())
-    print("Self-tests passed.")

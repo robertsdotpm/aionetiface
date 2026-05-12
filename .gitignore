@@ -163,4 +163,4 @@ aionetiface/scripts/stun_change.txt
 aionetiface/scripts/stun_map.txt
 
 *_pid.txt
-SECRET_KEY*.hex
+SECRET_KEY*.hex*.pyc

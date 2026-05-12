@@ -65,7 +65,6 @@ class PcapReader(object):
         self.thread = threading.Thread(
             target=self.run_loop, name="pcap-reader", daemon=True)
         self.thread.start()
-        print(fstr("pcap reader started iface={0}", (self.backend.iface_name,)))
 
     def stop(self):
         self.stop_flag.set()
@@ -80,7 +79,6 @@ class PcapReader(object):
             except Exception as exc:
                 # Surface the failure once and exit; further frames are
                 # impossible on a broken handle.
-                print(fstr("pcap reader recv failed: {0}", (exc,)))
                 self.loop.call_soon_threadsafe(self.queue.put_nowait, None)
                 return
             if frame is None:
@@ -90,7 +88,6 @@ class PcapReader(object):
             except asyncio.QueueFull:
                 # Drop on the floor -- the consumer is slower than the
                 # link.  Better than blocking the reader thread.
-                print("pcap reader queue full -- dropping frame")
                 continue
 
     async def next_frame(self, timeout=None):

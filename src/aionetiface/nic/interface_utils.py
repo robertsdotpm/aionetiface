@@ -493,7 +493,6 @@ async def load_interfaces(
                 "your --nic args / Network Connections panel."
             ).format(nic_name, mac, kept)
             log(msg)
-            print(msg, flush=True)
             continue
         if mac:
             mac_to_kept_name[mac] = nic_name

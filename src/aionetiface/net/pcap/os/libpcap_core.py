@@ -342,8 +342,6 @@ class LibpcapFactory(BackendFactory):
         try:
             self.lib = self.load_lib()
         except OSError as exc:
-            print("pcap: load failed for {0}: {1}".format(
-                self.library_path_label, exc))
             self.lib = None
         return self.lib is not None
 
@@ -411,6 +409,4 @@ class LibpcapFactory(BackendFactory):
             raise PcapError("pcap_open_live({0!r}) failed: {1}".format(
                 iface_name, errbuf.value.decode("ascii", "replace")))
         dlt = self.lib.pcap_datalink(handle)
-        print("pcap: opened {0} datalink={1} ({2})".format(
-            iface_name, dlt, self.platform_name))
         return LibpcapBackend(self.lib, handle, iface_name, dlt)

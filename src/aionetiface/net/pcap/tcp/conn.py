@@ -89,19 +89,11 @@ class Connection(object):
             try:
                 resolved = resolve_local_mac(local_ip)
             except Exception as exc:
-                print(fstr(
-                    "pcap conn: resolve_local_mac error {0}", (exc,)))
                 resolved = None
             if resolved is not None:
                 self.local_mac = resolved
-                print(fstr(
-                    "pcap conn: local MAC for {0} resolved to {1}",
-                    (local_ip, eth.format_mac(resolved))))
             else:
-                print(fstr(
-                    "pcap conn: local MAC for {0} not resolved; "
-                    "using MAC_ZERO (frames may be dropped)",
-                    (local_ip,)))
+                pass
         # Optional dotted-quad subnet mask for the NIC behind local_ip.
         # When supplied, the next-hop resolver can distinguish same-LAN
         # destinations (resolve dst_ip MAC directly) from off-LAN ones
@@ -207,8 +199,7 @@ class Connection(object):
                     self.process_frame(frame)
                 except Exception as exc:
                     # Don't let a bad frame kill the whole loop.
-                    print(fstr(
-                        "pcap conn: process_frame error {0}", (exc,)))
+                    pass
                 self.flush_outbox()
                 if self.state is not None and self.state.is_established():
                     if not self.established_event.is_set():
@@ -326,8 +317,6 @@ class Connection(object):
             except Exception as exc:
                 # Helper is read-only and defensive but we still don't
                 # want a parse failure to nuke the whole TCP flow.
-                print(fstr(
-                    "pcap conn: resolve_next_hop_mac error {0}", (exc,)))
                 resolved = None
             if resolved is None:
                 # Sentinel: we've tried and failed once, don't retry on
@@ -336,9 +325,6 @@ class Connection(object):
                 self.next_hop_mac_cache = b""
             else:
                 self.next_hop_mac_cache = resolved
-                print(fstr(
-                    "pcap conn: next-hop MAC for {0} resolved to {1}",
-                    (dst_ip, eth.format_mac(resolved))))
         if self.next_hop_mac_cache and self.next_hop_mac_cache != b"":
             return self.next_hop_mac_cache
         return eth.MAC_BROADCAST
@@ -372,7 +358,7 @@ class Connection(object):
             try:
                 self.backend.send(frame)
             except Exception as exc:
-                print(fstr("pcap conn: send error {0}", (exc,)))
+                pass
 
     # --- Retransmit loop ------------------------------------------------
 

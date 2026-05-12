@@ -35,10 +35,6 @@ where ever possible to avoid delaying other, faster lookups.4
 
 Note 2: I've read the STUN RFC and it seems to indicate that many of the fields in the protocol format take place over byte boundaries. Yet the client code here works on all the servers I've tested it on and doesn't make these assumptions. It's possible the spec is wrong or maybe my code just won't work with particular features of the STUN protocol. No idea.
 
-TODO: sort the hosts by how fast they respond to a STUN request from domain resolution to reply time.
-TODO: It seems that this is a pattern that reoccurs in several functions.
-The general form might also make sense to add to the Net module.
-TODO: Refactor code. The code in this module offers many good features but the code reflects too much cruft. It could do with a good cleanup.
 """
 
 import asyncio
@@ -455,7 +451,6 @@ async def run_con_stun_client():
     min_agree = 2
     out = await concurrent_first_agree_or_best(min_agree, tasks, timeout=2)
 
-    print(out)
 
     await asyncio.sleep(2)
 

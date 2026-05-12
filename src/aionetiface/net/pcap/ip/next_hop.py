@@ -677,7 +677,5 @@ def resolve_local_mac(local_ip):
         # Defensive: any helper failure must NOT prevent the Connection
         # from at least attempting to inject (with MAC_ZERO src_mac as
         # fallback).
-        print(fstr(
-            "pcap next_hop: resolve_local_mac error {0}", (exc,)))
         return None
     return None

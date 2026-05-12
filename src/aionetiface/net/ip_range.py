@@ -1,6 +1,4 @@
 """IP address range (prefix) parsing and arithmetic."""
-# TODO: Seg faults are possible with invalid CIDRs or netmasks.
-# TODO: Need to write better input validation here.
 
 import ipaddress
 import copy
@@ -448,4 +446,3 @@ if __name__ == "__main__":  # pragma: no cover
     x = IPRange("fe80::9acb:c90e:7bf6:a093%enp3s0", "ffff:ffff:ffff:ffff::/64")
     assert x.bitlen == 64  # 64 host bits in a /64
 
-    print("Self-tests passed.")

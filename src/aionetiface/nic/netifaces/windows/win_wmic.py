@@ -392,7 +392,6 @@ async def if_infos_from_wmic():
 async def workspace():
 
     results = await if_infos_from_wmic()
-    print(results)
 
 
 if __name__ == "__main__":
