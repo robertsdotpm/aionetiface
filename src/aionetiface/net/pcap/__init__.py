@@ -1,20 +1,20 @@
 """Userspace pcap-based networking primitives.
 
 This module exposes a thin, portable layer over libpcap / WinPcap /
-Npcap so the rest of aionetiface (and downstream p2pd plugins) can
+Npcap so the rest of aionetiface (and downstream warpgate plugins) can
 ship and receive raw Ethernet frames from user space.
 
 The immediate driver for adding it is Windows XP cross-NAT
 tcp_punch -- XP's in-kernel TCP/IP stack (tcpip.sys) RSTs simul-open
 handshakes 140-180 ms after they complete, which can only be worked
 around by talking to the wire below tcpip.sys.  See
-/home/x/projects/p2pd/CLAUDE.md "Windows XP cross-NAT tcp_punch is
+/home/x/projects/warpgate/CLAUDE.md "Windows XP cross-NAT tcp_punch is
 not fixable from user-space (tcpip.sys simul-open RST)" for the
 background.
 
 Layout:
   backend.py    -- abstract Backend class every OS shim implements
-  loopback.py   -- Pipe-shaped wrappers used by p2pd plugins
+  loopback.py   -- Pipe-shaped wrappers used by warpgate plugins
   os/           -- ctypes-level bindings (one module per platform)
   tcp/          -- pure-protocol userspace TCP (state machine, segment
                    packing).  No OS-specific code.

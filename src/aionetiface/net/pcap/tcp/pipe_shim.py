@@ -3,7 +3,7 @@
 Why
 ---
 The legacy tcp_punch plugin returns an aionetiface ``Pipe`` (kernel-
-socket-backed) from ``plugin.result``. Downstream code in p2pd
+socket-backed) from ``plugin.result``. Downstream code in warpgate
 (``gate.Link``, the demo, plugin chain teardown) is written against
 the Pipe duck-type: ``send(buf[, dest])``, ``recv(sub, timeout=)``,
 ``subscribe(sub)``, ``unsubscribe(sub)``, ``close()``, plus a handful

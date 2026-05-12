@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 """
-run_tests.py - cross-platform test runner for the p2pd-family repos.
+run_tests.py - cross-platform test runner for the warpgate-family repos.
 
 Usage:
     python run_tests.py <repo> <python_version> <test_name>
 
-    repo           : aionetiface | namebump | sidewire | p2pd
+    repo           : aionetiface | namebump | sidewire | warpgate
     python_version : 3.5.10 | 3.8.6 | 3.9.13 | ... | lowest | middle | highest | random
     test_name      : test_unit | test_pipe | ... | all
 
 Examples:
-    python run_tests.py p2pd 3.8.6 all
+    python run_tests.py warpgate 3.8.6 all
     python run_tests.py aionetiface 3.5.10 test_pipe
 """
 
@@ -37,14 +37,14 @@ VERSION = "1.10"
 
 REPO_BRANCHES = {
     "aionetiface": "ai_experiment",
-    "p2pd":        "ai_experiment",
+    "warpgate":        "ai_experiment",
     "namebump":    "main",
     "sidewire":    "main",
 }
 
-ALL_REPOS       = ["aionetiface", "namebump", "sidewire", "p2pd"]
-UNINSTALL_ORDER = ["p2pd", "namebump", "sidewire", "aionetiface"]
-INSTALL_ORDER   = ["aionetiface", "namebump", "sidewire", "p2pd"]
+ALL_REPOS       = ["aionetiface", "namebump", "sidewire", "warpgate"]
+UNINSTALL_ORDER = ["warpgate", "namebump", "sidewire", "aionetiface"]
+INSTALL_ORDER   = ["aionetiface", "namebump", "sidewire", "warpgate"]
 
 LOG_BASE_DIR = os.path.join(os.path.expanduser("~"), "test_out")
 PING_INTERVAL   = 30   # seconds between ping file updates
@@ -407,7 +407,7 @@ def rm_path(path, setup_log, label):
         )
 
 
-SIBLING_NAMES = ("aionetiface", "namebump", "sidewire", "p2pd")
+SIBLING_NAMES = ("aionetiface", "namebump", "sidewire", "warpgate")
 
 
 def strip_sibling_deps(repo_dir, setup_log):
@@ -620,9 +620,9 @@ def setup_repos(python_exe, repo_dirs, setup_log):
     # When that happens, the test suite runs against stale code and
     # produces misleading verdicts. Failing here is loud, immediate,
     # and tells us exactly which sibling diverged.
-    append_log(setup_log, "--- verify install (p2pd.install_check) ---")
+    append_log(setup_log, "--- verify install (warpgate.install_check) ---")
     rc, out = run_cmd(
-        [python_exe, "-m", "p2pd.install_check", "--strict"],
+        [python_exe, "-m", "warpgate.install_check", "--strict"],
         log_path=setup_log,
     )
     if rc != 0:
@@ -921,8 +921,8 @@ def kill_orphan_python_processes():
 # ─────────────────────────────────────────────────────────────────────────────
 
 def main():
-    parser = argparse.ArgumentParser(description="Run tests for a p2pd-family repo.")
-    parser.add_argument("repo",           help="aionetiface | namebump | sidewire | p2pd")
+    parser = argparse.ArgumentParser(description="Run tests for a warpgate-family repo.")
+    parser.add_argument("repo",           help="aionetiface | namebump | sidewire | warpgate")
     parser.add_argument("python_version",
                         help="e.g. 3.8.6  or  lowest | middle | highest")
     parser.add_argument("test_name",      help="test module name or 'all'")

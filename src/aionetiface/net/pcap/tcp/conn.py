@@ -7,7 +7,7 @@ Bridges:
         +
     tcp.segment + tcp.state (the FSM)
         +
-    asyncio  (so callers can await send/recv like the rest of p2pd)
+    asyncio  (so callers can await send/recv like the rest of warpgate)
 
 Public API (subset of the aionetiface Pipe contract):
     Connection.send(data) -- coroutine, return when bytes are buffered
@@ -20,7 +20,7 @@ contract: anything with these four members can be plugged into
 auto_connect.  No subclass relationship required.
 
 This module deliberately stays small.  Reuse via composition: the
-plugin in p2pd wraps a Connection in whatever it needs.
+plugin in warpgate wraps a Connection in whatever it needs.
 
 Datalink handling:
     DLT_EN10MB: full Ethernet + IP + TCP stack; we lookup peer MAC from

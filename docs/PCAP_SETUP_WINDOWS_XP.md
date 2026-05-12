@@ -1,7 +1,7 @@
 # Setting up WinPcap on Windows XP (one-time, manual)
 
 The userspace pcap workaround for the XP `tcpip.sys` simul-open RST
-(see `/home/x/projects/p2pd/CLAUDE.md` "Windows XP cross-NAT
+(see `/home/x/projects/warpgate/CLAUDE.md` "Windows XP cross-NAT
 tcp_punch is not fixable from user-space") needs WinPcap 4.1.3
 installed on every XP node that wants to act as a TCP-punch listener.
 
@@ -116,4 +116,4 @@ and what our `WindowsFactory` shim searches for. On Windows 7+ the
 silent install does work: `npcap-1.79.exe /S /winpcap_mode=yes`
 (adjust version). Modern Windows hosts in the sweep matrix can be
 automated through the orchestrator scripts in
-`/home/x/projects/p2pd_test_run/` once we wire that up.
+`/home/x/projects/warpgate_test_run/` once we wire that up.

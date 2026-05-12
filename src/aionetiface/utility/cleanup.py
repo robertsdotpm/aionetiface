@@ -120,7 +120,7 @@ async def shutdown_executor_with_timeout(executor, timeout=3):
 async def shutdown_proc_pool(proc_pool):
     """Shut down a punch worker pool (ThreadPoolExecutor or ProcessPoolExecutor).
 
-    p2pd's tcp_punch plugin uses ThreadPoolExecutor now (Windows Python
+    warpgate's tcp_punch plugin uses ThreadPoolExecutor now (Windows Python
     3.8 ProcessPoolExecutor was unstable), so this function gets passed
     a thread pool in the typical case. The multiprocessing-specific
     teardown (_processes, active_children, terminate) is skipped when

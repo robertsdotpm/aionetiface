@@ -764,7 +764,7 @@ class Netifaces:
 
         Canonical name is the friendly name when present, falling
         back to description.  This matches what the user typed in
-        Network Connections and what historical p2pd code expected.
+        Network Connections and what historical warpgate code expected.
         """
         ifs = []
         seen = set()

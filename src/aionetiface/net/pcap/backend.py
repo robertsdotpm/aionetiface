@@ -2,7 +2,7 @@
 
 The Backend ABC defines the *minimum* primitive set every platform
 shim must implement.  Everything higher up (userspace TCP, the
-Pipe-shaped wrappers in loopback.py, the p2pd plugin) is written to
+Pipe-shaped wrappers in loopback.py, the warpgate plugin) is written to
 this interface so the platform shims can stay tiny.
 
 References:
@@ -24,7 +24,7 @@ Design notes:
   code.  It picks the right shim based on sys.platform and raises
   PcapUnavailableError on hosts where loading the shared library
   fails.  Callers are expected to handle that exception cleanly
-  (the p2pd plugin uses it to fall back to legacy tcp_punch when
+  (the warpgate plugin uses it to fall back to legacy tcp_punch when
   pcap is missing, and the unit tests use it to skipTest).
 
 - We are deliberately not using pcapy / pylibpcap / scapy.  Those
@@ -44,7 +44,7 @@ class PcapError(Exception):
 class PcapUnavailableError(PcapError):
     """Raised when the platform shim cannot be loaded at all -- e.g.
     wpcap.dll is not installed on Windows, or libpcap.so could not
-    be located on Linux.  Callers (the p2pd plugin) treat this as
+    be located on Linux.  Callers (the warpgate plugin) treat this as
     "pcap mode disabled" and fall back to the legacy path."""
 
 

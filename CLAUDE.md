@@ -134,7 +134,7 @@ reg query "HKLM\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\Firewa
 silently drops unsolicited inbound TCP/UDP — looks identical to a punch
 that just didn't land.)
 
-`p2pd_test_run/windows_tcpip_diag.py` runs all of the above in one
+`warpgate_test_run/windows_tcpip_diag.py` runs all of the above in one
 script + dumps `arp -a`, filtered `ipconfig /all`, and `netstat -s`.
 First port-of-call when a Windows VM goes silent.
 
@@ -179,7 +179,7 @@ class TestMyFeature(AsyncTestCase):
 
 ### Heavy tests live in their own file
 
-The runner spawns one unittest subprocess per `test_*.py` file, so every file's tests share one Python process. Tests that start `Node`s, open MQTT/TCP connections, or spawn dispatcher tasks accumulate state across each test in that process — sockets in TIME_WAIT, MQTT sessions the broker is rate-limiting, dispatcher tasks the loop never fully drained. By the 4th or 5th heavy test in a single file, that residue can stall the next test long enough to hit the runner's per-file SIGKILL budget. We hit this in real life: `test_demo_smoke.py`, `test_docs_quickstart.py`, and `test_auto_connect.py` (in p2pd) all had connectivity classes that hung 300s on multiple VMs until each heavy class was extracted into its own file.
+The runner spawns one unittest subprocess per `test_*.py` file, so every file's tests share one Python process. Tests that start `Node`s, open MQTT/TCP connections, or spawn dispatcher tasks accumulate state across each test in that process — sockets in TIME_WAIT, MQTT sessions the broker is rate-limiting, dispatcher tasks the loop never fully drained. By the 4th or 5th heavy test in a single file, that residue can stall the next test long enough to hit the runner's per-file SIGKILL budget. We hit this in real life: `test_demo_smoke.py`, `test_docs_quickstart.py`, and `test_auto_connect.py` (in warpgate) all had connectivity classes that hung 300s on multiple VMs until each heavy class was extracted into its own file.
 
 Rule: when a class spins up real `Node`s / MQTT clients / TURN servers, move it into its own `test_*.py` so it gets a fresh subprocess. Keep network-free unit tests grouped together; isolate the heavy stuff. Put the heavy class's helpers into a sibling `<name>_helpers.py` (no `test_` prefix so the runner doesn't pick it up) and import from there. Reference layout: `test_auto_connect.py` keeps the unit-test classes; `test_auto_connect_ipv4.py` / `_ipv6` / `_reverse` / `_multi` / `_punch` / `_turn` each hold one AsyncTestCase class; shared helpers live in `auto_connect_helpers.py`.
 
@@ -188,7 +188,7 @@ Rule: when a class spins up real `Node`s / MQTT clients / TURN servers, move it 
 Pull all four repos first:
 
 ```cmd
-cd C:\Users\<user>\projects\p2pd && git fetch origin && git reset --hard origin/ai_experiment
+cd C:\Users\<user>\projects\warpgate && git fetch origin && git reset --hard origin/ai_experiment
 cd C:\Users\<user>\projects\aionetiface && git fetch origin && git reset --hard origin/ai_experiment
 cd C:\Users\<user>\projects\namebump && git fetch origin && git reset --hard origin/main
 cd C:\Users\<user>\projects\sidewire && git fetch origin && git reset --hard origin/main
@@ -218,7 +218,7 @@ pip install --no-build-isolation --no-deps -e .
 Sibling repos must be installed from local checkouts:
 
 ```sh
-pip install --no-build-isolation --no-deps -e ../p2pd
+pip install --no-build-isolation --no-deps -e ../warpgate
 pip install --no-build-isolation --no-deps -e ../namebump
 pip install --no-build-isolation --no-deps -e ../sidewire
 ```
@@ -240,4 +240,4 @@ python -m pip install "pip==20.3.4" "setuptools<50"
 
 `Nickname.put` returns success when at least one PNP server has stored the entry. The other configured servers may still be propagating the record. MQTT subscriptions can take a moment to be globally accepted similarly. A peer that calls `Nickname.get` (or routes signaling via the MQTT topic) immediately after `put` completes can race a server that hasn't yet observed the put / accepted the subscribe, and will silently hang in the resolve or dispatch step.
 
-**This affects every cross-node flow built on top of `Nickname`.** Callers whose flow is listener-then-connector MUST allow a settling window of ~8 seconds between the listener's `Nickname.put` returning and the connector's `Nickname.get` firing. The reference implementation is `p2pd/demo/__main__.py:setup_node`, which inserts `await asyncio.sleep(8)` after `Nickname.put`. The full warning lives in `p2pd/node/node_start.py`.
+**This affects every cross-node flow built on top of `Nickname`.** Callers whose flow is listener-then-connector MUST allow a settling window of ~8 seconds between the listener's `Nickname.put` returning and the connector's `Nickname.get` firing. The reference implementation is `warpgate/demo/__main__.py:setup_node`, which inserts `await asyncio.sleep(8)` after `Nickname.put`. The full warning lives in `warpgate/node/node_start.py`.

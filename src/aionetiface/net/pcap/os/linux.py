@@ -17,7 +17,7 @@ Permissions:
   - For tcp_punch the calling process must already have CAP_NET_RAW
     or we degrade to legacy tcp_punch -- the BackendFactory exposes
     that via available() returning True before open() raises, so the
-    p2pd plugin can check up front.
+    warpgate plugin can check up front.
 
 References:
   - libpcap on Linux: https://www.tcpdump.org/manpages/pcap.3pcap.html

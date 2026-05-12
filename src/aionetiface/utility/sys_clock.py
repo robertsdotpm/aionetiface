@@ -322,7 +322,7 @@ class SysClock:
 
 
 async def test_clock_skew():  # pragma: no cover
-    from p2pd.nic.interface import Interface
+    from warpgate.nic.interface import Interface
 
     interface = await Interface()
 

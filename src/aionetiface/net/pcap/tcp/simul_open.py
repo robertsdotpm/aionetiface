@@ -2,7 +2,7 @@
 
 The TcpState class in state.py already handles simul-open at the
 segment-processing level (SYN_SENT + bare-SYN -> SYN_RECEIVED -> SYN+ACK).
-This module is a tiny facade that the p2pd plugin layer uses to:
+This module is a tiny facade that the warpgate plugin layer uses to:
 
   1. Build a connection ID (the four-tuple) so we can route inbound
      segments to the right TcpState instance when multiple connections
@@ -21,7 +21,7 @@ The XP simul-open bypass workflow:
 
 References:
   - RFC 9293 sec 3.5 -- simultaneous open semantics
-  - /home/x/projects/p2pd/CLAUDE.md "Vista/XP reverse_connect bug" for
+  - /home/x/projects/warpgate/CLAUDE.md "Vista/XP reverse_connect bug" for
     the path this is fixing
 """
 
