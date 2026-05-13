@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aionetiface"
-version = "0.0.17"
+version = "0.0.18"
 description = "Asynchronous networking library for IP interface and address management"
 readme = "README.md"
 requires-python = ">=3.5"
