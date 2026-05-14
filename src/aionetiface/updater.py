@@ -74,74 +74,7 @@ def next_check_after_failure(now, fail_count):
     backoff = min(backoff, MAX_BACKOFF_SEC)
     return int(now + backoff)
 
-__all__ = ["reconcile_lists", "reconcile_infra", "update_server_list"]
-
-"""
-Some existing code relies on preserving offsets for server
-entries so this keeps existing servers in place.
-"""
-
-
-def reconcile_lists(old_list, new_list):
-    """Merge new_list into old_list preserving existing offsets, zeroing ports for removed entries, and appending additions."""
-    def get_id(x):
-        """Return the id field of the first element in a server group entry."""
-        return x[0]["id"]
-
-    new_by_id = {get_id(x): x for x in new_list}
-    old_by_id = {get_id(x): x for x in old_list}
-    old_ids = set(old_by_id.keys())
-
-    out = []
-    for x in old_list:
-        x_id = get_id(x)
-        if x_id in new_by_id:
-            # merge: use the new item
-            new_item = new_by_id[x_id].copy()
-
-            # if both port and old_port exist, swap them
-            if "port" in new_item[0] and "old_port" in old_by_id[x_id][0]:
-                new_item[0]["port"], new_item[0]["old_port"] = (
-                    old_by_id[x_id][0]["old_port"],
-                    new_item[0]["port"],
-                )
-
-            out.append(new_item)
-        else:
-            # copy the old item and set port to 0
-            item_copy = x.copy()
-            item_copy[0]["old_port"] = item_copy[0]["port"]
-            item_copy[0]["port"] = 0
-            out.append(item_copy)
-
-    # append new items not in old_list
-    for x in new_list:
-        x_id = get_id(x)
-        if x_id not in old_ids:
-            out.append(x)
-
-    return out
-
-
-# TODO: just use a different address format for these.
-
-
-def reconcile_infra(old_infra, new_infra):
-    """Update new_infra in-place by reconciling MQTT and TURN server lists from old_infra to preserve offsets."""
-    names = (
-        "MQTT",
-        "TURN",
-    )
-    for name in names:
-        for af_str in ("IPv4", "IPv6"):
-            for proto_str in ("UDP", "TCP"):
-                try:
-                    new_infra[name][af_str][proto_str] = reconcile_lists(
-                        old_infra[name][af_str][proto_str],
-                        new_infra[name][af_str][proto_str],
-                    )
-                except (KeyError, TypeError):
-                    log_exception()
+__all__ = ["update_server_list"]
 
 
 async def update_server_list(nic, sys_clock=time):
@@ -259,7 +192,28 @@ async def update_server_list(nic, sys_clock=time):
             # connect succeeds and the server then never replies,
             # we abandon after 4s and apply the backoff.
             resp_infra = await asyncio.wait_for(fetch_fresh(), timeout=4)
-            if isinstance(resp_infra, dict) and "timestamp" in resp_infra:
+            # Validation gate: a dict with just {"timestamp": "..."}
+            # used to pass this check, get a freshly-stamped checksum,
+            # and overwrite the on-disk file with content that has no
+            # servers in it.  Require at least one well-known section
+            # to actually be present and shaped like a dict.  The
+            # checksum mechanism can't catch this because the
+            # checksum is computed over the corrupt payload before
+            # write -- next startup sees a "valid" file with nothing
+            # usable in it.
+            required_sections = (
+                "STUN(see_ip)", "STUN(test_nat)", "MQTT", "TURN", "NTP",
+            )
+            has_section = (
+                isinstance(resp_infra, dict)
+                and any(
+                    isinstance(resp_infra.get(k), dict)
+                    for k in required_sections
+                )
+            )
+            if (isinstance(resp_infra, dict)
+                    and "timestamp" in resp_infra
+                    and has_section):
                 stamp_checksum(resp_infra)
                 fresh_buf = json.dumps(
                     resp_infra, indent=4, sort_keys=False, default=str,
