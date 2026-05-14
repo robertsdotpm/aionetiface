@@ -18,7 +18,7 @@ install_reqs = [
 ]
 
 setup(
-    version="0.0.19",
+    version="0.0.20",
     name="aionetiface",
     description="Asynchronous networking library for IP interface and address management",
     keywords="networking, async, asyncio, interface, IP, NIC, STUN",
