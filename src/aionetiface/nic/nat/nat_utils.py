@@ -235,9 +235,15 @@ async def delta_test(
                 if mapped is None:
                     continue
 
-                # Set previous result if available.
+                # Set previous result if available.  results[i-1] can
+                # be None when the previous STUN probe didn't complete
+                # (timeout / parse failure); guard the subscript so we
+                # don't raise TypeError in the loop body and trigger a
+                # log_exception() per affected probe.  A None previous
+                # result simply means "no comparison data available",
+                # which is the correct semantics for this round.
                 prev_result = None
-                if i != 0:
+                if i != 0 and results[i - 1] is not None:
                     if results[i - 1][MAPPED_INDEX] is not None:
                         prev_result = results[i - 1]
 

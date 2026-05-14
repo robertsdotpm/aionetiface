@@ -5,6 +5,29 @@ from ..utility.utils import fstr, log, log_exception, to_b
 from .net_defs import IP4, IP6, TCP, NET_CONF, NOT_WINDOWS, IS_DARWIN, IS_BSD, NIC_BIND, LOOPBACK_BIND
 
 
+# Per-process set of (nic_key, af) pairs whose pin-success log line
+# we've already emitted.  apply_nic_pin_sockopts() runs once per
+# socket creation, which on a busy node is many times per second; the
+# success-path log was identical each time and produced 12+ consecutive
+# "apply_nic_pin_sockopts: linux pinned socket to name=ensXX..." lines
+# in the runtime log.  Gating on first-occurrence keeps the
+# confirmation visible at startup without flooding the log thereafter.
+# Failure paths stay unconditional -- those are real warnings.
+pin_log_seen = set()
+
+
+def pin_log_once(nic_key, af, msg):
+    """Emit msg via log() exactly once per (nic_key, af) pair across
+    this process.  Subsequent calls with the same pair silently no-op.
+    Cleared only by process restart, which matches the typical "ran
+    once at startup, was correct, stop telling me" expectation."""
+    key = (nic_key, af)
+    if key in pin_log_seen:
+        return
+    pin_log_seen.add(key)
+    log(msg)
+
+
 def apply_nic_pin_sockopts(sock, route):
     """Pin sock to route.interface so egress + bound source agree on multi-NIC hosts.
 
@@ -69,9 +92,10 @@ def apply_nic_pin_sockopts(sock, route):
                     else:
                         ipproto_ipv6 = getattr(socket, "IPPROTO_IPV6", 41)
                         sock.setsockopt(ipproto_ipv6, 125, struct.pack("=I", if_index))
-                    log(
+                    pin_log_once(
+                        if_index, route.af,
                         "apply_nic_pin_sockopts: darwin pinned socket to "
-                        "if_index={0} af={1}".format(if_index, route.af)
+                        "if_index={0} af={1}".format(if_index, route.af),
                     )
                 except (OSError, ValueError, TypeError) as exc:
                     log(
@@ -94,9 +118,10 @@ def apply_nic_pin_sockopts(sock, route):
                     else:
                         ipproto_ipv6 = getattr(socket, "IPPROTO_IPV6", 41)
                         sock.setsockopt(ipproto_ipv6, 125, struct.pack("=I", if_index))
-                    log(
+                    pin_log_once(
+                        if_index, route.af,
                         "apply_nic_pin_sockopts: bsd pinned socket to "
-                        "if_index={0} af={1}".format(if_index, route.af)
+                        "if_index={0} af={1}".format(if_index, route.af),
                     )
                 except (OSError, ValueError, TypeError) as exc:
                     log(
@@ -135,11 +160,12 @@ def apply_nic_pin_sockopts(sock, route):
                         sock.setsockopt(
                             socket.SOL_SOCKET, 25, to_b(pin_name) + b"\x00",
                         )
-                        log(
+                        pin_log_once(
+                            pin_name, route.af,
                             "apply_nic_pin_sockopts: linux pinned socket to "
                             "name={0} af={1} is_default={2}".format(
                                 pin_name, route.af, is_default,
-                            )
+                            ),
                         )
                     except OSError as exc:
                         # name="default" is the documented sentinel used by
@@ -192,11 +218,12 @@ def apply_nic_pin_sockopts(sock, route):
                         ipproto_ipv6, 31,
                         struct.pack("=I", if_index),
                     )
-                log(
+                pin_log_once(
+                    if_index, route.af,
                     "apply_nic_pin_sockopts: pinned socket to "
                     "if_index={0} af={1} is_default={2}".format(
                         if_index, route.af, is_default,
-                    )
+                    ),
                 )
             except (OSError, ValueError, TypeError, AttributeError) as exc:
                 log(

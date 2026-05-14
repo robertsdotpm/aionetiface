@@ -20,7 +20,7 @@ from ..protocol.stun.stun_client import get_stun_clients
 from ..entrypoint import aionetiface_setup_netifaces
 from .. import servers as servers_pkg
 from ..servers import get_infra
-from ..updater import reconcile_infra, update_server_list
+from ..updater import update_server_list
 
 INFRA = servers_pkg.INFRA
 INFRA_BUF = None
@@ -118,9 +118,6 @@ async def load_interface(
     if update_req:
         async with _infra_lock:
             INFRA_BUF = infra_buf
-
-            # Merge entries that need to preserve order.
-            reconcile_infra(INFRA, infra)
             INFRA = infra
 
     stack = nic.stack

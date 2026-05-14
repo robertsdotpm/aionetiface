@@ -58,8 +58,14 @@ def v6_route_pool_from_ips(ipr_list, nic):
     routes = []
     for route in nic.rp[IP6]:
         # If public exts are specified limit to only those routes.
+        # Yield from route.ext_ips (NOT pub_iprs) so the IPR keeps the
+        # NIC's real prefix length (/64 typically). pub_iprs entries
+        # are built via IPR(ip) with no netmask, which defaults to
+        # bitlen=0 (single-host) — feeding that into Route would
+        # serialise the addr with cidr 0 and break the peer-side
+        # subnet match. See v4_route_pool_from_ips for the parallel.
         if pub_iprs:
-            pub_ipr = list(find_intersect(pub_iprs, route.ext_ips))
+            pub_ipr = list(find_intersect(route.ext_ips, pub_iprs))
             if not pub_ipr:
                 continue
 
@@ -92,12 +98,21 @@ def v4_route_pool_from_ips(ipr_list, nic):
     routes = []
     for route in nic.rp[IP4]:
         # Use pre-existing route as template.
-        nic_ipr = list(find_intersect(priv_iprs, route.nic_ips))
+        # Yield from route.nic_ips (NOT priv_iprs) so the IPR with the
+        # NIC's real subnet bitlen survives -- otherwise the narrowed
+        # route inherits the listen-IP's default /32 (IPR(ip) with no
+        # netmask defaults to bitlen=0 = single host), the address
+        # serialises with cidr 0 instead of /24, and the peer's LAN-
+        # subnet match fails ("dest not in my LAN" -> tries EXT instead,
+        # which collapses when both peers share the WAN IP).
+        nic_ipr = list(find_intersect(route.nic_ips, priv_iprs))
         if not nic_ipr:
             continue
 
-        # Select only a certain WAN if chosen.
-        wan_ipr = list(find_intersect(pub_iprs, route.ext_ips))
+        # Same correctness reason as nic_ipr above -- yield the
+        # route's IPR (with its real bitlen) when the listen filter
+        # matches.
+        wan_ipr = list(find_intersect(route.ext_ips, pub_iprs))
         if wan_ipr:
             ext_ips = wan_ipr
         else:
