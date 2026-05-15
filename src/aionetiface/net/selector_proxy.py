@@ -253,12 +253,24 @@ def selector_proxy(
                             # local loopback peer is safe (no flow
                             # control beyond the kernel's recv buf).
                             pending_for_peer = buffers.get(peer)
+                            log("[BRIDGE-COPY] {0} closed (recv b''); "
+                                "pending_for_peer={1} bytes".format(
+                                    sock_label,
+                                    len(pending_for_peer) if pending_for_peer else 0,
+                                ))
                             if pending_for_peer:
                                 try:
                                     peer.setblocking(True)
                                     peer.sendall(pending_for_peer)
+                                    log("[BRIDGE-COPY] drained {0} bytes to "
+                                        "{1} on close head={2}".format(
+                                            len(pending_for_peer),
+                                            "R" if peer is socket_r else "P",
+                                            bytes(pending_for_peer[:24]),
+                                        ))
                                 except OSError as exc:
-                                    pass
+                                    log("[BRIDGE-COPY] drain-on-close FAILED "
+                                        "{0}".format(repr(exc)))
                                 buffers[peer] = b""
                             close_pair(sock, peers, selector, buffers)
                             if socket_p not in peers:
