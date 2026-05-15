@@ -6,6 +6,7 @@ disconnects (TCP) or stop_reader signals (UDP, since UDP has no graceful close).
 
 import selectors
 import socket
+import time
 from ..utility.error_logger import log, log_exception
 from .net_utils import sock_has_data
 
@@ -206,6 +207,7 @@ def selector_proxy(
         UDP_ECONNREFUSED_LIMIT = 8
         udp_econnrefused_streak = {socket_p: 0, socket_r: 0}
         while socket_p in peers:
+            log("[BRIDGE-TICK] mono={0:.4f} loop-top".format(time.monotonic()))
             if sock_has_data(stop_reader):
                 log("[BRIDGE-COPY] loop break: stop_reader signalled "
                     "(R_pending={0} P_pending={1})".format(
@@ -286,10 +288,11 @@ def selector_proxy(
                         if sock_proto == socket.SOCK_DGRAM:
                             udp_econnrefused_streak[sock] = 0
                         enqueue(buffers, peer, data, sock_proto)
-                        log("[BRIDGE-COPY] enqueued {0} bytes for {1}->{2}".format(
-                            len(data), sock_label,
-                            "R" if peer is socket_r else "P",
-                        ))
+                        log("[BRIDGE-COPY] mono={0:.4f} enqueued {1} bytes "
+                            "for {2}->{3}".format(
+                                time.monotonic(), len(data), sock_label,
+                                "R" if peer is socket_r else "P",
+                            ))
                         # Tell selector we want EVENT_WRITE for the peer.
                         selector.modify(
                             peer,
@@ -334,9 +337,11 @@ def selector_proxy(
                         pending_before = buffers.get(sock)
                         plen = (len(pending_before) if pending_before else 0)
                         write_chunk(sock, buffers, sock_proto)
-                        log("[BRIDGE-COPY] wrote toward {0} (had {1} pending)".format(
-                            "P" if sock is socket_p else "R", plen,
-                        ))
+                        log("[BRIDGE-COPY] mono={0:.4f} wrote toward {1} "
+                            "(had {2} pending)".format(
+                                time.monotonic(),
+                                "P" if sock is socket_p else "R", plen,
+                            ))
                         if not has_pending(buffers.get(sock), sock_proto):
                             selector.modify(
                                 sock,
