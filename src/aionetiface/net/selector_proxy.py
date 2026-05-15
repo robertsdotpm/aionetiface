@@ -229,6 +229,12 @@ def selector_proxy(
                     sock_label = "P" if sock is socket_p else "R"
                     try:
                         data = read_chunk(sock, sock_proto)
+                        if data:
+                            log("[BRIDGE-COPY] read {0} bytes from {1} "
+                                "head={2}".format(
+                                    len(data), sock_label,
+                                    bytes(data[:24]),
+                                ))
                         if sock_proto == socket.SOCK_STREAM and not data:
                             # TCP graceful close on recv()->b"". UDP
                             # has no equivalent -- a zero-byte datagram
@@ -263,6 +269,10 @@ def selector_proxy(
                         if sock_proto == socket.SOCK_DGRAM:
                             udp_econnrefused_streak[sock] = 0
                         enqueue(buffers, peer, data, sock_proto)
+                        log("[BRIDGE-COPY] enqueued {0} bytes for {1}->{2}".format(
+                            len(data), sock_label,
+                            "R" if peer is socket_r else "P",
+                        ))
                         # Tell selector we want EVENT_WRITE for the peer.
                         selector.modify(
                             peer,
@@ -304,7 +314,12 @@ def selector_proxy(
                         continue
 
                     try:
+                        pending_before = buffers.get(sock)
+                        plen = (len(pending_before) if pending_before else 0)
                         write_chunk(sock, buffers, sock_proto)
+                        log("[BRIDGE-COPY] wrote toward {0} (had {1} pending)".format(
+                            "P" if sock is socket_p else "R", plen,
+                        ))
                         if not has_pending(buffers.get(sock), sock_proto):
                             selector.modify(
                                 sock,
