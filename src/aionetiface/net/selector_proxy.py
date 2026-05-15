@@ -128,6 +128,7 @@ def selector_proxy(
     stop_reader,
     sock_proto=socket.SOCK_STREAM,
     socket_r=None,
+    ready_writer=None,
 ):
     """Bidirectionally proxy data between socket_p and a connection to destination.
 
@@ -146,6 +147,16 @@ def selector_proxy(
     sends anything -- needed for udp_punch where the connector side
     needs pipe.send to work before the first inbound datagram has
     set dest_tup.
+
+    ready_writer, when given, is a socket the caller polls to learn
+    exactly when this proxy's copy loop goes live: a single byte is
+    written to it right before the poll loop is entered, after both
+    legs are registered with the selector.  The caller (the punch
+    plugin) blocks on the paired socket before handing the bridged
+    pipe to auto_connect -- without that handoff, verify_pipe_alive
+    can fire its liveness PING into a pipe whose worker-thread copy
+    loop hasn't been scheduled yet, the inbound PONG sits unread in
+    the kernel buffer, and a perfectly good punch is rejected.
 
     Stops when stop_reader has data, or (TCP only) when either side
     closes the connection.
@@ -171,6 +182,16 @@ def selector_proxy(
 
         for s in peers:
             selector.register(s, selectors.EVENT_READ)
+
+        # Both legs are registered -- the next selector.select() will
+        # copy any inbound byte.  Signal the caller that the bridge is
+        # live so it can stop withholding the pipe.  Best-effort: a
+        # failed write just means the caller falls back to its timeout.
+        if ready_writer is not None:
+            try:
+                ready_writer.send(b"1")
+            except OSError:
+                pass
 
         select_idle = 0
         # Per-socket consecutive-ECONNREFUSED counter for UDP.  Linux's
