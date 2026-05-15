@@ -207,6 +207,11 @@ def selector_proxy(
         udp_econnrefused_streak = {socket_p: 0, socket_r: 0}
         while socket_p in peers:
             if sock_has_data(stop_reader):
+                log("[BRIDGE-COPY] loop break: stop_reader signalled "
+                    "(R_pending={0} P_pending={1})".format(
+                        len(buffers.get(socket_r) or b"") if sock_proto == socket.SOCK_STREAM else "?",
+                        len(buffers.get(socket_p) or b"") if sock_proto == socket.SOCK_STREAM else "?",
+                    ))
                 break
 
             events = selector.select(timeout=0.5)
@@ -338,11 +343,16 @@ def selector_proxy(
                                 selector.get_key(sock).events & ~selectors.EVENT_WRITE,
                             )
                     except (BrokenPipeError, OSError) as exc:
+                        log("[BRIDGE-COPY] write toward {0} FAILED {1}; "
+                            "close_pair".format(
+                                "P" if sock is socket_p else "R", repr(exc),
+                            ))
                         close_pair(sock, peers, selector, buffers)
                         if socket_p not in peers:
                             break
 
     except (OSError, ConnectionError):
+        log("[BRIDGE-COPY] loop exited via OSError/ConnectionError")
         log_exception()
 
     finally:
