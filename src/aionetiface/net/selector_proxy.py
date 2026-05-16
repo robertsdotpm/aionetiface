@@ -294,10 +294,21 @@ def selector_proxy(
                                 "R" if peer is socket_r else "P",
                             ))
                         # Tell selector we want EVENT_WRITE for the peer.
-                        selector.modify(
-                            peer,
-                            selector.get_key(peer).events | selectors.EVENT_WRITE,
-                        )
+                        # The peer socket can already be closed/unregistered
+                        # if its side tore down (e.g. udp_punch bridge
+                        # teardown) between this recv and here -- get_key
+                        # then raises KeyError and modify raises
+                        # ValueError/OSError on the dead fd. Drop the
+                        # write-arm and let the next loop close the pair.
+                        try:
+                            selector.modify(
+                                peer,
+                                selector.get_key(peer).events
+                                | selectors.EVENT_WRITE,
+                            )
+                        except (KeyError, ValueError, OSError) as exc:
+                            log("[BRIDGE-COPY] write-arm skipped, peer "
+                                "gone {0}".format(repr(exc)))
                     except BlockingIOError:
                         # Spurious selector wake; nothing to read.
                         pass
