@@ -417,6 +417,22 @@ def make_node_addr(
             delta_type = source["delta"]["type"]
             delta_value = source["delta"]["value"]
 
+            # IPv6 never port-translates -- there is no v6 NAT. But a
+            # dual-stack NIC's interface.nat is measured on IPv4 only
+            # (nic_load_nat tests af=IP4 and returns a single result),
+            # so without this override the v6 entry inherits the v4
+            # NIC's nat_type / delta. A v4 RANDOM_DELTA leaking onto the
+            # v6 slot makes the peer's tcp_punch see boundary_ok=False
+            # for the v6 pair, drop off the deterministic boundary-port
+            # path onto the STUN predictor path, and miss the punch.
+            # nic_load_nat already returns OPEN_INTERNET + NA_DELTA for
+            # IPv6-only NICs; this extends the same truth to the v6 slot
+            # of a dual-stack NIC.
+            if af == IP6:
+                nat_type = OPEN_INTERNET
+                delta_type = NA_DELTA
+                delta_value = 0
+
             # Normal path: global routes exist for this AF.
             if len(interface.rp[af].routes) and af in interface.supported():
                 r = interface.route(af)
