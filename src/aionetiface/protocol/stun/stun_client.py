@@ -285,6 +285,7 @@ async def get_n_stun_clients(
     proto=UDP,
     limit=5,
     conf=NET_CONF,
+    pool=10,
 ):
     """Return n verified STUNClient instances that each successfully returned a mapping, using hedged probing."""
     # Try a single STUN candidate; close the probe pipe on success.
@@ -327,11 +328,15 @@ async def get_n_stun_clients(
     # redundancy -- but n here is a hard requirement.  NAT-delta
     # prediction needs exactly two mappings to measure the per-NAT port
     # increment, so n stays the caller's value (USE_MAP_NO).
+    #
+    # `pool` is how many candidates are probed concurrently -- i.e. the
+    # concurrent socket count for this call.  The caller dials it down
+    # when loading many interfaces at once so the total stays within
+    # the platform socket ceiling (see load_stun_clients).
     STUN_CAP = 1.0
-    POOL = 10
     candidates = get_stun_clients(
         af=af,
-        max_agree=POOL,
+        max_agree=pool,
         mode=mode,
         interface=interface,
         proto=proto,
