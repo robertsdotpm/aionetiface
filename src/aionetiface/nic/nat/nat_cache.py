@@ -18,6 +18,7 @@ good enough that a genuine network change reliably misses; an occasional
 false hit is corrected by the background revalidate.
 """
 import hashlib
+import ipaddress
 import json
 import os
 
@@ -56,13 +57,35 @@ def gateway_ips(nic):
     return sorted(set(out))
 
 
+def prefix6(addr):
+    """Return the /64 network prefix of an IPv6 address, or '' on failure.
+
+    The host's own IPv6 address is unstable -- SLAAC privacy extensions
+    (RFC 4941) rotate the 64-bit interface suffix every few hours, even
+    on the same network. Only the /64 prefix is stable; that is the
+    actual network. Fingerprinting on the prefix avoids permanent false
+    cache misses on IPv6-privacy hosts.
+    """
+    if not addr:
+        return ""
+    try:
+        net = ipaddress.ip_network(addr + "/64", strict=False)
+        return str(net.network_address)
+    except (ValueError, TypeError):
+        return ""
+
+
 def network_fingerprint(ifs):
     """Return a stable hex string identifying the network `ifs` are attached to.
 
-    Built from each interface's name, its primary IPv4/IPv6 address and
-    the default gateway IPs it sees. Same LAN -> same fingerprint;
-    moving networks changes the gateway and/or local addressing and so
-    changes the fingerprint. A hint for the NAT cache only.
+    Built from each interface's name, its primary IPv4 address, its
+    IPv6 /64 prefix and the default gateway IPs it sees. Same LAN ->
+    same fingerprint; moving networks changes the gateway and/or local
+    addressing and so changes the fingerprint.
+
+    The host's full IPv6 address is deliberately NOT used -- privacy
+    extensions rotate it on a fixed network. The /64 prefix is the
+    stable part. A hint for the NAT cache only.
     """
     from ...net.net_defs import IP4, IP6
 
@@ -70,17 +93,17 @@ def network_fingerprint(ifs):
     for nic in sorted(ifs, key=lambda n: str(getattr(n, "name", ""))):
         name = str(getattr(nic, "name", ""))
         ip4 = ""
-        ip6 = ""
+        ip6net = ""
         try:
             ip4 = str(nic.nic(IP4) or "")
         except Exception:  # pylint: disable=broad-except
             ip4 = ""
         try:
-            ip6 = str(nic.nic(IP6) or "")
+            ip6net = prefix6(str(nic.nic(IP6) or ""))
         except Exception:  # pylint: disable=broad-except
-            ip6 = ""
+            ip6net = ""
         gws = ",".join(gateway_ips(nic))
-        parts.append("|".join((name, ip4, ip6, gws)))
+        parts.append("|".join((name, ip4, ip6net, gws)))
     raw = "\n".join(parts).encode("utf-8")
     return hashlib.sha256(raw).hexdigest()[:32]
 
