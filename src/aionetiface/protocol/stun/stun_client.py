@@ -38,10 +38,12 @@ Note 2: I've read the STUN RFC and it seems to indicate that many of the fields 
 """
 
 import asyncio
+import time
 from ...errors import ErrorFeatureDeprecated
 from ...utility.utils import (
     async_wrap_errors,
     cancel_tasks,
+    fstr,
     log,
     log_exception,
     strip_none,
@@ -288,105 +290,77 @@ async def get_n_stun_clients(
     # Try a single STUN candidate; close the probe pipe on success.
     async def try_one(stun):
         """Probe a single STUNClient with get_mapping and return it on success, or None on failure."""
+        probe_t0 = time.monotonic()
         try:
             out = await stun.get_mapping()
             if out is not None:
                 # Close the probe pipe; caller manages their own pipes.
                 if len(out) >= 3 and out[2] is not None:
                     await out[2].close()
+                log(fstr(
+                    "[STUN-PROBE] af={0} dest={1} t={2}ms ok",
+                    (af, stun.dest,
+                     int((time.monotonic() - probe_t0) * 1000)),
+                ))
                 return stun
         except asyncio.CancelledError:
             raise
         except (OSError, ConnectionError, asyncio.TimeoutError):
             log_exception()
+        log(fstr(
+            "[STUN-PROBE] af={0} dest={1} t={2}ms FAIL",
+            (af, stun.dest, int((time.monotonic() - probe_t0) * 1000)),
+        ))
         return None
 
-    # Hedged requests: try candidates one at a time but stagger launches so
-    # we don't wait for a full TCP timeout before moving on.  A new candidate
-    # is only started if the previous one hasn't responded within HEDGE_DELAY.
-    # This avoids the original O(limit × timeout) worst case while keeping
-    # total connections close to 1 on a healthy network.
+    # Build a candidate pool larger than n so first-to-complete has
+    # slack, fire every probe concurrently, and collect the first n
+    # that return a mapping -- the same pattern as the MQTT broker
+    # walk.  STUN_CAP hard-bounds the wait: a dead STUN server's TCP
+    # connect would otherwise drag the load.  Replaces the old
+    # staggered-hedge worker loop, whose HEDGE_DELAY (0.5s, 1.5s on
+    # IPv6) was paid in full whenever a worker's first candidate was
+    # slow.
     #
-    # IPv6 probes take longer than IPv4 (tunnels, 6in4, smaller server pool,
-    # wider geographic spread) so the hedge window is wider for AF_INET6.
-    #
-    # get_infra uses a deterministic RNG seeded by `attempt`, so each
-    # worker is passed a distinct attempt index to ensure they sample
-    # different server pools rather than all querying the same servers.
-    HEDGE_DELAY = 1.5 if af == IP6 else 0.5
-
-    async def worker(attempt):
-        """Try STUN candidates in hedged order and return the first one that responds successfully."""
-        candidates = get_stun_clients(
-            af=af,
-            max_agree=limit,
-            mode=mode,
-            interface=interface,
-            proto=proto,
-            conf=conf,
-            attempt=attempt,
-        )
-        if not candidates:
-            return None
-
-        tasks = []
-        winner = None
-        try:
-            for candidate in candidates:
-                t = asyncio.ensure_future(try_one(candidate))
-                tasks.append(t)
-
-                # Wait briefly; if this candidate responds in time we're done
-                # and never launch the next one.
-                done, _ = await asyncio.wait({t}, timeout=HEDGE_DELAY)
-                if done:
-                    # The task may have completed with an exception (e.g.
-                    # CancelledError from an external cancellation arriving
-                    # while asyncio.wait was running).  Guard t.result() so
-                    # a single bad candidate cannot crash the whole worker.
-                    try:
-                        result = t.result()
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception:
-                        result = None
-                    if result is not None:
-                        winner = result
-                        break
-                # No result yet — loop and launch the next candidate in parallel.
-        finally:
-            await cancel_tasks(tasks)
-
-        # If no candidate won during the staggered loop, check whether any
-        # of the already-launched tasks finished successfully.
-        if winner is None:
-            for t in tasks:
-                if t.done() and not t.cancelled():
-                    try:
-                        result = t.result()
-                        if result is not None:
-                            winner = result
-                            break
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception:
-                        pass
-        return winner
-
-    # Create list of worker tasks for concurrency (faster.)
-    # Pass a distinct attempt index per worker so get_infra's deterministic
-    # RNG seeds differently, giving each worker a different server pool.
-    tasks = []
-    for i in range(0, n):
-        tasks.append(async_wrap_errors(worker(attempt=i)))
-
-    # Run tasks and return results.
-    return strip_none(
-        await asyncio.gather(
-            *tasks,
-            return_exceptions=True,
-        )
+    # n is NOT scaled to the pool size the way the broker walk's
+    # `needed` is: brokers are interchangeable, so more just means more
+    # redundancy -- but n here is a hard requirement.  NAT-delta
+    # prediction needs exactly two mappings to measure the per-NAT port
+    # increment, so n stays the caller's value (USE_MAP_NO).
+    STUN_CAP = 1.0
+    POOL = 10
+    candidates = get_stun_clients(
+        af=af,
+        max_agree=POOL,
+        mode=mode,
+        interface=interface,
+        proto=proto,
+        conf=conf,
+        attempt=0,
     )
+    tasks = [asyncio.ensure_future(try_one(c)) for c in candidates]
+    found = []
+
+    async def collect():
+        for fut in asyncio.as_completed(tasks):
+            r = await fut
+            if r is not None:
+                found.append(r)
+                if len(found) >= n:
+                    return
+
+    try:
+        await asyncio.wait_for(collect(), timeout=STUN_CAP)
+    except asyncio.TimeoutError:
+        # Cap hit -- take whatever connected so far.
+        pass
+    finally:
+        # Cancel the still-pending probes (laggards / dead servers).
+        for t in tasks:
+            if not t.done():
+                t.cancel()
+
+    return found
 
 
 async def run_stun_client():
