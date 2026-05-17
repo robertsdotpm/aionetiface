@@ -31,8 +31,10 @@ def validate_node_addr(addr):
         for if_offset in addr[af]:
             if_info = addr[af][if_offset]
 
-            # Is listen port right?
-            if not in_range(if_info["port"], [1, MAX_PORT]):
+            # ext_port (the "port" field). 0 is the "ext path has no
+            # bound listener" sentinel -- allowed; any non-zero value
+            # must be a valid port.
+            if if_info["port"] and not in_range(if_info["port"], [1, MAX_PORT]):
                 log("p2p addr: listen port invalid")
                 return None
 
@@ -64,12 +66,20 @@ def validate_node_addr(addr):
                     log("p2p addr: nic subnet out of range")
                     return None
 
-            # Optional nic_port (10-field format). Must be a valid port when present.
+            # nic_port (10-field format). 0 is the "nic path has no
+            # bound listener" sentinel -- allowed; any non-zero value
+            # must be a valid port.
             nic_port = if_info.get("nic_port")
-            if nic_port is not None and nic_port != if_info["port"]:
+            if nic_port and nic_port != if_info["port"]:
                 if not in_range(nic_port, [1, MAX_PORT]):
                     log("p2p addr: nic_port out of range")
                     return None
+
+            # An if_info with BOTH paths absent (ext_port and nic_port
+            # both 0/None) advertises no reachable listener at all.
+            if not if_info["port"] and not nic_port:
+                log("p2p addr: if_info advertises no bound path")
+                return None
 
     return addr
 
@@ -440,8 +450,13 @@ def make_node_addr(
 
                 eff_if_index = if_index or i
                 ports = (if_ports or {}).get((af, eff_if_index), {})
-                eff_ext_port = ports.get("ext", port)
-                eff_nic_port = ports.get("nic", port)
+                # if_ports provided => an absent path means "no listener
+                # bound there" and is encoded as port 0 (None on parse).
+                # if_ports None => caller does not track per-path ports,
+                # so fall back to the global port for both.
+                eff_default_port = 0 if if_ports is not None else port
+                eff_ext_port = ports.get("ext", eff_default_port)
+                eff_nic_port = ports.get("nic", eff_default_port)
                 af_bufs.append(
                     b"[%d,%d,%b,%b,%d,%d,%d,%d,%d,%d]"
                     % (
@@ -470,8 +485,13 @@ def make_node_addr(
                 nic_subnet = ll_ipr.subnet if ll_ipr.subnet is not None else 0
                 eff_if_index = if_index or i
                 ports = (if_ports or {}).get((af, eff_if_index), {})
-                eff_ext_port = ports.get("ext", port)
-                eff_nic_port = ports.get("nic", port)
+                # if_ports provided => an absent path means "no listener
+                # bound there" and is encoded as port 0 (None on parse).
+                # if_ports None => caller does not track per-path ports,
+                # so fall back to the global port for both.
+                eff_default_port = 0 if if_ports is not None else port
+                eff_ext_port = ports.get("ext", eff_default_port)
+                eff_nic_port = ports.get("nic", eff_default_port)
                 af_bufs.append(
                     b"[%d,%d,%b,%b,%d,%d,%d,%d,%d,%d]"
                     % (
