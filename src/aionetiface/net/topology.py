@@ -449,14 +449,20 @@ def make_node_addr(
                     nic_subnet = int_ipr.subnet
 
                 eff_if_index = if_index or i
-                ports = (if_ports or {}).get((af, eff_if_index), {})
-                # if_ports provided => an absent path means "no listener
-                # bound there" and is encoded as port 0 (None on parse).
-                # if_ports None => caller does not track per-path ports,
-                # so fall back to the global port for both.
-                eff_default_port = 0 if if_ports is not None else port
-                eff_ext_port = ports.get("ext", eff_default_port)
-                eff_nic_port = ports.get("nic", eff_default_port)
+                # Per-path ports. An entry present for this (af, nic)
+                # but missing "ext"/"nic" means that path did not bind
+                # -> encode 0, the "no listener on this path" sentinel.
+                # An entirely absent entry -- if_ports is None, or the
+                # empty dict the --ip strict path leaves behind, or a
+                # NIC/AF that was never tracked -- means per-path ports
+                # are unknown, so fall back to the global port for both
+                # (the pre-sentinel behaviour; never spuriously 0).
+                ports = (if_ports or {}).get((af, eff_if_index))
+                if ports is None:
+                    eff_ext_port = eff_nic_port = port
+                else:
+                    eff_ext_port = ports.get("ext", 0)
+                    eff_nic_port = ports.get("nic", 0)
                 af_bufs.append(
                     b"[%d,%d,%b,%b,%d,%d,%d,%d,%d,%d]"
                     % (
@@ -484,14 +490,20 @@ def make_node_addr(
                 local_b = to_b(str(ll_ipr))
                 nic_subnet = ll_ipr.subnet if ll_ipr.subnet is not None else 0
                 eff_if_index = if_index or i
-                ports = (if_ports or {}).get((af, eff_if_index), {})
-                # if_ports provided => an absent path means "no listener
-                # bound there" and is encoded as port 0 (None on parse).
-                # if_ports None => caller does not track per-path ports,
-                # so fall back to the global port for both.
-                eff_default_port = 0 if if_ports is not None else port
-                eff_ext_port = ports.get("ext", eff_default_port)
-                eff_nic_port = ports.get("nic", eff_default_port)
+                # Per-path ports. An entry present for this (af, nic)
+                # but missing "ext"/"nic" means that path did not bind
+                # -> encode 0, the "no listener on this path" sentinel.
+                # An entirely absent entry -- if_ports is None, or the
+                # empty dict the --ip strict path leaves behind, or a
+                # NIC/AF that was never tracked -- means per-path ports
+                # are unknown, so fall back to the global port for both
+                # (the pre-sentinel behaviour; never spuriously 0).
+                ports = (if_ports or {}).get((af, eff_if_index))
+                if ports is None:
+                    eff_ext_port = eff_nic_port = port
+                else:
+                    eff_ext_port = ports.get("ext", 0)
+                    eff_nic_port = ports.get("nic", 0)
                 af_bufs.append(
                     b"[%d,%d,%b,%b,%d,%d,%d,%d,%d,%d]"
                     % (
