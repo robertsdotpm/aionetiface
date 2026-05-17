@@ -46,6 +46,7 @@ from ...utility.utils import (
     fstr,
     log,
     log_exception,
+    os_net_timeouts,
     strip_none,
 )
 from ...utility.pattern_factory import concurrent_first_agree_or_best
@@ -333,7 +334,10 @@ async def get_n_stun_clients(
     # concurrent socket count for this call.  The caller dials it down
     # when loading many interfaces at once so the total stays within
     # the platform socket ceiling (see load_stun_clients).
-    STUN_CAP = 1.0
+    #
+    # STUN_CAP is OS-scaled: 1s on modern hosts, larger on XP/Vista
+    # whose slow stacks would otherwise be starved by a 1s ceiling.
+    STUN_CAP = os_net_timeouts()["stun_cap"]
     candidates = get_stun_clients(
         af=af,
         max_agree=pool,
