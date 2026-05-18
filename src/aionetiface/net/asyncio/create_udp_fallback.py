@@ -5,6 +5,7 @@ a fallback implementation using low-level socket operations.
 """
 
 import asyncio
+import socket
 
 
 class PolledDatagramTransport:
@@ -16,6 +17,25 @@ class PolledDatagramTransport:
         self.protocol = protocol
         self.closing = False
         self.consecutive_errors = 0
+
+        # Windows: a UDP sendto whose destination replies with an ICMP
+        # port-unreachable poisons the socket so the *next* recvfrom
+        # raises WSAECONNRESET (WinError 10054). It is per-bounced-
+        # datagram, not a broken socket -- but poll()'s recvfrom loop
+        # would otherwise break on it and count it toward the
+        # consecutive-error close, starving the real datagram queued
+        # behind it. This bit udp_punch hard: the spray fires at many
+        # predicted ports, most are closed, each closed port bounces an
+        # ICMP unreachable. On IPv6 the ICMPv6 unreachables come back
+        # reliably; on IPv4 they are usually rate-limited / filtered --
+        # which is exactly why v4 punch survived and v6 punch did not.
+        # SIO_UDP_CONNRESET=False turns the behaviour off at the source
+        # so recvfrom only ever returns real datagrams.
+        if hasattr(socket, "SIO_UDP_CONNRESET"):
+            try:
+                sock.ioctl(socket.SIO_UDP_CONNRESET, False)
+            except OSError:
+                pass
 
         self.sock.setblocking(False)
         protocol.connection_made(self)
@@ -35,10 +55,13 @@ class PolledDatagramTransport:
         except OSError as e:
             self.consecutive_errors += 1
             self.protocol.error_received(e)
-            # A socket that errors on every recv is permanently broken (e.g.
-            # WSAECONNRESET on every call for a dead IPv6 UDP socket on
-            # Windows 3.8.6).  Close it so poll_loop stops and the event
-            # loop can clean up without waiting for a 60-second test timeout.
+            # A socket that errors on every recv is genuinely broken.
+            # Close it so poll_loop stops and the event loop can clean
+            # up without waiting for a 60-second test timeout. The
+            # Windows WSAECONNRESET-after-ICMP-unreachable case is no
+            # longer the cause here -- SIO_UDP_CONNRESET in __init__
+            # suppresses it at the source -- so reaching this count
+            # now means a real failure.
             if self.consecutive_errors >= 10:
                 self.close()
 
