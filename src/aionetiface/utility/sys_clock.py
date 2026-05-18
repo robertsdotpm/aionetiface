@@ -216,15 +216,24 @@ class SysClock:
                 "SysClock(ntp=time.time()) explicitly to opt into wall-clock."
             )
 
-        # Fire all probes concurrently so slow or dead servers don't block
-        # the fast ones.  First non-None result wins.
-        results = await asyncio.gather(
-            *[get_ntp_from_dest(af, self.interface, dest) for af, dest in probes],
-            return_exceptions=True,
-        )
+        # Fire all probes concurrently; take the first that returns a
+        # good sample and cancel the rest.  A dead NTP server's probe
+        # burns retry * NTP_TIMEOUT = 4s; the old gather waited for
+        # those stragglers even with a good sample already in hand.
+        tasks = [
+            asyncio.ensure_future(get_ntp_from_dest(af, self.interface, dest))
+            for af, dest in probes
+        ]
+        successes = []
+        for fut in asyncio.as_completed(tasks):
+            r = await fut
+            if r:
+                successes.append(r)
+                break
+        for t in tasks:
+            t.cancel()
 
         wall_at_call = time.time()
-        successes = [r for r in results if not isinstance(r, Exception) and r]
         log(fstr(
             "SysClock.start: probes={0} successes={1} wall_at_call={2}",
             (len(probes), len(successes), int(wall_at_call)),

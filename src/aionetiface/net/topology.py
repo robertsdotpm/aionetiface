@@ -31,8 +31,10 @@ def validate_node_addr(addr):
         for if_offset in addr[af]:
             if_info = addr[af][if_offset]
 
-            # Is listen port right?
-            if not in_range(if_info["port"], [1, MAX_PORT]):
+            # ext_port (the "port" field). 0 is the "ext path has no
+            # bound listener" sentinel -- allowed; any non-zero value
+            # must be a valid port.
+            if if_info["port"] and not in_range(if_info["port"], [1, MAX_PORT]):
                 log("p2p addr: listen port invalid")
                 return None
 
@@ -64,12 +66,20 @@ def validate_node_addr(addr):
                     log("p2p addr: nic subnet out of range")
                     return None
 
-            # Optional nic_port (10-field format). Must be a valid port when present.
+            # nic_port (10-field format). 0 is the "nic path has no
+            # bound listener" sentinel -- allowed; any non-zero value
+            # must be a valid port.
             nic_port = if_info.get("nic_port")
-            if nic_port is not None and nic_port != if_info["port"]:
+            if nic_port and nic_port != if_info["port"]:
                 if not in_range(nic_port, [1, MAX_PORT]):
                     log("p2p addr: nic_port out of range")
                     return None
+
+            # An if_info with BOTH paths absent (ext_port and nic_port
+            # both 0/None) advertises no reachable listener at all.
+            if not if_info["port"] and not nic_port:
+                log("p2p addr: if_info advertises no bound path")
+                return None
 
     return addr
 
@@ -407,6 +417,22 @@ def make_node_addr(
             delta_type = source["delta"]["type"]
             delta_value = source["delta"]["value"]
 
+            # IPv6 never port-translates -- there is no v6 NAT. But a
+            # dual-stack NIC's interface.nat is measured on IPv4 only
+            # (nic_load_nat tests af=IP4 and returns a single result),
+            # so without this override the v6 entry inherits the v4
+            # NIC's nat_type / delta. A v4 RANDOM_DELTA leaking onto the
+            # v6 slot makes the peer's tcp_punch see boundary_ok=False
+            # for the v6 pair, drop off the deterministic boundary-port
+            # path onto the STUN predictor path, and miss the punch.
+            # nic_load_nat already returns OPEN_INTERNET + NA_DELTA for
+            # IPv6-only NICs; this extends the same truth to the v6 slot
+            # of a dual-stack NIC.
+            if af == IP6:
+                nat_type = OPEN_INTERNET
+                delta_type = NA_DELTA
+                delta_value = 0
+
             # Normal path: global routes exist for this AF.
             if len(interface.rp[af].routes) and af in interface.supported():
                 r = interface.route(af)
@@ -439,9 +465,20 @@ def make_node_addr(
                     nic_subnet = int_ipr.subnet
 
                 eff_if_index = if_index or i
-                ports = (if_ports or {}).get((af, eff_if_index), {})
-                eff_ext_port = ports.get("ext", port)
-                eff_nic_port = ports.get("nic", port)
+                # Per-path ports. An entry present for this (af, nic)
+                # but missing "ext"/"nic" means that path did not bind
+                # -> encode 0, the "no listener on this path" sentinel.
+                # An entirely absent entry -- if_ports is None, or the
+                # empty dict the --ip strict path leaves behind, or a
+                # NIC/AF that was never tracked -- means per-path ports
+                # are unknown, so fall back to the global port for both
+                # (the pre-sentinel behaviour; never spuriously 0).
+                ports = (if_ports or {}).get((af, eff_if_index))
+                if ports is None:
+                    eff_ext_port = eff_nic_port = port
+                else:
+                    eff_ext_port = ports.get("ext", 0)
+                    eff_nic_port = ports.get("nic", 0)
                 af_bufs.append(
                     b"[%d,%d,%b,%b,%d,%d,%d,%d,%d,%d]"
                     % (
@@ -469,9 +506,20 @@ def make_node_addr(
                 local_b = to_b(str(ll_ipr))
                 nic_subnet = ll_ipr.subnet if ll_ipr.subnet is not None else 0
                 eff_if_index = if_index or i
-                ports = (if_ports or {}).get((af, eff_if_index), {})
-                eff_ext_port = ports.get("ext", port)
-                eff_nic_port = ports.get("nic", port)
+                # Per-path ports. An entry present for this (af, nic)
+                # but missing "ext"/"nic" means that path did not bind
+                # -> encode 0, the "no listener on this path" sentinel.
+                # An entirely absent entry -- if_ports is None, or the
+                # empty dict the --ip strict path leaves behind, or a
+                # NIC/AF that was never tracked -- means per-path ports
+                # are unknown, so fall back to the global port for both
+                # (the pre-sentinel behaviour; never spuriously 0).
+                ports = (if_ports or {}).get((af, eff_if_index))
+                if ports is None:
+                    eff_ext_port = eff_nic_port = port
+                else:
+                    eff_ext_port = ports.get("ext", 0)
+                    eff_nic_port = ports.get("nic", 0)
                 af_bufs.append(
                     b"[%d,%d,%b,%b,%d,%d,%d,%d,%d,%d]"
                     % (

@@ -243,7 +243,14 @@ class Pipe:
 
         # For IPv6: dest tuples still need an interface to work correctly.
         if isinstance(dest, (list, tuple)):
-            ip, port = dest
+            # A v4 sockaddr is a 2-tuple (ip, port); a v6 sockaddr is a
+            # 4-tuple (ip, port, flowinfo, scope_id). Accept either --
+            # take ip + port positionally. The scope_id is not lost:
+            # the Address below resolves through self.nic / self.route,
+            # so the scope is re-derived from the bound interface.
+            if len(dest) < 2:
+                raise ValueError("dest tuple needs at least (ip, port)")
+            ip, port = dest[0], dest[1]
 
             # Normalize IPRange
             if isinstance(ip, IPRange):

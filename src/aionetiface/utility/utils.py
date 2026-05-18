@@ -176,6 +176,8 @@ __all__ = [
     "gather_or_cancel",
     "handle_exceptions",
     "os_id",
+    "os_net_timeouts",
+    "NET_TIMEOUTS",
 ]
 
 
@@ -839,6 +841,57 @@ def os_id():
     for sep in ("^", "|", ",", "{", "}"):
         raw = raw.replace(sep, "_")
     return raw
+
+
+# ---------------------------------------------------------------------------
+# Per-OS network timeout table.
+#
+# Windows XP and Vista have slow TCP/IP stacks: slow connects, slow
+# STUN-over-TCP, and an MQTT handshake that runs ~8-12s on XP alone.
+# Caps tuned for modern hosts -- the 1s STUN and MQTT-broker-walk caps,
+# the 4s interface-enumeration budget -- starve them, so node startup
+# never finishes and connecting peers see READY_FAIL.
+#
+# Each network step reads its budget here, keyed off the local
+# os_id(), so one table drives every deadline. It is a per-OP table,
+# not a single multiplier, on purpose: XP needs ~14s for the MQTT
+# walk but ~16s for interface load and only ~5s for STUN -- the steps
+# do not scale uniformly.
+NET_TIMEOUTS = {
+    "default": {
+        "stun_cap": 1.0,
+        "broker_walk_cap": 1.0,
+        "interface_load": 4,
+        "nat_load": 10,
+    },
+    "vista": {
+        "stun_cap": 3.0,
+        "broker_walk_cap": 6.0,
+        "interface_load": 10,
+        "nat_load": 20,
+    },
+    "xp": {
+        "stun_cap": 5.0,
+        "broker_walk_cap": 14.0,
+        "interface_load": 16,
+        "nat_load": 30,
+    },
+}
+
+
+def os_net_timeouts():
+    """Return the network-timeout profile (dict) for the local OS.
+
+    Keyed off os_id(): XP/2000 and Vista get their own larger budgets;
+    every other OS uses NET_TIMEOUTS["default"]. Callers index the
+    step they need, e.g. ``os_net_timeouts()["stun_cap"]``.
+    """
+    os_name = os_id() or ""
+    if "XP" in os_name or "2000" in os_name:
+        return NET_TIMEOUTS["xp"]
+    if "Vista" in os_name:
+        return NET_TIMEOUTS["vista"]
+    return NET_TIMEOUTS["default"]
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -115,8 +115,22 @@ async def async_wrap_errors(
     """
     Await coro, optionally bounded by timeout seconds.
 
-    Silently logs exceptions (except CancelledError which is re-raised).
-    Returns the coroutine's result, or None if an exception occurred.
+    Catches runtime / network exceptions (OSError, ConnectionError,
+    asyncio.TimeoutError, ValueError, KeyError, RuntimeError) and logs
+    them.  Programming / invariant errors (NameError, AttributeError,
+    TypeError, ImportError, AssertionError, SyntaxError,
+    NotImplementedError) are deliberately NOT caught -- they propagate
+    so the bug surfaces to the caller instead of being silently
+    log-and-continued.  This rule was added after a NameError in the
+    tcp_punch re-entry guard's log line was silently swallowed for an
+    entire debugging session before being found -- the only symptom
+    was "pipe=False at sub-2s" with no obvious cause in the visible
+    stack.
+
+    CancelledError always re-raises (cooperative cancellation).
+
+    Returns the coroutine's result, or None if a caught exception
+    occurred.
     """
     try:
         if timeout is None:
@@ -124,6 +138,16 @@ async def async_wrap_errors(
         if isinstance(timeout, int):
             return await asyncio.wait_for(coro, timeout)
     except asyncio.CancelledError:  # pylint: disable=try-except-raise
+        raise
+    except (
+        NameError, AttributeError, TypeError, ImportError,
+        AssertionError, SyntaxError, NotImplementedError,
+    ):
+        # Programming / invariant errors -- propagate so the bug
+        # surfaces instead of being silently logged and swallowed.
+        # asyncio will surface uncaught task exceptions as "Task
+        # exception was never retrieved" warnings which is loud
+        # enough to notice.
         raise
     except Exception:  # noqa: BLE001
         if logging:

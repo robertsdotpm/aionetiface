@@ -6,6 +6,7 @@ disconnects (TCP) or stop_reader signals (UDP, since UDP has no graceful close).
 
 import selectors
 import socket
+import time
 from ..utility.error_logger import log, log_exception
 from .net_utils import sock_has_data
 
@@ -128,6 +129,7 @@ def selector_proxy(
     stop_reader,
     sock_proto=socket.SOCK_STREAM,
     socket_r=None,
+    ready_writer=None,
 ):
     """Bidirectionally proxy data between socket_p and a connection to destination.
 
@@ -146,6 +148,16 @@ def selector_proxy(
     sends anything -- needed for udp_punch where the connector side
     needs pipe.send to work before the first inbound datagram has
     set dest_tup.
+
+    ready_writer, when given, is a socket the caller polls to learn
+    exactly when this proxy's copy loop goes live: a single byte is
+    written to it right before the poll loop is entered, after both
+    legs are registered with the selector.  The caller (the punch
+    plugin) blocks on the paired socket before handing the bridged
+    pipe to auto_connect -- without that handoff, verify_pipe_alive
+    can fire its liveness PING into a pipe whose worker-thread copy
+    loop hasn't been scheduled yet, the inbound PONG sits unread in
+    the kernel buffer, and a perfectly good punch is rejected.
 
     Stops when stop_reader has data, or (TCP only) when either side
     closes the connection.
@@ -172,6 +184,16 @@ def selector_proxy(
         for s in peers:
             selector.register(s, selectors.EVENT_READ)
 
+        # Both legs are registered -- the next selector.select() will
+        # copy any inbound byte.  Signal the caller that the bridge is
+        # live so it can stop withholding the pipe.  Best-effort: a
+        # failed write just means the caller falls back to its timeout.
+        if ready_writer is not None:
+            try:
+                ready_writer.send(b"1")
+            except OSError:
+                pass
+
         select_idle = 0
         # Per-socket consecutive-ECONNREFUSED counter for UDP.  Linux's
         # connected-UDP socket re-surfaces ICMP-unreachable on every recv
@@ -185,7 +207,13 @@ def selector_proxy(
         UDP_ECONNREFUSED_LIMIT = 8
         udp_econnrefused_streak = {socket_p: 0, socket_r: 0}
         while socket_p in peers:
+            log("[BRIDGE-TICK] mono={0:.4f} loop-top".format(time.monotonic()))
             if sock_has_data(stop_reader):
+                log("[BRIDGE-COPY] loop break: stop_reader signalled "
+                    "(R_pending={0} P_pending={1})".format(
+                        len(buffers.get(socket_r) or b"") if sock_proto == socket.SOCK_STREAM else "?",
+                        len(buffers.get(socket_p) or b"") if sock_proto == socket.SOCK_STREAM else "?",
+                    ))
                 break
 
             events = selector.select(timeout=0.5)
@@ -208,6 +236,12 @@ def selector_proxy(
                     sock_label = "P" if sock is socket_p else "R"
                     try:
                         data = read_chunk(sock, sock_proto)
+                        if data:
+                            log("[BRIDGE-COPY] read {0} bytes from {1} "
+                                "head={2}".format(
+                                    len(data), sock_label,
+                                    bytes(data[:24]),
+                                ))
                         if sock_proto == socket.SOCK_STREAM and not data:
                             # TCP graceful close on recv()->b"". UDP
                             # has no equivalent -- a zero-byte datagram
@@ -226,12 +260,24 @@ def selector_proxy(
                             # local loopback peer is safe (no flow
                             # control beyond the kernel's recv buf).
                             pending_for_peer = buffers.get(peer)
+                            log("[BRIDGE-COPY] {0} closed (recv b''); "
+                                "pending_for_peer={1} bytes".format(
+                                    sock_label,
+                                    len(pending_for_peer) if pending_for_peer else 0,
+                                ))
                             if pending_for_peer:
                                 try:
                                     peer.setblocking(True)
                                     peer.sendall(pending_for_peer)
+                                    log("[BRIDGE-COPY] drained {0} bytes to "
+                                        "{1} on close head={2}".format(
+                                            len(pending_for_peer),
+                                            "R" if peer is socket_r else "P",
+                                            bytes(pending_for_peer[:24]),
+                                        ))
                                 except OSError as exc:
-                                    pass
+                                    log("[BRIDGE-COPY] drain-on-close FAILED "
+                                        "{0}".format(repr(exc)))
                                 buffers[peer] = b""
                             close_pair(sock, peers, selector, buffers)
                             if socket_p not in peers:
@@ -242,11 +288,27 @@ def selector_proxy(
                         if sock_proto == socket.SOCK_DGRAM:
                             udp_econnrefused_streak[sock] = 0
                         enqueue(buffers, peer, data, sock_proto)
+                        log("[BRIDGE-COPY] mono={0:.4f} enqueued {1} bytes "
+                            "for {2}->{3}".format(
+                                time.monotonic(), len(data), sock_label,
+                                "R" if peer is socket_r else "P",
+                            ))
                         # Tell selector we want EVENT_WRITE for the peer.
-                        selector.modify(
-                            peer,
-                            selector.get_key(peer).events | selectors.EVENT_WRITE,
-                        )
+                        # The peer socket can already be closed/unregistered
+                        # if its side tore down (e.g. udp_punch bridge
+                        # teardown) between this recv and here -- get_key
+                        # then raises KeyError and modify raises
+                        # ValueError/OSError on the dead fd. Drop the
+                        # write-arm and let the next loop close the pair.
+                        try:
+                            selector.modify(
+                                peer,
+                                selector.get_key(peer).events
+                                | selectors.EVENT_WRITE,
+                            )
+                        except (KeyError, ValueError, OSError) as exc:
+                            log("[BRIDGE-COPY] write-arm skipped, peer "
+                                "gone {0}".format(repr(exc)))
                     except BlockingIOError:
                         # Spurious selector wake; nothing to read.
                         pass
@@ -283,18 +345,30 @@ def selector_proxy(
                         continue
 
                     try:
+                        pending_before = buffers.get(sock)
+                        plen = (len(pending_before) if pending_before else 0)
                         write_chunk(sock, buffers, sock_proto)
+                        log("[BRIDGE-COPY] mono={0:.4f} wrote toward {1} "
+                            "(had {2} pending)".format(
+                                time.monotonic(),
+                                "P" if sock is socket_p else "R", plen,
+                            ))
                         if not has_pending(buffers.get(sock), sock_proto):
                             selector.modify(
                                 sock,
                                 selector.get_key(sock).events & ~selectors.EVENT_WRITE,
                             )
                     except (BrokenPipeError, OSError) as exc:
+                        log("[BRIDGE-COPY] write toward {0} FAILED {1}; "
+                            "close_pair".format(
+                                "P" if sock is socket_p else "R", repr(exc),
+                            ))
                         close_pair(sock, peers, selector, buffers)
                         if socket_p not in peers:
                             break
 
     except (OSError, ConnectionError):
+        log("[BRIDGE-COPY] loop exited via OSError/ConnectionError")
         log_exception()
 
     finally:
