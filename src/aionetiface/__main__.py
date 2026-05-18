@@ -36,6 +36,7 @@ SUPPORTS_TOP_LEVEL_AWAIT = int(vmaj) >= 3 and int(vmin) >= 8
 SUPPORTS_INTERACT_EXITMSG = int(vmaj) >= 3 and int(vmin) >= 6
 
 from .do_imports import *  # noqa: E402
+from . import __version__ as aionetiface_version  # noqa: E402
 
 
 class AsyncIOInteractiveConsole(code.InteractiveConsole):
@@ -190,9 +191,9 @@ class REPLThread(threading.Thread):
             vmaj, vmin, _ = platform.python_version_tuple()
             banner = (
                 fstr(
-                    "aionetiface REPL on Python {1}.{2} / {3}",
+                    "aionetiface {0} REPL on Python {1}.{2} / {3}",
                     (
-                        0,
+                        aionetiface_version,
                         vmaj,
                         vmin,
                         sys.platform,
