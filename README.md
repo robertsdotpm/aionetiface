@@ -152,32 +152,6 @@ pipe_b.add_pipe(pipe_a)
 
 Everything received on `pipe_a` is forwarded down `pipe_b` and vice versa. The aionetiface REST API uses exactly this trick to splice an active HTTP request into a long-running P2P connection.
 
-### REST servers as decorators
-
-```python
-class API(RESTD):
-    @RESTD.GET()
-    async def index(self, v, pipe):
-        return "hello"   # text/html
-
-    @RESTD.POST(["proxies"], ["toxics"])
-    async def add_toxic(self, v, pipe):
-        # matches /proxies/<X>/toxics/<Y>;  v["proxies"] = X, v["toxics"] = Y
-        return {"status": "ok"}   # JSON
-
-    @RESTD.DELETE(["proxies"], ["toxics"])
-    async def del_toxic(self, v, pipe):
-        return b""   # application/octet-stream
-
-async def serve():
-    nic = await Interface()
-    await API().listen_loopback(TCP, 60322, nic)
-
-async_test(serve)
-```
-
-Path segments in brackets become named captures. Return type chooses the content-type. CORS and HTTP parsing are handled by `rest_service()` under the hood.
-
 ### Daemons that listen everywhere at once
 
 ```python
